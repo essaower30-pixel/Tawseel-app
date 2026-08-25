@@ -402,8 +402,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     });
   };
 
+  const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/";
+
   const handleCopyAppUrl = () => {
-    navigator.clipboard.writeText(window.location.origin);
+    navigator.clipboard.writeText(OFFICIAL_APP_URL);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
@@ -866,7 +868,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Subview 3: Central Administrative App Distribution & Broadcast Portal (الجهة المسؤولة حصراً عن توزيع التطبيق)
   if (currentSubView === "share") {
-    const originUrl = typeof window !== "undefined" ? window.location.origin : "https://tawseel.ai.studio";
+    const originUrl = OFFICIAL_APP_URL;
     
     // Announcement templates
     const templates = {
@@ -1367,8 +1369,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      const directUrl = window.location.href;
-                      window.open(directUrl, "_blank");
+                      window.open(OFFICIAL_APP_URL, "_blank");
                     }}
                     className="flex-1 py-2 px-3 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                   >
@@ -1378,7 +1379,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(window.location.href);
+                      navigator.clipboard.writeText(OFFICIAL_APP_URL);
                       alert("تم نسخ رابط التطبيق المباشر! يمكنك فتحه في متصفح كروم وتثبيته فوراً.");
                     }}
                     className="py-2 px-3 bg-white border border-amber-300 text-amber-900 font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"

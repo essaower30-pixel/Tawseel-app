@@ -68,6 +68,8 @@ function CategoryIcon({ name, className }: { name: string; className?: string })
   }
 }
 
+export const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/";
+
 export default function App() {
   // Global State with LocalStorage Persistence
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -401,7 +403,7 @@ export default function App() {
   };
 
   const handleShareWhatsApp = (type: "regular" | "business") => {
-    const text = `السلام عليكم ورحمة الله وبركاته 🛍️ تصفح واطلب من تطبيق "توصيل" للقرية - توصيل سريع للمأكولات، التموينات، والصيدلية إلى عتبة بيتك!\nرابط التطبيق:\n${window.location.origin}`;
+    const text = `السلام عليكم ورحمة الله وبركاته 🛍️ تصفح واطلب من تطبيق "توصيل" للقرية - توصيل سريع للمأكولات، التموينات، والصيدلية إلى عتبة بيتك!\nرابط التطبيق الرسمي المباشر:\n${OFFICIAL_APP_URL}`;
     openWhatsApp({
       message: text,
       type
@@ -409,9 +411,9 @@ export default function App() {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.origin);
+    navigator.clipboard.writeText(OFFICIAL_APP_URL);
     setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    setTimeout(() => setIsCopied(false), 2500);
   };
 
   // Filtered Stores
@@ -940,25 +942,65 @@ export default function App() {
 
               {/* Expandable QR Code Card */}
               {showQrCode && (
-                <div className="bg-orange-50/60 border border-orange-100 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-center gap-6 animate-fade-in text-center md:text-right">
-                  <div className="p-3 bg-white rounded-2xl border border-orange-100 shadow-sm shrink-0">
+                <div className="bg-orange-50/70 border border-orange-200/80 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-center gap-6 animate-fade-in text-center md:text-right shadow-xs">
+                  <div className="p-3.5 bg-white rounded-2xl border border-orange-100 shadow-sm shrink-0 flex flex-col items-center gap-2">
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                        window.location.origin
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                        OFFICIAL_APP_URL
                       )}`}
                       alt="App Installation QR Code"
-                      className="w-32 h-32 sm:w-36 sm:h-36"
+                      className="w-36 h-36 sm:w-40 sm:h-40"
                     />
+                    <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/60">
+                      باركود التثبيت المباشر
+                    </span>
                   </div>
-                  <div className="space-y-2">
-                    <h5 className="font-black text-xs sm:text-sm text-orange-950 flex items-center justify-center md:justify-start gap-1.5">
-                      <QrCode className="w-4.5 h-4.5 text-orange-500 animate-pulse" />
-                      <span>امسح الرمز بكاميرا الجوال للتحميل والتثبيت الفوري! 📷</span>
-                    </h5>
-                    <p className="text-slate-600 text-[10px] sm:text-xs leading-relaxed max-w-md font-semibold">
-                      افتح كاميرا هاتفك (آيفون أو أندرويد) ووجهها نحو المربع المقابل لفتح التطبيق وتثبيته كأيقونة تطبيق على الشاشة الرئيسية فوراً.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-2 text-[9px] sm:text-[10px] text-slate-500 font-bold justify-center md:justify-start pt-1">
+                  <div className="space-y-3 flex-1">
+                    <div className="space-y-1">
+                      <h5 className="font-black text-xs sm:text-sm text-orange-950 flex items-center justify-center md:justify-start gap-1.5">
+                        <QrCode className="w-4.5 h-4.5 text-orange-500 animate-pulse" />
+                        <span>امسح الرمز بكاميرا الجوال للتحميل والتثبيت الفوري! 📷</span>
+                      </h5>
+                      <p className="text-slate-600 text-[10px] sm:text-xs leading-relaxed max-w-md font-semibold">
+                        افتح كاميرا هاتفك (آيفون أو أندرويد) ووجهها نحو المربع لفتح التطبيق وتثبيته كأيقونة تطبيق على الشاشة الرئيسية فوراً.
+                      </p>
+                    </div>
+
+                    {/* Direct App Link Display Box */}
+                    <div className="bg-white p-2.5 rounded-xl border border-orange-200 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-2xs">
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-hidden">
+                        <span className="text-[10px] font-black text-slate-500 shrink-0">رابط التطبيق:</span>
+                        <a
+                          href={OFFICIAL_APP_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] font-mono font-black text-orange-600 hover:text-orange-700 underline truncate text-left dir-ltr"
+                        >
+                          {OFFICIAL_APP_URL}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                        <button
+                          type="button"
+                          onClick={handleCopyLink}
+                          className="py-1.5 px-3 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black text-[10px] rounded-lg transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                        >
+                          {isCopied ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
+                          <span>{isCopied ? "تم النسخ!" : "نسخ الرابط"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleShareWhatsApp("regular")}
+                          className="py-1.5 px-2.5 bg-[#25D366] hover:bg-[#20ba56] text-white font-black text-[10px] rounded-lg transition-all flex items-center gap-1 cursor-pointer shrink-0"
+                          title="مشاركة الرابط عبر واتساب"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>واتساب</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 text-[9px] sm:text-[10px] text-slate-500 font-bold justify-center md:justify-start pt-0.5">
                       <span>
                         🍏 <b>آيفون:</b> اضغط على زر المشاركة ثم "إضافة للشاشة الرئيسية"
                       </span>
