@@ -1,0 +1,6 @@
+{
+  "name": "توصيل - التوصيل المحلي",
+  "description": "تطبيق توصيل الطلبات للمحافظات والقرى، يدعم إدارة المتاجر، الحرفيين، الطلبات، والتواصل السريع بالاتصال ونسختي الواتساب.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

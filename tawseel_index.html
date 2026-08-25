@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>توصيل - التوصيل المحلي</title>
+    <meta name="description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
+    
+    <!-- PWA & Mobile Optimization -->
+    <meta name="theme-color" content="#f97316" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="توصيل" />
+    
+    <!-- Icons and Manifest -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=6" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon.png?v=6" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=6" />
+    <link rel="manifest" href="/manifest.json?v=6" />
+
+    <meta property="og:title" content="توصيل - التوصيل المحلي" />
+    <meta property="og:description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
+    <meta property="og:image" content="/icon.png?v=6" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="module" crossorigin src="/assets/index-B-S3a4kY.js?v=6"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-C2cvAfld.css?v=6">
+  </head>
+  <body class="bg-slate-50 antialiased selection:bg-orange-500 selection:text-white relative min-h-screen">
+    <!-- Top Persistent Install Banner (shown in browser mode) -->
+    <div id="pwa-top-banner" class="sticky top-0 z-50 bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white px-3.5 py-2.5 shadow-md flex items-center justify-between gap-2 border-b border-orange-600/30 text-right">
+      <div class="flex items-center gap-2.5">
+        <img src="/favicon.png" alt="توصيل" class="w-8 h-8 rounded-xl shadow-sm border border-white/30 shrink-0 bg-white" />
+        <div>
+          <h4 class="font-black text-xs leading-tight">تثبيت تطبيق "توصيل" على هاتفك 📱</h4>
+          <p class="text-white/90 text-[10px] font-medium leading-tight mt-0.5">اضغط لتثبيته كبرنامج مستقل فائق السرعة وبأيقونته الأصلية!</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="pwa-top-install-btn" type="button" class="py-1.5 px-3 bg-white text-orange-600 hover:bg-orange-50 font-black text-xs rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap active:scale-95">
+          📥 تثبيت الآن
+        </button>
+        <button id="pwa-top-close-btn" type="button" class="w-6 h-6 rounded-full bg-black/15 hover:bg-black/25 flex items-center justify-center text-white text-xs cursor-pointer" title="إخفاء">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <div id="root"></div>
+
+    <!-- Bottom Floating Install Button -->
+    <div id="pwa-bottom-fab" class="fixed bottom-4 left-4 z-40">
+      <button id="pwa-fab-install-btn" type="button" class="flex items-center gap-2 py-2.5 px-4 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-full shadow-lg shadow-orange-500/30 border border-white/20 cursor-pointer transition-all active:scale-95 animate-bounce hover:animate-none">
+        <img src="/favicon.png" alt="توصيل" class="w-5 h-5 rounded-full border border-white/40" />
+        <span>📱 تثبيت التطبيق</span>
+      </button>
+    </div>
+
+    <!-- Interactive Installation Modal -->
+    <div id="pwa-install-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden" dir="rtl">
+      <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-right animate-scale-in relative border border-slate-100">
+        <div class="flex items-center justify-between border-b pb-3">
+          <div class="flex items-center gap-2.5">
+            <img src="/icon.png" alt="توصيل" class="w-10 h-10 rounded-2xl shadow-sm border border-slate-100" />
+            <div>
+              <h3 class="font-extrabold text-slate-800 text-sm sm:text-base">تثبيت تطبيق "توصيل" على هاتفك 📱</h3>
+              <p class="text-slate-400 text-[11px] font-bold">يعمل كبرنامج أصلي بدون الحاجة لروابط</p>
+            </div>
+          </div>
+          <button id="pwa-modal-close-btn" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        <div class="space-y-3 text-xs leading-relaxed text-slate-700">
+          <div class="p-3 bg-orange-50/80 rounded-2xl border border-orange-100/80 space-y-1.5">
+            <p class="font-black text-orange-900 flex items-center gap-1.5">
+              <span>📱 للأندرويد (متصفح Chrome):</span>
+            </p>
+            <p class="text-slate-600 text-[11px]">
+              1️⃣ اضغط على زر <b>النقاط الثلاث (⋮)</b> في أعلى يسار المتصفح.<br/>
+              2️⃣ اختر <b>"تثبيت التطبيق" (Install app)</b> أو "إضافة إلى الشاشة الرئيسية".
+            </p>
+          </div>
+
+          <div class="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-100/80 space-y-1.5">
+            <p class="font-black text-emerald-900 flex items-center gap-1.5">
+              <span>💬 إذا فتحت الرابط من داخل واتساب:</span>
+            </p>
+            <p class="text-slate-600 text-[11px]">
+              اضغط على <b>النقاط الثلاث (⋮)</b> بأعلى واتساب واختر <b>"فتح في المتصفح / Chrome"</b> لتتمكن من التثبيت المباشر بنقرة زر!
+            </p>
+          </div>
+
+          <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-1.5">
+            <p class="font-black text-slate-900 flex items-center gap-1.5">
+              <span>🍎 للآيفون (متصفح Safari):</span>
+            </p>
+            <p class="text-slate-600 text-[11px]">
+              اضغط على زر <b>المشاركة (Share ⎋)</b> بالأسفل ثم اختر <b>"إضافة إلى الصفحة الرئيسية"</b>.
+            </p>
+          </div>
+        </div>
+
+        <div class="pt-2 flex flex-col sm:flex-row gap-2">
+          <button id="pwa-copy-link-btn" type="button" class="flex-1 py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-sm transition-all cursor-pointer text-center">
+            📋 نسخ رابط التطبيق لفتحه في Chrome
+          </button>
+          <button id="pwa-modal-ok-btn" type="button" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all cursor-pointer">
+            حسناً، فهمت
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Check standalone mode
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isStandalone) {
+        document.getElementById('pwa-top-banner')?.classList.add('hidden');
+        document.getElementById('pwa-bottom-fab')?.classList.add('hidden');
+      }
+
+      // Handle PWA Prompt
+      window.deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwaInstallPromptReady'));
+      });
+
+      function triggerPwaInstall() {
+        if (window.deferredPrompt) {
+          window.deferredPrompt.prompt();
+          window.deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+              window.deferredPrompt = null;
+              document.getElementById('pwa-top-banner')?.classList.add('hidden');
+              document.getElementById('pwa-bottom-fab')?.classList.add('hidden');
+            }
+          });
+        } else {
+          // Show interactive modal
+          const modal = document.getElementById('pwa-install-modal');
+          if (modal) modal.classList.remove('hidden');
+        }
+      }
+
+      // Wire up buttons
+      document.getElementById('pwa-top-install-btn')?.addEventListener('click', triggerPwaInstall);
+      document.getElementById('pwa-fab-install-btn')?.addEventListener('click', triggerPwaInstall);
+
+      document.getElementById('pwa-top-close-btn')?.addEventListener('click', () => {
+        document.getElementById('pwa-top-banner')?.classList.add('hidden');
+      });
+
+      document.getElementById('pwa-modal-close-btn')?.addEventListener('click', () => {
+        document.getElementById('pwa-install-modal')?.classList.add('hidden');
+      });
+      document.getElementById('pwa-modal-ok-btn')?.addEventListener('click', () => {
+        document.getElementById('pwa-install-modal')?.classList.add('hidden');
+      });
+
+      document.getElementById('pwa-copy-link-btn')?.addEventListener('click', () => {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url).then(() => {
+          const btn = document.getElementById('pwa-copy-link-btn');
+          if (btn) {
+            const originalText = btn.innerText;
+            btn.innerText = '✅ تم نسخ الرابط بنجاح!';
+            btn.classList.replace('bg-orange-500', 'bg-emerald-600');
+            setTimeout(() => {
+              btn.innerText = originalText;
+              btn.classList.replace('bg-emerald-600', 'bg-orange-500');
+            }, 2500);
+          }
+        });
+      });
+
+      // Register our service worker
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('/sw.js?v=13')
+            .then((reg) => {
+              console.log('PWA Service Worker registered scope:', reg.scope);
+              reg.update().catch(() => {});
+            })
+            .catch((err) => {
+              console.warn('PWA Service Worker registration failed:', err);
+            });
+        }
+      } catch (e) {
+        console.warn('SW access blocked by sandbox:', e);
+      }
+    </script>
+  </body>
+</html>
+

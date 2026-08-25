@@ -1,0 +1,798 @@
+import React, { useState } from "react";
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Copy, 
+  Power, 
+  Phone, 
+  Search, 
+  Store as StoreIcon, 
+  MapPin, 
+  Star, 
+  Clock, 
+  DollarSign, 
+  Check, 
+  ExternalLink,
+  Tag,
+  Key,
+  HeartHandshake,
+  UserCheck,
+  MessageSquare,
+  MessageCircle,
+  Printer,
+  Sparkles,
+  HelpCircle
+} from "lucide-react";
+import { Category, Product, Store } from "../../types";
+import { ContactActions } from "../ContactActions";
+import { openWhatsApp } from "../../utils/whatsapp";
+
+interface StoresTabProps {
+  stores: Store[];
+  categories: Category[];
+  products: Product[];
+  onAddStore: (store: Store) => void;
+  onUpdateStore: (store: Store) => void;
+  onDeleteStore: (storeId: string) => void;
+  onAddCategory: (category: Category) => void;
+  onDeleteCategory: (categoryId: string) => void;
+  currency: string;
+}
+
+export const StoresTab: React.FC<StoresTabProps> = ({
+  stores,
+  categories,
+  products,
+  onAddStore,
+  onUpdateStore,
+  onDeleteStore,
+  onAddCategory,
+  onDeleteCategory,
+  currency
+}) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCat, setSelectedCat] = useState("all");
+  const [showStoreModal, setShowStoreModal] = useState(false);
+  const [editingStore, setEditingStore] = useState<Store | null>(null);
+
+  // Store Form state
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("restaurants");
+  const [image, setImage] = useState("");
+  const [rating, setRating] = useState(4.8);
+  const [deliveryTime, setDeliveryTime] = useState("20-30 دقيقة");
+  const [deliveryFee, setDeliveryFee] = useState(5000);
+  const [contactPhone, setContactPhone] = useState("");
+  const [description, setDescription] = useState("");
+  const [workingHours, setWorkingHours] = useState("09:00 ص - 11:00 م");
+  const [status, setStatus] = useState<"open" | "closed">("open");
+  const [featuredProduct, setFeaturedProduct] = useState("");
+
+  // Owner on behalf of store registration fields
+  const [ownerName, setOwnerName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerPin, setOwnerPin] = useState("1234");
+  const [adminAssisted, setAdminAssisted] = useState(true);
+
+  // Merchant Onboarding & WhatsApp Card Modal
+  const [onboardingStore, setOnboardingStore] = useState<Store | null>(null);
+  const [copiedOnboarding, setCopiedOnboarding] = useState(false);
+
+  // Categories Modal
+  const [showCatModal, setShowCatModal] = useState(false);
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [newCatIcon, setNewCatIcon] = useState("Store");
+
+  const openAddModal = (assisted = false) => {
+    setEditingStore(null);
+    setName("");
+    setCategory(categories[0]?.id || "restaurants");
+    setImage("https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60");
+    setRating(4.8);
+    setDeliveryTime("20-30 دقيقة");
+    setDeliveryFee(5000);
+    setContactPhone("0991234567");
+    setDescription("");
+    setWorkingHours("09:00 ص - 11:00 م");
+    setStatus("open");
+    setFeaturedProduct("");
+    setOwnerName("");
+    setOwnerPhone("0991234567");
+    // Generate random 4 digit PIN
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    setOwnerPin(randomPin);
+    setAdminAssisted(assisted);
+    setShowStoreModal(true);
+  };
+
+  const openEditModal = (st: Store) => {
+    setEditingStore(st);
+    setName(st.name);
+    setCategory(st.category);
+    setImage(st.image);
+    setRating(st.rating || 4.8);
+    setDeliveryTime(st.deliveryTime || "20-30 دقيقة");
+    setDeliveryFee(st.deliveryFee || 5000);
+    setContactPhone(st.contactPhone || st.ownerPhone || "");
+    setDescription(st.description || "");
+    setWorkingHours(st.workingHours || "09:00 ص - 11:00 م");
+    setStatus(st.status || "open");
+    setFeaturedProduct(st.featuredProduct || "");
+    setOwnerName(st.ownerName || "");
+    setOwnerPhone(st.ownerPhone || st.contactPhone || "");
+    setOwnerPin(st.ownerPin || "1234");
+    setAdminAssisted(st.isApproved ?? true);
+    setShowStoreModal(true);
+  };
+
+  const handleSaveStore = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const storePayload: Store = {
+      id: editingStore ? editingStore.id : "store_" + Date.now(),
+      name: name.trim(),
+      category,
+      image: image || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60",
+      rating,
+      deliveryTime,
+      deliveryFee: Number(deliveryFee),
+      locationNode: "center",
+      contactPhone: contactPhone || ownerPhone || "0991234567",
+      description,
+      workingHours,
+      status,
+      featuredProduct,
+      ownerName: ownerName.trim() || undefined,
+      ownerPhone: ownerPhone.trim() || contactPhone.trim() || undefined,
+      ownerPin: ownerPin.trim() || "1234",
+      isApproved: true
+    };
+
+    if (editingStore) {
+      onUpdateStore(storePayload);
+    } else {
+      onAddStore(storePayload);
+      // Open onboarding modal on new store creation
+      setOnboardingStore(storePayload);
+    }
+
+    setShowStoreModal(false);
+  };
+
+  // Duplicate Store Feature
+  const handleDuplicateStore = (st: Store) => {
+    const duplicatedStore: Store = {
+      ...st,
+      id: "store_" + Date.now(),
+      name: `${st.name} (نسخة مكررة)`,
+    };
+    onAddStore(duplicatedStore);
+  };
+
+  // Toggle store open/closed
+  const handleToggleStoreStatus = (st: Store) => {
+    const nextStatus = st.status === "closed" ? "open" : "closed";
+    onUpdateStore({
+      ...st,
+      status: nextStatus
+    });
+  };
+
+  const filteredStores = stores.filter(st => {
+    const matchesSearch = st.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (st.description && st.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (st.ownerName && st.ownerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                          (st.contactPhone && st.contactPhone.includes(searchQuery));
+    const matchesCat = selectedCat === "all" || st.category === selectedCat;
+    return matchesSearch && matchesCat;
+  });
+
+  const handleAddCategorySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatLabel.trim()) return;
+    const catId = "cat_" + Date.now();
+    onAddCategory({
+      id: catId,
+      label: newCatLabel.trim(),
+      icon: newCatIcon
+    });
+    setNewCatLabel("");
+    setShowCatModal(false);
+  };
+
+  // Generate Merchant Onboarding Message for WhatsApp
+  const generateStoreOnboardingMessage = (st: Store) => {
+    const originUrl = typeof window !== "undefined" ? window.location.origin : "https://tawseel.ai.studio";
+    return `أهلاً بك يا معلم ${st.ownerName || "صاحب المحل"} المحترم! 🏪\n\nقامت إدارة تطبيق التوصيل بإنشاء وتفعيل حساب متجرك (*${st.name}*) بنجاح.\n\n🔑 *بيانات الدخول للوحة التحكم الخاصة بك:*\n• رقم الهاتف: ${st.ownerPhone || st.contactPhone || "رقم هاتفك"}\n• رمز الـ PIN السري: *${st.ownerPin || "1234"}*\n• رابط المنصة المباشر:\n${originUrl}\n\n📦 أسطول كباتن التوصيل جاهز لاستلام وتوصيل طلبات زبائنكم فوراً.\nلأي استفسار أو إضافة منتجات، نحن بخدمتكم دائماً!`;
+  };
+
+  const handleSendStoreWA = (st: Store, type: "regular" | "business") => {
+    const text = generateStoreOnboardingMessage(st);
+    openWhatsApp({
+      phone: st.ownerPhone || st.contactPhone || "",
+      message: text,
+      type
+    });
+  };
+
+  return (
+    <div className="space-y-6 text-right font-sans" dir="rtl">
+      {/* Top Bar: Search, Category Filter, Add Store & Category Buttons */}
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
+              <StoreIcon className="w-5 h-5 text-orange-500" />
+              <span>إدارة وتسجيل المتاجر والمحلات 🏪</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              إضافة المحلات والمطاعم وتجهيز حساباتها نيابة عن أصحابها مع إرسال بيانات الدخول عبر الواتساب
+            </p>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowCatModal(true)}
+              className="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+            >
+              <Tag className="w-4 h-4 text-slate-500" />
+              <span>التصنيفات ({categories.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openAddModal(true)}
+              className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>تسجيل متجر نيابة عن صاحبه ➕</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Guidance notice */}
+        <div className="bg-orange-50/60 border border-orange-200/70 p-3 rounded-2xl flex items-start gap-2.5 text-xs text-orange-900">
+          <HeartHandshake className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-orange-800 leading-relaxed">
+            <strong className="font-black">مساعدة أصحاب المتاجر التقليدية:</strong> يمكنك كمدير للمنصة تسجيل أي بقالية أو مطعم في القرية وتحديد رمز PIN خاص بصاحب المحل، ثم إرسال بطاقة الاعتماد له بنقرة واحدة عبر الواتساب.
+          </p>
+        </div>
+
+        {/* Search & Category filter */}
+        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ابحث عن متجر، صاحب المحل، أو رقم الهاتف..."
+              className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+            />
+          </div>
+
+          <select
+            value={selectedCat}
+            onChange={(e) => setSelectedCat(e.target.value)}
+            className="py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-700 focus:outline-hidden"
+          >
+            <option value="all">كافة التصنيفات ({stores.length})</option>
+            {categories.map(c => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Stores Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredStores.map(st => {
+          const storeProductsCount = products.filter(p => p.storeId === st.id).length;
+          const isOpen = st.status !== "closed";
+
+          return (
+            <div 
+              key={st.id} 
+              className={`bg-white rounded-3xl border transition-all p-5 shadow-xs flex flex-col justify-between space-y-3.5 relative ${
+                isOpen ? "border-slate-200 hover:border-orange-300" : "border-slate-200 bg-slate-50/70 opacity-80"
+              }`}
+            >
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <img 
+                    src={st.image} 
+                    alt={st.name}
+                    className="w-16 h-16 rounded-2xl object-cover shrink-0 border border-slate-100 shadow-xs" 
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <h4 className="font-black text-sm text-slate-900 truncate">{st.name}</h4>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${
+                        isOpen ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-red-50 text-red-600 border border-red-200"
+                      }`}>
+                        {isOpen ? "مفتوح نشط" : "مغلق حالياً"}
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{st.description || "متجر معتمد في القرية"}</p>
+
+                    {st.ownerName && (
+                      <p className="text-[10px] font-bold text-slate-500 mt-0.5 flex items-center gap-1">
+                        <span>صاحب المحل:</span>
+                        <strong className="text-slate-800">{st.ownerName}</strong>
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold mt-1.5 flex-wrap">
+                      <span className="flex items-center gap-0.5 text-amber-500">
+                        <Star className="w-3 h-3 fill-amber-400" />
+                        {st.rating || 4.8}
+                      </span>
+                      <span>•</span>
+                      <span>{st.deliveryTime || "25 دقيقة"}</span>
+                      <span>•</span>
+                      <span className="text-orange-600 font-black">{st.deliveryFee || 5000} {currency}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600 flex-wrap gap-2">
+                  <span className="font-bold text-[11px] text-slate-500">
+                    الأصناف: <strong className="text-slate-800 font-black">{storeProductsCount} صنف</strong>
+                  </span>
+                  
+                  {/* WhatsApp Merchant Credentials Button */}
+                  <button
+                    type="button"
+                    onClick={() => setOnboardingStore(st)}
+                    className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer"
+                    title="عرض بيانات الدخول والـ PIN ومراسلتها لصاحب المحل"
+                  >
+                    <Key className="w-3 h-3 text-amber-600" />
+                    <span>بطاقة الدخول والـ PIN</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleToggleStoreStatus(st)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer ${
+                    isOpen 
+                      ? "bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600" 
+                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                  }`}
+                  title={isOpen ? "إغلاق المتجر مؤقتاً" : "فتح المتجر للزبائن"}
+                >
+                  <Power className="w-3.5 h-3.5" />
+                  <span>{isOpen ? "إغلاق" : "فتح"}</span>
+                </button>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleDuplicateStore(st)}
+                    className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl transition-all cursor-pointer"
+                    title="تكرار ونسخ المتجر"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(st)}
+                    className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-xl transition-all cursor-pointer"
+                    title="تعديل بيانات المتجر"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`هل أنت متأكد من حذف متجر "${st.name}" نهائياً؟`)) {
+                        onDeleteStore(st.id);
+                      }
+                    }}
+                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all cursor-pointer"
+                    title="حذف المتجر"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add / Edit Store Modal */}
+      {showStoreModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border border-slate-200 shadow-2xl space-y-4 text-right max-h-[90vh] overflow-y-auto" dir="rtl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-black text-slate-800 flex items-center gap-2">
+                <StoreIcon className="w-5 h-5 text-orange-500" />
+                <span>{editingStore ? "تعديل بيانات المتجر 🏪" : "تسجيل متجر جديد نيابة عن صاحبه 🏪"}</span>
+              </h3>
+              <button 
+                onClick={() => setShowStoreModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveStore} className="space-y-3.5 text-xs text-slate-700">
+              {/* Owner Onboarding Assistance Section */}
+              <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 space-y-3">
+                <span className="font-black text-amber-900 flex items-center gap-1.5 text-xs">
+                  <UserCheck className="w-4 h-4 text-amber-700" />
+                  <span>بيانات صاحب المحل والدخول (للمساعدة والدعم الفني):</span>
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700">اسم صاحب المحل / المعلم:</label>
+                    <input
+                      type="text"
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                      placeholder="مثال: المعلم أبو أنس"
+                      className="w-full py-2 px-2.5 bg-white border border-amber-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700">رقم هاتف صاحب المحل: *</label>
+                    <input
+                      type="tel"
+                      required
+                      value={ownerPhone}
+                      onChange={(e) => {
+                        setOwnerPhone(e.target.value);
+                        if (!contactPhone) setContactPhone(e.target.value);
+                      }}
+                      placeholder="0991234567"
+                      className="w-full py-2 px-2.5 bg-white border border-amber-200 rounded-xl font-bold font-mono focus:outline-hidden focus:border-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700">رمز PIN الدخول الخاص به: *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={ownerPin}
+                      onChange={(e) => setOwnerPin(e.target.value)}
+                      placeholder="مثال: 5432"
+                      className="w-full py-2 px-2.5 bg-white border border-amber-200 rounded-xl font-black font-mono text-center tracking-widest focus:outline-hidden focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Store Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">اسم المتجر / المحل: *</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="مثال: مطعم الياسمين الدمشقي"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">التصنيف: *</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  >
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700">رابط صورة المتجر (URL):</label>
+                <input
+                  type="url"
+                  value={image}
+                  onChange={(e) => setImage(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">وقت التوصيل التقديري:</label>
+                  <input
+                    type="text"
+                    value={deliveryTime}
+                    onChange={(e) => setDeliveryTime(e.target.value)}
+                    placeholder="20-30 دقيقة"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">أجرة التوصيل ({currency}):</label>
+                  <input
+                    type="number"
+                    value={deliveryFee}
+                    onChange={(e) => setDeliveryFee(Number(e.target.value))}
+                    placeholder="5000"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">التقييم العام:</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    max="5"
+                    value={rating}
+                    onChange={(e) => setRating(Number(e.target.value))}
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">رقم الهاتف للتواصل واستقبال الطلبات:</label>
+                  <input
+                    type="tel"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="0991234567"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">أوقات العمل اليومية:</label>
+                  <input
+                    type="text"
+                    value={workingHours}
+                    onChange={(e) => setWorkingHours(e.target.value)}
+                    placeholder="10:00 ص - 11:00 م"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700">نبذة ووصف المتجر:</label>
+                <textarea
+                  rows={2}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="أشهى الأطباق والوجبات السريعة..."
+                  className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-orange-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700">حالة فتح المتجر:</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      checked={status === "open"} 
+                      onChange={() => setStatus("open")} 
+                    />
+                    <span className="font-bold text-emerald-700">مفتوح ويستقبل الطلبات ✅</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="status" 
+                      checked={status === "closed"} 
+                      onChange={() => setStatus("closed")} 
+                    />
+                    <span className="font-bold text-red-700">مغلق حالياً 🔴</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  {editingStore ? "حفظ التعديلات ✓" : "تأكيد تسجيل المتجر وتوليد بطاقة الواتساب 🏪"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowStoreModal(false)}
+                  className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Merchant Onboarding & WhatsApp Delivery Card Modal */}
+      {onboardingStore && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full border border-slate-200 shadow-2xl space-y-4 text-right" dir="rtl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-black">
+                  <Key className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                    بطاقة اعتماد ودخول المتجر 🏪
+                  </h4>
+                  <p className="text-[11px] text-slate-400">إرسال بيانات الدخول لصاحب المحل عبر الواتساب</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setOnboardingStore(null)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Store Quick Credentials Badge */}
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold">اسم المتجر:</span>
+                <span className="font-black text-slate-900">{onboardingStore.name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold">صاحب المحل / المعلم:</span>
+                <span className="font-black text-slate-900">{onboardingStore.ownerName || "المعلم"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold">رقم الهاتف للدخول:</span>
+                <span className="font-black text-slate-900 font-mono">{onboardingStore.ownerPhone || onboardingStore.contactPhone}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold">رمز الـ PIN المخصص:</span>
+                <span className="font-black text-orange-600 font-mono text-sm px-2 py-0.5 bg-orange-100 rounded-lg">
+                  {onboardingStore.ownerPin || "1234"}
+                </span>
+              </div>
+            </div>
+
+            {/* WhatsApp Message Preview */}
+            <div className="space-y-1">
+              <span className="text-xs font-black text-slate-700 block">نص رسالة الاعتماد لصاحب المحل:</span>
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs text-slate-700 font-medium whitespace-pre-line leading-relaxed max-h-40 overflow-y-auto">
+                {generateStoreOnboardingMessage(onboardingStore)}
+              </div>
+            </div>
+
+            {/* WhatsApp Regular & Business Share Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => handleSendStoreWA(onboardingStore, "regular")}
+                className="py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba56] text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>واتساب العادي 💬</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSendStoreWA(onboardingStore, "business")}
+                className="py-2.5 px-3 bg-[#075E54] hover:bg-[#054a43] text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>واتساب الأعمال 💼</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(generateStoreOnboardingMessage(onboardingStore));
+                setCopiedOnboarding(true);
+                setTimeout(() => setCopiedOnboarding(false), 2000);
+              }}
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+            >
+              {copiedOnboarding ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedOnboarding ? "تم نسخ نص الاعتماد!" : "نسخ نص الاعتماد"}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Categories Management Modal */}
+      {showCatModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right" dir="rtl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-black text-slate-800 flex items-center gap-2">
+                <Tag className="w-5 h-5 text-orange-500" />
+                <span>إدارة تصنيفات المتاجر والخدمات</span>
+              </h3>
+              <button 
+                onClick={() => setShowCatModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Add Category Form */}
+            <form onSubmit={handleAddCategorySubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">اسم التصنيف الجديد:</label>
+                <input
+                  type="text"
+                  required
+                  value={newCatLabel}
+                  onChange={(e) => setNewCatLabel(e.target.value)}
+                  placeholder="مثال: مخابز وأفران"
+                  className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                إضافة التصنيف ➕
+              </button>
+            </form>
+
+            {/* Categories List */}
+            <div className="space-y-2 pt-2 border-t max-h-48 overflow-y-auto">
+              <h4 className="font-black text-xs text-slate-700">التصنيفات الحالية ({categories.length}):</h4>
+              {categories.map(cat => {
+                const count = stores.filter(s => s.category === cat.id).length;
+                return (
+                  <div key={cat.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border text-xs">
+                    <span className="font-bold text-slate-800">{cat.label} ({count} متجر)</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (count > 0) {
+                          alert(`لا يمكن حذف التصنيف لوجود ${count} متجر مرتبط به.`);
+                          return;
+                        }
+                        if (confirm(`حذف تصنيف "${cat.label}"؟`)) {
+                          onDeleteCategory(cat.id);
+                        }
+                      }}
+                      className="p-1 text-red-500 hover:text-red-700"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
