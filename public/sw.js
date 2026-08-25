@@ -1,14 +1,14 @@
-const CACHE_NAME = 'tawseel-v21';
+const CACHE_NAME = 'tawseel-v23';
 const ASSETS_TO_CACHE = [
-  './',
-  './index.html',
-  './manifest.json',
-  './favicon.png',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-maskable-192.png',
-  './icon-maskable-512.png',
-  './apple-touch-icon.png'
+  '/Tawseel-app/',
+  '/Tawseel-app/index.html',
+  '/Tawseel-app/manifest.json',
+  '/Tawseel-app/favicon.png',
+  '/Tawseel-app/icon-192.png',
+  '/Tawseel-app/icon-512.png',
+  '/Tawseel-app/icon-maskable-192.png',
+  '/Tawseel-app/icon-maskable-512.png',
+  '/Tawseel-app/apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -56,7 +56,7 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
-            return caches.match('./index.html') || caches.match('./');
+            return caches.match('/Tawseel-app/index.html') || caches.match('/Tawseel-app/');
           }
           return new Response('Network error', { status: 408, headers: { 'Content-Type': 'text/plain' } });
         });
