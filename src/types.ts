@@ -39,6 +39,8 @@ export interface Store {
   contactPhone?: string;
   ownerName?: string;
   ownerPhone?: string;
+  ownerUsername?: string;
+  ownerPassword?: string;
   ownerPin?: string;
   isApproved?: boolean;
   status?: "open" | "closed";
@@ -84,6 +86,9 @@ export interface RegisteredCustomer {
   id: string;
   name: string;
   phone: string;
+  username?: string;
+  password?: string;
+  pin?: string;
   addressLandmark?: string;
   addressDetails?: string;
   notes?: string;
@@ -147,6 +152,8 @@ export interface StaffMember {
   role: "manager" | "orders_clerk" | "accountant" | "support";
   pin: string;
   phone?: string;
+  username?: string;
+  password?: string;
   isActive?: boolean;
   createdAt?: string;
 }

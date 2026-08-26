@@ -5,6 +5,9 @@ export const initialCustomers: RegisteredCustomer[] = [
     id: "cust_1", 
     name: "الحاج أبو عدنان (أحمد الخالد)", 
     phone: "0991447788", 
+    username: "abu_adnan",
+    password: "pass_adnan_2025",
+    pin: "4477",
     addressLandmark: "قرب الجامع الكبير", 
     addressDetails: "المنزل الثاني خلف مئذنة الجامع",
     notes: "طلب تسجيله هاتفياً لعدم معرفته بالهواتف الذكية - يفضل التواصل بالاتصال", 
@@ -17,6 +20,9 @@ export const initialCustomers: RegisteredCustomer[] = [
     id: "cust_2", 
     name: "أم بشار النجار", 
     phone: "0992558899", 
+    username: "om_bashar",
+    password: "pass_om_5588",
+    pin: "5588",
     addressLandmark: "الحارة الشرقية", 
     addressDetails: "بجانب معصرة الزيتون القديمة",
     notes: "سُجلت بمساعدة خدمة العملاء - تفضل الدفع النقدي عند الاستلام", 
@@ -29,6 +35,9 @@ export const initialCustomers: RegisteredCustomer[] = [
     id: "cust_3", 
     name: "الأستاذ كمال خليل", 
     phone: "0993669900", 
+    username: "kamal_teacher",
+    password: "pass_kamal_9900",
+    pin: "6699",
     addressLandmark: "حي المدارس", 
     addressDetails: "عمارة المعلمين - الطابق الأول",
     notes: "مدرس متقاعد - تم تسجيله عبر اتصال هاتفي مع الإدارة", 
@@ -36,20 +45,35 @@ export const initialCustomers: RegisteredCustomer[] = [
     registeredAt: "2025-02-12", 
     totalOrdersCount: 3, 
     totalSpent: 45000 
+  },
+  { 
+    id: "cust_4", 
+    name: "ميساء العمر", 
+    phone: "0994778811", 
+    username: "maysa_omar",
+    password: "pass_maysa_123",
+    pin: "7788",
+    addressLandmark: "طريق السهل", 
+    addressDetails: "فيلا الورد قرب الصيدلية",
+    notes: "زبونة دائمة - تطلب أسبوعياً من السوبرماركت", 
+    registeredBy: "المدير العام", 
+    registeredAt: "2025-02-18", 
+    totalOrdersCount: 6, 
+    totalSpent: 92000 
   }
 ];
 
 export const initialStaff: StaffMember[] = [
-  { id: "staff_1", name: "المدير العام (أبو أحمد)", role: "manager", pin: "1234", phone: "0991234567", isActive: true, createdAt: "2025-01-01" },
-  { id: "staff_2", name: "أحمد علي (مسؤول الطلبات)", role: "orders_clerk", pin: "5555", phone: "0992345678", isActive: true, createdAt: "2025-01-10" },
-  { id: "staff_3", name: "سامر كمال (المحاسب المالي)", role: "accountant", pin: "7777", phone: "0993456789", isActive: true, createdAt: "2025-01-15" },
-  { id: "staff_4", name: "مروان يوسف (موظف الدعم)", role: "support", pin: "9999", phone: "0994567890", isActive: true, createdAt: "2025-02-01" }
+  { id: "staff_1", name: "المدير العام (أبو أحمد)", role: "manager", username: "admin_general", password: "admin_secret_1234", pin: "1234", phone: "0991234567", isActive: true, createdAt: "2025-01-01" },
+  { id: "staff_2", name: "أحمد علي (مسؤول الطلبات)", role: "orders_clerk", username: "orders_ahmed", password: "orders_pass_5555", pin: "5555", phone: "0992345678", isActive: true, createdAt: "2025-01-10" },
+  { id: "staff_3", name: "سامر كمال (المحاسب المالي)", role: "accountant", username: "accountant_samer", password: "finance_pass_7777", pin: "7777", phone: "0993456789", isActive: true, createdAt: "2025-01-15" },
+  { id: "staff_4", name: "مروان يوسف (موظف الدعم)", role: "support", username: "support_marwan", password: "support_pass_9999", pin: "9999", phone: "0994567890", isActive: true, createdAt: "2025-02-01" }
 ];
 
 export const initialDrivers: DriverMember[] = [
-  { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 142, earnings: 710000, rating: 4.9, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-01-10" },
-  { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 98, earnings: 490000, rating: 4.8, vehicle: "سكوتر كهربائي", createdAt: "2025-01-20" },
-  { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "busy", totalDeliveries: 64, earnings: 320000, rating: 4.7, vehicle: "دراجة نارية هوائية", createdAt: "2025-02-05" }
+  { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", password: "driver_pass_1111", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 142, earnings: 710000, rating: 4.9, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-01-10" },
+  { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", password: "driver_pass_2222", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 98, earnings: 490000, rating: 4.8, vehicle: "سكوتر كهربائي", createdAt: "2025-01-20" },
+  { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", password: "driver_pass_3333", phone: "0993334455", pin: "3333", status: "busy", totalDeliveries: 64, earnings: 320000, rating: 4.7, vehicle: "دراجة نارية هوائية", createdAt: "2025-02-05" }
 ];
 
 export const initialCraftsmen: Craftsman[] = [

@@ -35,7 +35,8 @@ import {
   Minus,
   Compass,
   Smartphone,
-  Phone
+  Phone,
+  Archive
 } from "lucide-react";
 import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores } from "./data/initialData";
@@ -47,6 +48,7 @@ import { OrderTracker } from "./components/OrderTracker";
 import { Dashboard } from "./components/Dashboards";
 import { DriverPortal } from "./components/DriverPortal";
 import { StoreOwnerPortal } from "./components/StoreOwnerPortal";
+import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { openWhatsApp } from "./utils/whatsapp";
 
@@ -125,6 +127,7 @@ export default function App() {
   });
 
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showCustomerArchiveModal, setShowCustomerArchiveModal] = useState<boolean>(false);
 
   const [currentStoreId, setCurrentStoreId] = useState<string | null>(() => {
     return localStorage.getItem("tw_current_store_id") || null;
@@ -576,15 +579,15 @@ export default function App() {
               </button>
             ) : (
               <>
-                {/* Login Button in Header */}
+                {/* Login Button in Header (Always shows text 'تسجيل الدخول') */}
                 <button
                   type="button"
                   onClick={() => setShowAuthModal(true)}
-                  className="py-2 px-2.5 sm:px-3.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95"
-                  title="تسجيل الدخول / تبديل الحساب (كابتن توصيل، متجر، إدارة، زبون)"
+                  className="py-2 px-3 sm:px-4 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
+                  title="تسجيل الدخول / تبديل الحساب"
                 >
-                  <LogIn className="w-4 h-4 text-orange-600" />
-                  <span className="hidden xs:inline-block">تسجيل الدخول</span>
+                  <LogIn className="w-4 h-4 text-orange-600 shrink-0" />
+                  <span>تسجيل الدخول</span>
                 </button>
 
                 {/* Admin Mode Switch Button */}
@@ -657,6 +660,19 @@ export default function App() {
                   </button>
                 )}
 
+                {/* Customer Orders Archive Button */}
+                {!isAdminMode && !isDriverMode && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomerArchiveModal(true)}
+                    className="p-2.5 sm:py-2 sm:px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95 whitespace-nowrap"
+                    title="أرشيف وسجل طلباتي السابقة"
+                  >
+                    <Archive className="w-4 h-4 text-orange-600" />
+                    <span className="hidden sm:inline-block">أرشيف طلباتي</span>
+                  </button>
+                )}
+
                 {/* Cart Button */}
                 {!isAdminMode && !isDriverMode && (
                   <button
@@ -683,17 +699,7 @@ export default function App() {
                   </button>
                 )}
 
-                {/* Logout Button */}
-                {userProfile && (
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-red-600 transition-all cursor-pointer shadow-xs"
-                    title="تسجيل الخروج والتبديل لحساب آخر"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                )}
+
               </>
             )}
 
@@ -1370,6 +1376,32 @@ export default function App() {
 
       {/* Standalone Elegant PWA Installation Modal on Entry */}
       <InstallPromptModal />
+
+      {/* Customer Orders Archive Modal */}
+      {showCustomerArchiveModal && (
+        <CustomerOrdersArchiveModal
+          orders={allOrders}
+          currentCustomerPhone={userProfile?.phone}
+          currentCustomerName={userProfile?.name}
+          onClose={() => setShowCustomerArchiveModal(false)}
+          onSelectOrderToTrack={(order) => {
+            setActiveOrder(order);
+            setShowCustomerArchiveModal(false);
+            setSelectedStore(null);
+            setIsViewingCart(false);
+            setIsAdminMode(false);
+            setIsDriverMode(false);
+          }}
+          onReorder={(items) => {
+            if (items && items.length > 0) {
+              setCartItems(items);
+              setShowCustomerArchiveModal(false);
+              setIsViewingCart(true);
+              setSelectedStore(null);
+            }
+          }}
+        />
+      )}
 
       {/* Auth Modal Overlay when opened from Header */}
       {showAuthModal && (

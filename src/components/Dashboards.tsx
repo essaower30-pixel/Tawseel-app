@@ -34,6 +34,8 @@ import { LandmarksTab } from "./admin/LandmarksTab";
 import { CouponsTab } from "./admin/CouponsTab";
 import { OrdersTab } from "./admin/OrdersTab";
 import { SettingsTab } from "./admin/SettingsTab";
+import { CredentialsVaultTab } from "./admin/CredentialsVaultTab";
+import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
 
 interface DashboardProps {
   userRole: "admin" | "store_owner" | "driver";
@@ -309,6 +311,29 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 registeredCustomersCount={registeredCount}
                 onNavigateToTab={setActiveTab}
                 currency={appSettings.currency || "ل.س"}
+              />
+            )}
+
+            {activeTab === "archive_reports" && (
+              <OrdersArchiveReportsTab
+                orders={orders}
+                stores={stores}
+                drivers={driversList}
+                currency={appSettings.currency || "ل.س"}
+              />
+            )}
+
+            {activeTab === "vault" && (
+              <CredentialsVaultTab
+                customers={registeredCustomers}
+                stores={stores}
+                drivers={driversList}
+                staff={staffList}
+                onUpdateCustomer={handleUpdateCustomer}
+                onAddCustomer={handleAddCustomer}
+                onUpdateStore={onUpdateStore}
+                onUpdateDriver={handleUpdateDriver}
+                onUpdateStaff={handleUpdateStaff}
               />
             )}
 

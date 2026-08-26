@@ -16,12 +16,16 @@ import {
   AlertTriangle, 
   CheckCircle2, 
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Archive,
+  Lock
 } from "lucide-react";
 import { StaffMember } from "../../types";
 
 export type AdminTab = 
   | "stats" 
+  | "archive_reports"
+  | "vault"
   | "stores" 
   | "products" 
   | "orders" 
@@ -76,6 +80,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   const navTabs = [
     { id: "share", label: "نشر وتوزيع التطبيق (الإدارة)", icon: Share2, emoji: "📢" },
     { id: "stats", label: "الإحصائيات والأرباح", icon: BarChart3, emoji: "📊" },
+    { id: "archive_reports", label: "أرشيف الطلبات والتقارير المالية", icon: Archive, emoji: "📦" },
+    { id: "vault", label: "أرشيف بيانات الدخول (سري للإدارة)", icon: Lock, emoji: "🔒" },
     { id: "customers", label: "سجل الزبائن والمهن", icon: Users, emoji: "👥" },
     { id: "orders", label: "الطلبات النشطة والجدولة", icon: Clock, emoji: "🕒" },
     { id: "stores", label: "إدارة المحلات والمتاجر", icon: StoreIcon, emoji: "🏪" },

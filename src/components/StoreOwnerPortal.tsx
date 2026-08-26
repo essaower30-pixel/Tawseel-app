@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Store as StoreIcon, 
   Package, 
@@ -13,10 +13,17 @@ import {
   LogOut, 
   ArrowRight,
   User,
-  Power
+  Power,
+  Archive,
+  FileText,
+  Send,
+  Printer,
+  Calendar,
+  DollarSign
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category } from "../types";
 import { ContactActions } from "./ContactActions";
+import { openWhatsApp } from "../utils/whatsapp";
 
 interface StoreOwnerPortalProps {
   storeId: string;
@@ -64,7 +71,8 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     contactPhone: userProfile.phone || "0944111222"
   };
 
-  const [activeTab, setActiveTab] = useState<"orders" | "products" | "settings">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "products" | "archive">("orders");
+  const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
 
   const handleToggleStoreStatus = () => {
@@ -77,6 +85,44 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const storeOrders = orders.filter(
     (o) => o.storeId === currentStore.id || o.storeName === currentStore.name
   );
+
+  // Archive filtered orders
+  const archivedStoreOrders = useMemo(() => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+    const startOfWeek = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+
+    return storeOrders.filter((o) => {
+      const t = new Date(o.createdAt).getTime();
+      if (archiveDateFilter === "today" && t < startOfToday) return false;
+      if (archiveDateFilter === "yesterday" && (t < startOfYesterday || t >= startOfToday)) return false;
+      if (archiveDateFilter === "week" && t < startOfWeek) return false;
+      return true;
+    });
+  }, [storeOrders, archiveDateFilter]);
+
+  const storeArchiveStats = useMemo(() => {
+    let deliveredTotal = 0;
+    let deliveredCount = 0;
+    archivedStoreOrders.forEach((o) => {
+      if (o.status === "delivered") {
+        deliveredCount++;
+        deliveredTotal += o.subtotal || 0;
+      }
+    });
+    return { deliveredTotal, deliveredCount };
+  }, [archivedStoreOrders]);
+
+  const handleSendMerchantReportWhatsApp = () => {
+    const periodLabel = archiveDateFilter === "today" ? "اليوم" : archiveDateFilter === "yesterday" ? "الأمس" : archiveDateFilter === "week" ? "آخر 7 أيام" : "كافة الطلبات";
+    let msg = `📊 *تقرير مبيعات متجر (${currentStore.name})* 📊\n📅 *الفترة:* ${periodLabel}\n⏱️ *تاريخ الإصدار:* ${new Date().toLocaleString("ar-SY")}\n\n📦 *إجمالي الطلبات:* ${archivedStoreOrders.length} طلب\n✅ *المسلمة بنجاح:* ${storeArchiveStats.deliveredCount} طلب\n💰 *صافي مبيعات المتجر:* ${storeArchiveStats.deliveredTotal.toLocaleString()} ${currency}\n\n───────────────\nتفاصيل الطلبات:\n`;
+    archivedStoreOrders.forEach((o) => {
+      msg += `• #${o.id.slice(-4)} | ${o.customerName} | ${o.subtotal?.toLocaleString()} ${currency} | ${o.status === "delivered" ? "مسلم ✅" : o.status}\n`;
+    });
+    msg += `\n───────────────\nتطبيق توصيل - بوابة التاجر 🌟`;
+    openWhatsApp({ phone: currentStore.contactPhone || userProfile.phone, message: msg });
+  };
 
   // Filter products for this store
   const storeProducts = products.filter((p) => p.storeId === currentStore.id);
@@ -169,11 +215,11 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
         <button
           type="button"
           onClick={() => setActiveTab("orders")}
-          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 ${
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
             activeTab === "orders"
               ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
               : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
@@ -185,8 +231,21 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
 
         <button
           type="button"
+          onClick={() => setActiveTab("archive")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "archive"
+              ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <Archive className="w-4 h-4" />
+          <span>أرشيف الطلبات والتقارير ({storeOrders.length})</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab("products")}
-          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 ${
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
             activeTab === "products"
               ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
               : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
@@ -337,6 +396,143 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Store Archive & Reports Tab */}
+      {activeTab === "archive" && (
+        <div className="space-y-4">
+          {/* Filter & Summary Header */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black text-slate-700">الفترة:</span>
+              {[
+                { id: "all", label: "كافة الطلبات" },
+                { id: "today", label: "اليوم" },
+                { id: "yesterday", label: "الأمس" },
+                { id: "week", label: "آخر 7 أيام" }
+              ].map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setArchiveDateFilter(f.id as any)}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                    archiveDateFilter === f.id
+                      ? "bg-slate-900 text-white font-black shadow-xs"
+                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSendMerchantReportWhatsApp}
+                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>إرسال تقرير مبيعاتي بالواتساب 📊</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>طباعة</span>
+              </button>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-1">
+              <span className="text-xs text-slate-400 font-bold">إجمالي مبيعات المتجر</span>
+              <p className="text-lg font-black text-emerald-600">
+                {storeArchiveStats.deliveredTotal.toLocaleString()} <span className="text-xs font-bold text-slate-500">{currency}</span>
+              </p>
+            </div>
+            <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-1">
+              <span className="text-xs text-slate-400 font-bold">الطلبات المسلمة بنجاح</span>
+              <p className="text-lg font-black text-slate-900">
+                {storeArchiveStats.deliveredCount} <span className="text-xs font-bold text-slate-400">طلب</span>
+              </p>
+            </div>
+            <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs space-y-1">
+              <span className="text-xs text-slate-400 font-bold">إجمالي سجل الأرشيف</span>
+              <p className="text-lg font-black text-orange-600">
+                {archivedStoreOrders.length} <span className="text-xs font-bold text-slate-400">طلب</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Archived Orders List */}
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+            {archivedStoreOrders.length === 0 ? (
+              <div className="p-10 text-center space-y-2">
+                <Archive className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="text-xs font-black text-slate-700">لا توجد طلبات مؤرشفة في الفترة المحددة</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-right text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                      <th className="py-3 px-4">رقم الطلب</th>
+                      <th className="py-3 px-4">التاريخ والوقت</th>
+                      <th className="py-3 px-4">الزبون</th>
+                      <th className="py-3 px-4">الكابتن</th>
+                      <th className="py-3 px-4">قيمة المبيعات</th>
+                      <th className="py-3 px-4">الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                    {archivedStoreOrders.map((o) => (
+                      <tr key={o.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-4 font-black font-mono">#{o.id.slice(-4)}</td>
+                        <td className="py-3 px-4 text-slate-500 whitespace-nowrap">
+                          {new Date(o.createdAt).toLocaleString("ar-SY", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit"
+                          })}
+                        </td>
+                        <td className="py-3 px-4 font-bold">{o.customerName}</td>
+                        <td className="py-3 px-4">
+                          {o.driverName ? (
+                            <span className="font-bold text-orange-700">🛵 {o.driverName}</span>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">بدون كابتن</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-black text-slate-900 whitespace-nowrap">
+                          {o.subtotal?.toLocaleString()} {currency}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${
+                              o.status === "delivered"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : o.status === "cancelled"
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
+                            }`}
+                          >
+                            {o.status === "delivered" ? "مسلم 🟢" : o.status === "cancelled" ? "ملغي 🔴" : "نشط 🟡"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
