@@ -51,7 +51,42 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network first, fallback to cache
+  // For app icons and images: Cache-First with Network fallback (Guarantees icons never corrupt or fail offline)
+  if (
+    event.request.url.includes('/icon') ||
+    event.request.url.includes('/favicon') ||
+    event.request.url.includes('/apple-touch-icon') ||
+    event.request.destination === 'image'
+  ) {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const clone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+            }
+            return networkResponse;
+          })
+          .catch(() => {
+            // Return cached fallback 512 or 192 icon if present
+            const base = getBase();
+            return (
+              caches.match(`${base}/icon-512.png`) ||
+              caches.match(`${base}/icon-192.png`) ||
+              caches.match('./icon-512.png') ||
+              caches.match('/icon-512.png')
+            );
+          });
+      })
+    );
+    return;
+  }
+
+  // Network first, fallback to cache for other assets
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
