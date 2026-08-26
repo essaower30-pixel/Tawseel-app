@@ -353,30 +353,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       {/* Main Authentication View */}
       <main className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto p-4 sm:p-6 my-2">
-        {/* PWA Install Banner */}
-        {hasInstallPrompt && (
-          <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-3xl p-4 text-white shadow-xl mb-4 text-right select-none">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-                  <Download className="w-4.5 h-4.5 text-white animate-pulse" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-xs">تثبيت تطبيق "توصيل" على هاتفك 📱</h4>
-                  <p className="text-white/90 text-[10px] font-semibold leading-tight">اضغط لتثبيته فوراً كبرنامج سريع ومستقل!</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={triggerPwaInstall}
-                className="py-1.5 px-3 bg-white text-orange-600 hover:bg-orange-50 font-black text-xs rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer shrink-0"
-              >
-                📥 تثبيت الآن
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Central Auth Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-2xl space-y-6 relative overflow-hidden text-right">
           {/* Card Header with Scooter Icon & Title */}

@@ -42,6 +42,7 @@ import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
 import { OrderTracker } from "./components/OrderTracker";
 import { Dashboard } from "./components/Dashboards";
+import { InstallPromptModal } from "./components/InstallPromptModal";
 import { openWhatsApp } from "./utils/whatsapp";
 
 // Category Icon Helper Component
@@ -80,7 +81,6 @@ export default function App() {
   });
   const [isViewingCart, setIsViewingCart] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showQrCode, setShowQrCode] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
   // Data State
@@ -143,45 +143,6 @@ export default function App() {
   const [adminPinInput, setAdminPinInput] = useState("");
   const [adminPinError, setAdminPinError] = useState("");
   const ADMIN_SECRET_PIN = "1234";
-
-  // Native PWA deferred install prompt
-  const [installPromptEvent, setInstallPromptEvent] = useState<any>(null);
-
-  useEffect(() => {
-    // Check if already captured on window
-    if ((window as any).deferredPrompt) {
-      setInstallPromptEvent((window as any).deferredPrompt);
-    }
-    const handlePromptReady = () => {
-      setInstallPromptEvent((window as any).deferredPrompt);
-    };
-    window.addEventListener("pwaInstallPromptReady", handlePromptReady);
-    window.addEventListener("beforeinstallprompt", (e: any) => {
-      e.preventDefault();
-      (window as any).deferredPrompt = e;
-      setInstallPromptEvent(e);
-    });
-    return () => {
-      window.removeEventListener("pwaInstallPromptReady", handlePromptReady);
-    };
-  }, []);
-
-  const handleTriggerInstall = async () => {
-    const promptEvent = installPromptEvent || (window as any).deferredPrompt;
-    if (promptEvent) {
-      promptEvent.prompt();
-      const choiceResult = await promptEvent.userChoice;
-      if (choiceResult.outcome === "accepted") {
-        setInstallPromptEvent(null);
-        (window as any).deferredPrompt = null;
-      }
-    } else {
-      // Fallback instruction guide
-      alert(
-        `💡 لتثبيت تطبيق "توصيل" على جوالك بأعلى جودة وبأيقونته الرسمية:\n\n📱 للأندرويد (Chrome):\n1️⃣ اضغط على زر النقاط الثلاث (⋮) في أعلى المتصفح.\n2️⃣ اختر "تثبيت التطبيق" (Install app) أو "إضافة إلى الشاشة الرئيسية".\n\n🍎 للأيفون (Safari):\n1️⃣ اضغط على زر المشاركة (Share) أسفل المتصفح.\n2️⃣ اختر "إضافة إلى الشاشة الرئيسية" (Add to Home Screen).`
-      );
-    }
-  };
 
   // Active Order State
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
@@ -898,123 +859,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* 4. PWA Installation Section (Strictly Installation, No Public Sharing) */}
-            <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 animate-fade-in text-slate-800 text-right">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center shrink-0 shadow-xs">
-                    <Smartphone className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-xs sm:text-sm text-slate-900">
-                      تثبيت تطبيق "توصيل" على هاتفك 📱
-                    </h4>
-                    <p className="text-slate-400 text-[10px] sm:text-xs font-bold leading-tight mt-0.5">
-                      تصفح أسرع كشاشة رئيسية، استهلاك أقل للإنترنت، وطلب فوري
-                    </p>
-                  </div>
-                </div>
-
-                {/* Installation & QR Scan Buttons Only */}
-                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={handleTriggerInstall}
-                    className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 flex-1 sm:flex-initial"
-                  >
-                    <span>📥 تثبيت التطبيق</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowQrCode(!showQrCode)}
-                    className={`py-2.5 px-4 rounded-xl font-black text-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 border flex-1 sm:flex-initial ${
-                      showQrCode
-                        ? "bg-orange-50 text-orange-700 border-orange-200"
-                        : "bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200"
-                    }`}
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>{showQrCode ? "إخفاء الباركود" : "مسح باركود التثبيت 📷"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Expandable QR Code Card */}
-              {showQrCode && (
-                <div className="bg-orange-50/70 border border-orange-200/80 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-center gap-6 animate-fade-in text-center md:text-right shadow-xs">
-                  <div className="p-3.5 bg-white rounded-2xl border border-orange-100 shadow-sm shrink-0 flex flex-col items-center gap-2">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                        OFFICIAL_APP_URL
-                      )}`}
-                      alt="App Installation QR Code"
-                      className="w-36 h-36 sm:w-40 sm:h-40"
-                    />
-                    <span className="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200/60">
-                      باركود التثبيت المباشر
-                    </span>
-                  </div>
-                  <div className="space-y-3 flex-1">
-                    <div className="space-y-1">
-                      <h5 className="font-black text-xs sm:text-sm text-orange-950 flex items-center justify-center md:justify-start gap-1.5">
-                        <QrCode className="w-4.5 h-4.5 text-orange-500 animate-pulse" />
-                        <span>امسح الرمز بكاميرا الجوال للتحميل والتثبيت الفوري! 📷</span>
-                      </h5>
-                      <p className="text-slate-600 text-[10px] sm:text-xs leading-relaxed max-w-md font-semibold">
-                        افتح كاميرا هاتفك (آيفون أو أندرويد) ووجهها نحو المربع لفتح التطبيق وتثبيته كأيقونة تطبيق على الشاشة الرئيسية فوراً.
-                      </p>
-                    </div>
-
-                    {/* Direct App Link Display Box */}
-                    <div className="bg-white p-2.5 rounded-xl border border-orange-200 flex flex-col sm:flex-row items-center justify-between gap-2 shadow-2xs">
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-hidden">
-                        <span className="text-[10px] font-black text-slate-500 shrink-0">رابط التطبيق:</span>
-                        <a
-                          href={OFFICIAL_APP_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[11px] font-mono font-black text-orange-600 hover:text-orange-700 underline truncate text-left dir-ltr"
-                        >
-                          {OFFICIAL_APP_URL}
-                        </a>
-                      </div>
-                      <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
-                        <button
-                          type="button"
-                          onClick={handleCopyLink}
-                          className="py-1.5 px-3 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black text-[10px] rounded-lg transition-all flex items-center gap-1 cursor-pointer shrink-0"
-                        >
-                          {isCopied ? <Check className="w-3 h-3 text-white" /> : <Copy className="w-3 h-3" />}
-                          <span>{isCopied ? "تم النسخ!" : "نسخ الرابط"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleShareWhatsApp("regular")}
-                          className="py-1.5 px-2.5 bg-[#25D366] hover:bg-[#20ba56] text-white font-black text-[10px] rounded-lg transition-all flex items-center gap-1 cursor-pointer shrink-0"
-                          title="مشاركة الرابط عبر واتساب"
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          <span>واتساب</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2 text-[9px] sm:text-[10px] text-slate-500 font-bold justify-center md:justify-start pt-0.5">
-                      <span>
-                        🍏 <b>آيفون:</b> اضغط على زر المشاركة ثم "إضافة للشاشة الرئيسية"
-                      </span>
-                      <span className="hidden sm:inline">|</span>
-                      <span>
-                        🤖 <b>أندرويد:</b> اضغط على النقاط الثلاث ثم "تثبيت التطبيق"
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* 5. Categories Selector */}
+            {/* 4. Categories Selector */}
             <div className="space-y-3">
               <div className="flex items-center justify-between text-right">
                 <h3 className="text-sm sm:text-lg font-extrabold text-slate-900">
@@ -1414,6 +1259,9 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Standalone Elegant PWA Installation Modal on Entry */}
+      <InstallPromptModal />
     </div>
   );
 }
