@@ -11,7 +11,7 @@ import {
   ShieldCheck, 
   Sparkles 
 } from "lucide-react";
-import { getActiveAppIcon } from "../utils/pwaManager";
+import { getActiveAppIcon, generateDefaultSvgIcon } from "../utils/pwaManager";
 
 interface InstallPromptModalProps {
   appName?: string;
@@ -157,7 +157,7 @@ export const InstallPromptModal: React.FC<InstallPromptModalProps> = ({
                 alt={appName}
                 className="w-full h-full object-cover rounded-2xl"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "./icon-512.png";
+                  (e.target as HTMLImageElement).src = generateDefaultSvgIcon(512, "#f97316", appName);
                 }}
               />
             </div>
