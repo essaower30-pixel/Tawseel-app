@@ -9,7 +9,13 @@ import {
   CheckCircle2, 
   Clock, 
   Power,
-  DollarSign
+  DollarSign,
+  Key,
+  User,
+  Copy,
+  Check,
+  Send,
+  Edit2
 } from "lucide-react";
 import { DriverMember } from "../../types";
 import { ContactActions } from "../ContactActions";
@@ -30,31 +36,80 @@ export const DriversTab: React.FC<DriversTabProps> = ({
   currency
 }) => {
   const [showModal, setShowModal] = useState(false);
+  const [editingDriver, setEditingDriver] = useState<DriverMember | null>(null);
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [phone, setPhone] = useState("");
   const [vehicle, setVehicle] = useState("دراجة نارية سوزوكي");
   const [pin, setPin] = useState("1111");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleOpenAddModal = () => {
+    setEditingDriver(null);
+    setName("");
+    setUsername("");
+    setPhone("");
+    setVehicle("دراجة نارية سوزوكي");
+    setPin("1111");
+    setShowModal(true);
+  };
+
+  const handleOpenEditModal = (driver: DriverMember) => {
+    setEditingDriver(driver);
+    setName(driver.name);
+    setUsername(driver.username || "");
+    setPhone(driver.phone);
+    setVehicle(driver.vehicle || "دراجة نارية سوزوكي");
+    setPin(driver.pin || driver.password || "1111");
+    setShowModal(true);
+  };
 
   const handleSaveDriver = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) return;
 
-    onAddDriver({
-      id: "driver_" + Date.now(),
-      name: name.trim(),
-      phone: phone.trim(),
-      vehicle: vehicle.trim(),
-      pin: pin.trim() || "1111",
-      status: "available",
-      totalDeliveries: 0,
-      earnings: 0,
-      rating: 5.0
-    });
+    const generatedUsername = username.trim() || phone.trim();
 
-    setName("");
-    setPhone("");
-    setVehicle("دراجة نارية سوزوكي");
+    if (editingDriver) {
+      onUpdateDriver({
+        ...editingDriver,
+        name: name.trim(),
+        username: generatedUsername,
+        phone: phone.trim(),
+        vehicle: vehicle.trim(),
+        pin: pin.trim() || "1111"
+      });
+    } else {
+      onAddDriver({
+        id: "driver_" + Date.now(),
+        name: name.trim(),
+        username: generatedUsername,
+        phone: phone.trim(),
+        vehicle: vehicle.trim(),
+        pin: pin.trim() || "1111",
+        status: "available",
+        totalDeliveries: 0,
+        earnings: 0,
+        rating: 5.0,
+        createdAt: new Date().toISOString()
+      });
+    }
+
     setShowModal(false);
+    setEditingDriver(null);
+  };
+
+  const handleCopyCredentials = (driver: DriverMember) => {
+    const text = `🛵 بيانات حساب كابتن التوصيل (تطبيق توصيل):\n👤 اسم الكابتن: ${driver.name}\n🔑 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور (PIN): ${driver.pin || "1111"}\n📱 رقم الهاتف: ${driver.phone}\n🌐 رابط التطبيق:\nhttps://essaower30-pixel.github.io/Tawseel-app/`;
+    navigator.clipboard.writeText(text);
+    setCopiedId(driver.id);
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
+  const handleSendCredentialsWhatsApp = (driver: DriverMember) => {
+    const text = `مرحباً كابتن ${driver.name} 🛵\nتم إنشاء وتفعيل حسابك في منصة "توصيل".\n\n📌 بيانات الدخول الخاصة بك:\n👤 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور / PIN: ${driver.pin || "1111"}\n\n🌐 يمكنك الدخول مباشرة عبر تبويب "دخول كابتن توصيل 🛵" من خلال الرابط التالي:\nhttps://essaower30-pixel.github.io/Tawseel-app/\n\nبالتوفيق، إدارة منصة توصيل 🚀`;
+    const cleanPhone = driver.phone.replace(/^0/, "963").replace(/\D/g, "");
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const getStatusBadge = (status: string) => {
@@ -77,12 +132,14 @@ export const DriversTab: React.FC<DriversTabProps> = ({
             <Bike className="w-5 h-5 text-orange-500" />
             <span>إدارة أسطول الكباتن والمناديب 🛵</span>
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">متابعة جاهزية الكباتن، أرباح التوصيل، وتقييمات الأداء الفوري</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            تسجيل الكباتن، تعيين اسم المستخدم ورمز المرور (PIN)، وإرسال بيانات الدخول لهم
+          </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={handleOpenAddModal}
           className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
@@ -94,6 +151,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {driversList.map((driver) => {
           const statusInfo = getStatusBadge(driver.status);
+          const isCopied = copiedId === driver.id;
 
           return (
             <div 
@@ -103,7 +161,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
               <div>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-black text-base">
+                    <div className="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center font-black text-base shadow-xs">
                       🛵
                     </div>
                     <div>
@@ -117,8 +175,56 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   </span>
                 </div>
 
+                {/* Login Credentials Box for Captain */}
+                <div className="mt-3 p-2.5 bg-orange-50/60 border border-orange-200/80 rounded-2xl space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                      <User className="w-3 h-3 text-orange-500" />
+                      اسم المستخدم:
+                    </span>
+                    <span className="font-mono font-black text-slate-900 bg-white px-2 py-0.5 rounded-lg border border-orange-100">
+                      {driver.username || driver.phone}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-700">
+                    <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                      <Key className="w-3 h-3 text-orange-500" />
+                      رمز المرور (PIN):
+                    </span>
+                    <span className="font-mono font-black text-orange-600 bg-white px-2 py-0.5 rounded-lg border border-orange-100 tracking-wider">
+                      {driver.pin || "1111"}
+                    </span>
+                  </div>
+
+                  {/* Actions to send credentials */}
+                  <div className="flex items-center gap-1.5 pt-1 border-t border-orange-200/50">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyCredentials(driver)}
+                      className={`flex-1 py-1.5 px-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isCopied
+                          ? "bg-green-600 text-white"
+                          : "bg-white hover:bg-orange-100/80 text-orange-800 border border-orange-200"
+                      }`}
+                    >
+                      {isCopied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>{isCopied ? "تم النسخ!" : "نسخ البيانات"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSendCredentialsWhatsApp(driver)}
+                      className="py-1.5 px-2.5 bg-[#25D366] hover:bg-[#20ba56] text-white rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs"
+                      title="إرسال بيانات الدخول للكابتن عبر واتساب"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>واتساب</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Performance Stats */}
-                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-100 text-center">
+                <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-slate-100 text-center">
                   <div className="bg-slate-50 p-2 rounded-xl border">
                     <span className="text-[10px] text-slate-400 font-bold block">التوصيلات</span>
                     <span className="font-black text-xs text-slate-800">{driver.totalDeliveries || 0} طلب</span>
@@ -138,7 +244,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
                 {/* Phone & Dual WhatsApp Contacts */}
                 <div className="mt-3 flex items-center justify-between text-xs pt-2 border-t border-slate-100 flex-wrap gap-2">
-                  <span className="text-slate-400 font-bold text-[11px]">تواصل مع الكابتن:</span>
+                  <span className="text-slate-400 font-bold text-[11px]">اتصال سريع:</span>
                   <ContactActions
                     phone={driver.phone}
                     name={driver.name}
@@ -148,7 +254,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                 </div>
               </div>
 
-              {/* Status Switcher & Delete */}
+              {/* Status Switcher & Edit/Delete */}
               <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                 <div className="flex items-center gap-1">
                   <button
@@ -180,32 +286,42 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`هل أنت متأكد من حذف الكابتن "${driver.name}"؟`)) {
-                      onDeleteDriver(driver.id);
-                    }
-                  }}
-                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                  title="حذف الكابتن"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(driver)}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                    title="تعديل بيانات الكابتن"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`هل أنت متأكد من حذف الكابتن "${driver.name}"؟`)) {
+                        onDeleteDriver(driver.id);
+                      }
+                    }}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    title="حذف الكابتن"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Add Driver Modal */}
+      {/* Add / Edit Driver Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right" dir="rtl">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <Bike className="w-5 h-5 text-orange-500" />
-                <span>إضافة كابتن توصيل جديد</span>
+                <span>{editingDriver ? "تعديل بيانات الكابتن" : "إضافة كابتن توصيل جديد"}</span>
               </h3>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-lg font-bold">
                 ✕
@@ -214,26 +330,54 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
             <form onSubmit={handleSaveDriver} className="space-y-3 text-xs text-slate-700">
               <div>
-                <label className="block font-bold mb-1">اسم الكابتن: *</label>
+                <label className="block font-bold mb-1">اسم الكابتن الثلاثي: *</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="مثال: الكابتن علاء الدين"
-                  className="w-full py-2 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  placeholder="مثال: الكابتن علاء الدين عوير"
+                  className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold mb-1">اسم المستخدم للدخول: *</label>
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="capt_alaa"
+                    className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-mono font-bold focus:outline-hidden focus:border-orange-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">يدخل به الكابتن</span>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1">رمز المرور (PIN): *</label>
+                  <input
+                    type="text"
+                    required
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="1234"
+                    className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-mono text-center tracking-widest text-sm font-black focus:outline-hidden focus:border-orange-500"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">4 أرقام أو كلمة سر</span>
+                </div>
+              </div>
+
               <div>
-                <label className="block font-bold mb-1">رقم الموبايل: *</label>
+                <label className="block font-bold mb-1">رقم الموبايل (واتساب): *</label>
                 <input
                   type="tel"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0991112233"
-                  className="w-full py-2 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  placeholder="0951854257"
+                  className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                 />
               </div>
 
@@ -243,20 +387,8 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   type="text"
                   value={vehicle}
                   onChange={(e) => setVehicle(e.target.value)}
-                  placeholder="دراجة نارية سوزوكي / سيارة سوزوكي"
-                  className="w-full py-2 px-3 bg-slate-50 border rounded-xl focus:outline-hidden focus:border-orange-500"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold mb-1">رمز الـ PIN المخصص للكابتن:</label>
-                <input
-                  type="password"
-                  maxLength={4}
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="1111"
-                  className="w-full py-2 px-3 bg-slate-50 border rounded-xl font-mono text-center tracking-widest text-base font-black focus:outline-hidden focus:border-orange-500"
+                  placeholder="دراجة نارية سوزوكي / سكوتر كهربائي / سيارة"
+                  className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl focus:outline-hidden focus:border-orange-500"
                 />
               </div>
 
@@ -265,7 +397,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   type="submit"
                   className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
                 >
-                  إضافة الكابتن للأسطول 🛵
+                  {editingDriver ? "حفظ التعديلات 💾" : "إضافة الكابتن للأسطول 🛵"}
                 </button>
                 <button
                   type="button"

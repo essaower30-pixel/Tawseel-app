@@ -23,15 +23,18 @@ interface OrderTrackerProps {
   onBack: () => void;
   mapNodes: MapNode[];
   onCancelOrder?: (orderId: string) => void;
+  stores?: any[];
 }
 
 export const OrderTracker: React.FC<OrderTrackerProps> = ({
   order,
   onBack,
   mapNodes,
-  onCancelOrder
+  onCancelOrder,
+  stores = []
 }) => {
-  const [currentStep, setCurrentStep] = useState<number>(() => {
+  // Purely computed based on live order status
+  const currentStep = (() => {
     switch (order.status) {
       case "pending": return 0;
       case "accepted": return 1;
@@ -40,41 +43,25 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
       case "delivered": return 4;
       default: return 0;
     }
-  });
-
-  // Simulated status progression for demo
-  useEffect(() => {
-    const timer1 = setTimeout(() => {
-      if (currentStep < 1) setCurrentStep(1);
-    }, 4000);
-
-    const timer2 = setTimeout(() => {
-      if (currentStep < 2) setCurrentStep(2);
-    }, 10000);
-
-    const timer3 = setTimeout(() => {
-      if (currentStep < 3) setCurrentStep(3);
-    }, 22000);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  }, [currentStep]);
+  })();
 
   const steps = [
-    { title: "تم الاستلام", desc: "تم استقبال الطلب في النظام", icon: "📥" },
-    { title: "تم التأكيد", desc: "المتجر اعتمد الطلب وبدأ به", icon: "✓" },
+    { title: "تم الاستلام", desc: "تم استقبال الطلب وبانتظار اعتماد وتوجيه الإدارة", icon: "📥" },
+    { title: "تم التأكيد", desc: "المتجر اعتمد الطلب وبدأ التجهيز", icon: "✓" },
     { title: "قيد التجهيز", desc: "جاري الطهي والتحضير والتغليف", icon: "🍳" },
-    { title: "مع الكابتن", desc: "السائق استلم الطلب وبالطريق إليك", icon: "🛵" },
+    { title: "مع الكابتن", desc: "الكابتن استلم الطلب وهو بالطريق إليك", icon: "🛵" },
     { title: "تم التسليم", desc: "وصل الطلب بالهناء والشفاء", icon: "🟢" }
   ];
 
-  // Assigned driver sample or dynamic
-  const driverName = "كابتن أبو شهاب";
-  const driverPhone = "0955333444";
-  const storePhone = "0944111222";
+  // Dynamic Driver Details from the real order
+  const hasAssignedDriver = Boolean(order.driverName || order.driverPhone);
+  const driverName = order.driverName || "لم يُحدد بعد";
+  const driverPhone = order.driverPhone || "";
+  const driverVehicle = order.driverVehicle || "دراجة نارية";
+
+  // Dynamic Store Details
+  const matchedStore = stores.find((s) => s.id === order.storeId || s.name === order.storeName);
+  const storePhone = matchedStore?.contactPhone || matchedStore?.ownerPhone || "0944111222";
   const supportPhone = "0951854257";
 
   return (
@@ -175,43 +162,79 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
 
       {/* Communication Hub: Driver + Store + Support (With Dual WhatsApp) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Card 1: Assigned Driver Contact */}
+        {/* Card 1: Assigned Driver Contact or Waiting for Dispatch */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200/80 shadow-xs space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-black text-2xl shrink-0">
-                  🛵
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <h4 className="font-black text-slate-900 text-sm sm:text-base">{driverName}</h4>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-700 font-black px-2 py-0.5 rounded-full border border-emerald-200">
-                      الكابتن المسؤول
-                    </span>
+          {hasAssignedDriver ? (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center font-black text-2xl shrink-0">
+                      🛵
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <h4 className="font-black text-slate-900 text-sm sm:text-base">{driverName}</h4>
+                        <span className="text-[10px] bg-emerald-50 text-emerald-700 font-black px-2 py-0.5 rounded-full border border-emerald-200">
+                          الكابتن المسؤول
+                        </span>
+                      </div>
+                      <p className="text-slate-400 text-xs font-semibold mt-0.5">
+                        {driverVehicle} • مكلف من الإدارة
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-slate-400 text-xs font-semibold mt-0.5">
-                    دراجة نارية سريعة • تقييم 4.9 ⭐
-                  </p>
                 </div>
+
+                <p className="text-slate-500 text-xs leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  🛵 تم توجيه وتكليف الكابتن من قبل الإدارة لاستلام طلبك وتوصيله إليك. للتنسيق، اختر وسيلة التواصل:
+                </p>
               </div>
-            </div>
 
-            <p className="text-slate-500 text-xs leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-100">
-              🛵 الكابتن مستعد لتوصيل طلبك حتى باب بيتك. للتنسيق السريع، اختر وسيلة التواصل المفضلة لديك أدناه:
-            </p>
-          </div>
+              {/* Contact Buttons */}
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <span className="text-[11px] font-extrabold text-slate-500 block">قنوات التواصل مع الكابتن:</span>
+                <ContactActions 
+                  phone={driverPhone} 
+                  name={driverName}
+                  defaultMessage={`مرحباً كابتن (${driverName})، أنا الزبون (${order.customerName}) بخصوص طلبي #${order.id.slice(-4)} من متجر (${order.storeName}).`}
+                  variant="grid"
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black text-2xl shrink-0 animate-pulse">
+                      ⏳
+                    </div>
+                    <div>
+                      <h4 className="font-black text-slate-900 text-sm sm:text-base">بانتظار توجيه الكابتن</h4>
+                      <span className="text-[10px] bg-amber-50 text-amber-700 font-bold px-2 py-0.5 rounded-full border border-amber-200">
+                        قيد المتابعة من الإدارة
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Contact Buttons (Call + WhatsApp Regular + WhatsApp Business) */}
-          <div className="pt-2 border-t border-slate-100 space-y-2">
-            <span className="text-[11px] font-extrabold text-slate-500 block">قنوات التواصل مع الكابتن:</span>
-            <ContactActions 
-              phone={driverPhone} 
-              name={driverName}
-              defaultMessage={`مرحباً كابتن، أنا الزبون (${order.customerName}) بخصوص طلبي #${order.id.slice(-4)} من متجر (${order.storeName}).`}
-              variant="grid"
-            />
-          </div>
+                <p className="text-slate-600 text-xs leading-relaxed bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200">
+                  🛵 طلبك قيد المتابعة من إدارة المنصة، ويتم حالياً تخصيص وتوجيه أقرب كابتن متاح لاستلام وتوصيل الطلب من متجر (<strong>{order.storeName}</strong>). ستظهر بيانات الكابتن ورقم هاتفه هنا فور تعيينه.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 space-y-2">
+                <span className="text-[11px] font-extrabold text-slate-500 block">للاستفسار المباشر مع إدارة العمليات:</span>
+                <ContactActions 
+                  phone={supportPhone} 
+                  name="إدارة العمليات والتوجيه"
+                  defaultMessage={`مرحباً إدارة العمليات، أنا الزبون (${order.customerName}) بخصوص متابعة توجيه كابتن لطلبي #${order.id.slice(-4)}.`}
+                  variant="pills"
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Card 2: Store Contact */}

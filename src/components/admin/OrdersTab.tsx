@@ -20,6 +20,7 @@ interface OrdersTabProps {
   orders: Order[];
   driversList: DriverMember[];
   onUpdateOrderStatus: (orderId: string, status: any) => void;
+  onAssignDriver?: (orderId: string, driver: DriverMember | null) => void;
   currency: string;
 }
 
@@ -27,23 +28,17 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   orders,
   driversList,
   onUpdateOrderStatus,
+  onAssignDriver,
   currency
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [assignedDrivers, setAssignedDrivers] = useState<Record<string, string>>(() => {
-    try {
-      const saved = localStorage.getItem("tw_order_assigned_drivers");
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
 
-  const handleAssignDriver = (orderId: string, driverName: string) => {
-    const next = { ...assignedDrivers, [orderId]: driverName };
-    setAssignedDrivers(next);
-    localStorage.setItem("tw_order_assigned_drivers", JSON.stringify(next));
+  const handleSelectDriver = (orderId: string, driverId: string) => {
+    const matchedDriver = driversList.find((d) => d.id === driverId) || null;
+    if (onAssignDriver) {
+      onAssignDriver(orderId, matchedDriver);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -144,7 +139,20 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
         <div className="space-y-4">
           {filteredOrders.map(order => {
             const statusInfo = getStatusBadge(order.status);
-            const assignedDriver = assignedDrivers[order.id];
+            const assignedDriver = driversList.find(
+              (d) => d.id === order.driverId || d.name === order.driverName
+            ) || (order.driverName ? { id: order.driverId || "d_assigned", name: order.driverName, phone: order.driverPhone || "", vehicle: order.driverVehicle || "دراجة نارية", status: "available" as const } : null);
+
+            const dispatchWhatsAppMsg = `🛵 *توجيه وتكليف طلب توصيل جديد:*
+📌 رقم الطلب: #${order.id.slice(-4)}
+🏪 المتجر: ${order.storeName}
+👤 الزبون: ${order.customerName}
+📞 هاتف الزبون: ${order.customerPhone}
+📍 المعلم والعنوان: ${order.addressLandmark} ${order.addressDetails ? `(${order.addressDetails})` : ""}
+💰 المبلغ المطلوب تحصيله: ${order.total.toLocaleString()} ${currency}
+🛵 أجرة التوصيل الخاصة بك: ${order.deliveryFee.toLocaleString()} ${currency}
+
+يرجى التوجه للمتجر لاستلام الوجبة وتوصيلها للزبون.`;
 
             return (
               <div 
@@ -246,19 +254,45 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Assign Driver Dropdown */}
-                    <div className="pt-2 border-t">
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">تعيين كابتن التوصيل:</label>
+                    {/* Assign Driver Dropdown & Dispatch Hub */}
+                    <div className="pt-2 border-t space-y-2">
+                      <label className="block text-[10px] font-bold text-slate-500">
+                        {assignedDriver ? "الكابتن المكلف بتوصيل هذا الطلب:" : "توجيه وتعيين كابتن من الإدارة:"}
+                      </label>
                       <select
-                        value={assignedDriver || ""}
-                        onChange={(e) => handleAssignDriver(order.id, e.target.value)}
-                        className="w-full py-1.5 px-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold focus:outline-hidden"
+                        value={assignedDriver?.id || ""}
+                        onChange={(e) => handleSelectDriver(order.id, e.target.value)}
+                        className={`w-full py-1.5 px-2 bg-white border rounded-xl text-[11px] font-bold focus:outline-hidden ${
+                          assignedDriver ? "border-emerald-300 text-slate-900" : "border-amber-300 bg-amber-50/40 text-amber-900"
+                        }`}
                       >
-                        <option value="">-- اختر كابتن من الأسطول --</option>
+                        <option value="">-- {assignedDriver ? "إلغاء التعيين / غير معين" : "اختر كابتن من الأسطول لتوجيه الطلب"} --</option>
                         {driversList.map(d => (
-                          <option key={d.id} value={d.name}>{d.name} ({d.status === "available" ? "متاح" : "مشغول"})</option>
+                          <option key={d.id} value={d.id}>
+                            🛵 {d.name} ({d.vehicle || "دراجة"}) • {d.status === "available" ? "متاح 🟢" : "مشغول 🟡"}
+                          </option>
                         ))}
                       </select>
+
+                      {/* If Assigned: Show Captain Contact & One-Touch WhatsApp Dispatch Button */}
+                      {assignedDriver && (
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2 text-[11px]">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-slate-800 flex items-center gap-1">
+                              <span>🛵</span>
+                              <span>{assignedDriver.name}</span>
+                            </span>
+                            <span className="text-slate-500 font-mono">{assignedDriver.phone}</span>
+                          </div>
+
+                          <ContactActions
+                            phone={assignedDriver.phone}
+                            name={assignedDriver.name}
+                            defaultMessage={dispatchWhatsAppMsg}
+                            variant="pills"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

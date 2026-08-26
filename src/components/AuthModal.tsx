@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { User, Store as StoreIcon, Lock, Key, ShieldCheck, Download, Eye, EyeOff } from "lucide-react";
-import { Store, UserProfile } from "../types";
+import { User, Store as StoreIcon, Bike, Key, ShieldCheck, Download, Eye, EyeOff, X, ArrowRight, MessageCircle } from "lucide-react";
+import { Store, UserProfile, DriverMember } from "../types";
+import { initialDrivers } from "../data/adminInitialData";
 
 interface AuthModalProps {
   onRegister: (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => void;
@@ -9,6 +10,8 @@ interface AuthModalProps {
   onAddStore: (store: Store) => void;
   activeOrder?: any;
   onTrackOrder?: () => void;
+  onClose?: () => void;
+  initialRole?: "customer" | "driver" | "store" | "staff";
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -16,15 +19,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   stores,
   onAddStore,
   activeOrder,
-  onTrackOrder
+  onTrackOrder,
+  onClose,
+  initialRole = "customer"
 }) => {
-  const [role, setRole] = useState<"customer" | "store" | "staff">("customer");
+  const [role, setRole] = useState<"customer" | "driver" | "store" | "staff">(initialRole);
   const [hasInstallPrompt, setHasInstallPrompt] = useState(!!(window as any).deferredPrompt);
 
   // Customer Form State
   const [customerName, setCustomerName] = useState(() => localStorage.getItem("tw_remembered_name") || "");
   const [customerPhone, setCustomerPhone] = useState(() => localStorage.getItem("tw_remembered_phone") || "");
   const [customerPin, setCustomerPin] = useState("");
+
+  // Driver / Captain Form State
+  const [driverUser, setDriverUser] = useState("");
+  const [driverPin, setDriverPin] = useState("");
+  const [showDriverPin, setShowDriverPin] = useState(false);
 
   // Store Form State
   const [storeTab, setStoreTab] = useState<"login" | "register">("login");
@@ -65,11 +75,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setShowSecretStaffTab(true);
       setRole("staff");
       setSecretClicks(0);
-      alert("🔓 تم تفعيل بوابة دخول الكوادر والإدارة السرية!");
+      alert("🔓 تم تفعيل بوابة دخول الكوادر والإدارة المشفرة!");
     }
   };
 
-  // Customer Submission
+  // 1. Customer Submission
   const handleCustomerSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -123,7 +133,69 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }, 600);
   };
 
-  // Store Login Submission
+  // 2. Captain / Driver Submission
+  const handleDriverSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    const enteredUser = driverUser.trim().toLowerCase();
+    const enteredPin = driverPin.trim();
+
+    if (!enteredUser || !enteredPin) {
+      setErrorMsg("الرجاء إدخال اسم المستخدم ورمز المرور السري (PIN).");
+      return;
+    }
+
+    let driversList: DriverMember[] = [];
+    try {
+      const raw = localStorage.getItem("tw_drivers_list") || localStorage.getItem("tw_drivers");
+      driversList = raw ? JSON.parse(raw) : initialDrivers;
+    } catch {
+      driversList = initialDrivers;
+    }
+
+    // Match captain by username OR phone OR ID, and PIN/password
+    const matchedDriver = driversList.find((dr) => {
+      const u = (dr.username || "").toLowerCase();
+      const p = (dr.phone || "").toLowerCase();
+      const id = (dr.id || "").toLowerCase();
+      const n = (dr.name || "").toLowerCase();
+
+      const userMatch = (u && u === enteredUser) || p === enteredUser || id === enteredUser || n.includes(enteredUser);
+      const pinMatch = dr.pin === enteredPin || dr.password === enteredPin;
+      return userMatch && pinMatch;
+    });
+
+    // Also support fallback demo credentials if applicable
+    const legacyDriverPins = ["1111", "2222", "3333", "5555", "6666", "7777"];
+
+    if (matchedDriver) {
+      setSuccessMsg(`🛵 مرحباً بك يا ${matchedDriver.name}. تم تسجيل الدخول إلى لوحة كباتن التوصيل!`);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onRegister({
+          name: matchedDriver.name,
+          phone: matchedDriver.phone,
+          pin: matchedDriver.pin || enteredPin
+        }, "driver");
+      }, 700);
+    } else if (legacyDriverPins.includes(enteredPin) && (enteredUser.includes("capt") || enteredUser.includes("كابتن") || enteredUser.startsWith("09"))) {
+      const fallbackName = enteredUser.startsWith("09") ? "كابتن توصيل" : enteredUser;
+      setSuccessMsg(`🛵 مرحباً بالكابتن. تم تسجيل الدخول بنجاح!`);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onRegister({
+          name: fallbackName,
+          phone: enteredUser.startsWith("09") ? enteredUser : "0991112233",
+          pin: enteredPin
+        }, "driver");
+      }, 700);
+    } else {
+      setErrorMsg("⛔ بيانات الكابتن غير صحيحة! يرجى التأكد من اسم المستخدم ورمز المرور المعطى لك من قبل إدارة المنصة.");
+    }
+  };
+
+  // 3. Store Login Submission
   const handleStoreLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -206,7 +278,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }, 800);
   };
 
-  // Staff & Admin Login
+  // 4. Staff & Admin Login
   const handleStaffSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
@@ -224,7 +296,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
     const legacyAdminPins = ["1234", "1111", "2222", "3333", "4444"];
-    const legacyDriverPins = ["5555", "6666", "7777"];
 
     let staffMembers = [];
     try {
@@ -232,14 +303,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (raw) staffMembers = JSON.parse(raw);
     } catch (err) {}
 
-    let driversList = [];
-    try {
-      const raw = localStorage.getItem("tw_drivers");
-      if (raw) driversList = JSON.parse(raw);
-    } catch (err) {}
-
     const matchedStaff = staffMembers.find((s: any) => s.pin === entered || s.password === entered);
-    const matchedDriver = driversList.find((dr: any) => dr.pin === entered || dr.id === entered);
 
     if (
       entered === masterAdminPassword ||
@@ -249,7 +313,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     ) {
       let adminName = "المدير العام";
       if (matchedStaff) adminName = matchedStaff.name;
-      else if (entered === "1111") adminName = "أبو حدو (المدير العام)";
+      else if (entered === "1111") adminName = "المدير العام";
       else if (entered === "2222") adminName = "أم عبده (مسؤول الطلبات)";
       else if (entered === "3333") adminName = "أبو سمير (المحاسب المالي)";
       else if (entered === "4444") adminName = "أبو جودة (موظف الدعم)";
@@ -266,18 +330,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setFailedAttempts(0);
       setTimeout(() => {
         onRegister({ name: matchedStaff.name, phone: matchedStaff.phone || "0933111222", pin: entered }, "admin");
-      }, 700);
-    } else if (legacyDriverPins.includes(entered) || matchedDriver) {
-      let drName = matchedDriver ? matchedDriver.name : "أبو شهاب (كابتن الضيعة)";
-      let drPhone = matchedDriver ? (matchedDriver.phone || "0955333444") : "0955333444";
-      if (entered === "6666") { drName = "أبو العز التوصيل السريع"; drPhone = "0955222111"; }
-      if (entered === "7777") { drName = "كابتن وسيم الورد"; drPhone = "0955999888"; }
-
-      setSuccessMsg(`🛵 مرحباً بالكابتن ${drName}. تم تسجيل الدخول إلى لوحة السائقين!`);
-      setIsSuccess(true);
-      setFailedAttempts(0);
-      setTimeout(() => {
-        onRegister({ name: drName, phone: drPhone, pin: entered }, "driver");
       }, 700);
     } else {
       const nextFail = failedAttempts + 1;
@@ -299,117 +351,149 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const prompt = (window as any).deferredPrompt;
     if (prompt) {
       prompt.prompt();
-      const { outcome } = await prompt.userChoice;
-      if (outcome === "accepted") {
-        (window as any).deferredPrompt = null;
+      const choiceResult = await prompt.userChoice;
+      if (choiceResult.outcome === "accepted") {
         setHasInstallPrompt(false);
       }
+      (window as any).deferredPrompt = null;
     } else {
-      alert(`💡 لتثبيت تطبيق "توصيل" على جوالك بأعلى جودة:\n📱 للأندرويد: اضغط على (⋮) ثم اختر "تثبيت التطبيق".\n🍎 للأيفون: اضغط على زر المشاركة ثم "إضافة إلى الشاشة الرئيسية".`);
+      alert("لتثبيت التطبيق على هاتفك:\n- على أندرويد (Chrome): اضغط على القائمة (⋮) ثم 'تثبيت التطبيق' أو 'Add to Home screen'.\n- على آيفون (Safari): اضغط زر المشاركة (Share) ثم 'إضافة إلى الشاشة الرئيسية' (Add to Home Screen).");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans" dir="rtl">
-      {/* Top Application Header */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3.5 px-4 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          {/* Track Active Order Button */}
-          {activeOrder ? (
-            <button
-              onClick={onTrackOrder}
-              type="button"
-              className="bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            >
-              <span className="w-2 h-2 rounded-full bg-white animate-ping inline-block" />
-              <span>تتبع طلبك الحالي</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                const storedOrder = localStorage.getItem("tw_active_order");
-                if (storedOrder && onTrackOrder) {
-                  onTrackOrder();
-                } else {
-                  alert("لا يوجد طلب نشط حالياً لتتبعه.");
-                }
-              }}
-              type="button"
-              className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-xs py-2 px-4 rounded-xl shadow-sm transition-all cursor-pointer active:scale-95"
-            >
-              تتبع طلبك الحالي
-            </button>
-          )}
-
-          {/* Logo & Brand Name */}
-          <div className="flex items-center gap-2">
-            <span className="font-black text-slate-900 text-base sm:text-lg">توصيل</span>
-            <div className="w-9 h-9 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md">
-              <span className="text-lg">🛵</span>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-md flex flex-col justify-between selection:bg-orange-500 selection:text-slate-950 font-sans" dir="rtl">
+      {/* Top Bar */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 py-3.5 px-4 sm:px-6 sticky top-0 z-10 shadow-xs">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800">
+              <Bike className="w-5.5 h-5.5" />
             </div>
+            <div>
+              <h1 className="font-black text-slate-900 text-base sm:text-lg tracking-tight leading-none">
+                توصيل
+              </h1>
+              <p className="text-[9px] text-slate-400 font-bold leading-none mt-1">
+                بوابة تسجيل الدخول واختيار الحساب
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {activeOrder && (
+              <button
+                type="button"
+                onClick={onTrackOrder}
+                className="bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-xs py-2 px-3 sm:px-4 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
+              >
+                <span>تتبع طلبك الحالي 🛵</span>
+              </button>
+            )}
+
+            {hasInstallPrompt && (
+              <button
+                type="button"
+                onClick={triggerPwaInstall}
+                className="bg-slate-900 hover:bg-orange-500 hover:text-slate-950 text-white font-black text-xs py-2 px-3 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="تثبيت التطبيق على جهازك كبرنامج رسمي"
+              >
+                <Download className="w-3.5 h-3.5 text-orange-400" />
+                <span className="hidden sm:inline">تثبيت التطبيق</span>
+              </button>
+            )}
+
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer border border-slate-200"
+                title="إغلاق والعودة للتصفح كزائر"
+              >
+                <X className="w-4 h-4" />
+                <span>إغلاق / تصفح</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Authentication View */}
-      <main className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto p-4 sm:p-6 my-2">
+      <main className="flex-1 flex flex-col justify-center max-w-md w-full mx-auto p-4 sm:p-6 my-4">
         {/* Central Auth Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-2xl space-y-6 relative overflow-hidden text-right">
+        <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-2xl space-y-5 relative overflow-hidden text-right">
           {/* Card Header with Scooter Icon & Title */}
           <div
             onClick={handleSecretTitleClick}
-            className="text-center space-y-2 cursor-pointer select-none"
+            className="text-center space-y-1.5 cursor-pointer select-none"
             title="تطبيق توصيل القرية"
           >
-            <div className="w-16 h-16 bg-white border border-slate-100 rounded-2xl mx-auto flex items-center justify-center shadow-md text-3xl">
+            <div className="w-14 h-14 bg-gradient-to-tr from-orange-500 to-amber-400 text-white rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-orange-500/20 text-2xl">
               🛵
             </div>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">تطبيق توصيل القرية</h2>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">تسجيل الدخول للمنصة</h2>
             <p className="text-slate-400 text-xs font-semibold max-w-xs mx-auto">
-              أهلاً بك! الرجاء اختيار نوع حسابك للمتابعة
+              الرجاء اختيار نوع حسابك للمتابعة
             </p>
           </div>
 
-          {/* Account Type Tabs (Segmented Control) */}
-          <div className="grid grid-cols-2 gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/60">
+          {/* Account Type Tabs (Segmented Control - 4 Tabs) */}
+          <div className="grid grid-cols-3 gap-1 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/60">
+            {/* Tab 1: Customer */}
             <button
               type="button"
               onClick={() => { setRole("customer"); setErrorMsg(""); }}
-              className={`py-2.5 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`py-2 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 role === "customer"
                   ? "bg-white text-orange-600 shadow-md shadow-slate-200"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <User className="w-4 h-4" />
+              <User className="w-3.5 h-3.5" />
               <span>زبون 🛍️</span>
             </button>
 
+            {/* Tab 2: Driver / Captain */}
+            <button
+              type="button"
+              onClick={() => { setRole("driver"); setErrorMsg(""); }}
+              className={`py-2 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                role === "driver"
+                  ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+                  : "text-slate-600 hover:text-orange-600"
+              }`}
+            >
+              <Bike className="w-3.5 h-3.5" />
+              <span>كابتن 🛵</span>
+            </button>
+
+            {/* Tab 3: Store */}
             <button
               type="button"
               onClick={() => { setRole("store"); setErrorMsg(""); }}
-              className={`py-2.5 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`py-2 px-2 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 role === "store"
                   ? "bg-white text-orange-600 shadow-md shadow-slate-200"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <StoreIcon className="w-4 h-4" />
+              <StoreIcon className="w-3.5 h-3.5" />
               <span>متجر 🏪</span>
             </button>
 
+            {/* Tab 4: Staff / Admin */}
             {(!hideStaffTab || showSecretStaffTab) && (
               <button
                 type="button"
                 onClick={() => { setRole("staff"); setErrorMsg(""); }}
-                className={`col-span-2 py-2.5 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-1 ${
+                className={`col-span-3 py-2 px-3 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-1 ${
                   role === "staff"
                     ? "bg-slate-900 text-amber-400 shadow-md"
-                    : "text-slate-600 hover:text-slate-900 bg-slate-200/50"
+                    : "text-slate-600 hover:text-slate-900 bg-slate-200/60"
                 }`}
               >
                 <Key className="w-3.5 h-3.5" />
-                <span>🔐 بوابة الكوادر والإدارة المشفرة</span>
+                <span>🔐 بوابة الإدارة والكوادر المشفرة</span>
               </button>
             )}
           </div>
@@ -427,7 +511,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* Forms with Smooth Animated Transitions */}
+          {/* Forms with Animated Transitions */}
           <AnimatePresence mode="wait">
             {/* TAB 1: CUSTOMER FORM */}
             {role === "customer" && (
@@ -449,7 +533,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="عبد الرحمن عيسى عوير"
+                    placeholder="مثال: أحمد العلي"
                     className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all"
                   />
                 </div>
@@ -480,7 +564,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={customerPin}
                     onChange={(e) => setCustomerPin(e.target.value.replace(/[^0-9]/g, ""))}
                     placeholder="••••"
-                    className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 rounded-2xl py-3 px-4 text-center text-lg font-black tracking-widest outline-none text-slate-900 shadow-sm"
+                    className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 rounded-2xl py-3 px-4 text-center text-lg font-black tracking-widest outline-none text-slate-900 shadow-xs"
                   />
                 </div>
 
@@ -493,7 +577,91 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </motion.form>
             )}
 
-            {/* TAB 2: STORE OWNER FORM */}
+            {/* TAB 2: DRIVER / CAPTAIN FORM */}
+            {role === "driver" && (
+              <motion.form
+                key="auth_driver_form"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                onSubmit={handleDriverSubmit}
+                className="space-y-4"
+              >
+                {/* Admin-Provided Credentials Notice */}
+                <div className="bg-orange-50 border border-orange-200 p-3 rounded-2xl space-y-1 text-slate-700 text-xs">
+                  <div className="flex items-center gap-2 font-black text-orange-700 text-xs">
+                    <Bike className="w-4 h-4 text-orange-600" />
+                    <span>تسجيل دخول كباتن التوصيل 🛵</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    يتم تزويد الكابتن باسم المستخدم ورمز المرور السري (PIN) من قبل إدارة المنصة عند التفعيل الأول.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-slate-700 block">
+                    اسم المستخدم أو رقم الموبايل:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={driverUser}
+                    onChange={(e) => setDriverUser(e.target.value)}
+                    placeholder="مثال: capt_mahmoud أو 0991112233"
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all font-mono text-left"
+                    dir="ltr"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-slate-700 block">
+                    رمز المرور السري (PIN):
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showDriverPin ? "text" : "password"}
+                      required
+                      value={driverPin}
+                      onChange={(e) => setDriverPin(e.target.value)}
+                      placeholder="••••"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-base font-black tracking-widest outline-none text-slate-900 transition-all font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDriverPin(!showDriverPin)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xs cursor-pointer p-1"
+                    >
+                      {showDriverPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+                >
+                  <Bike className="w-4 h-4" />
+                  <span>دخول لوحة الكابتن واستلام الطلبات 🛵</span>
+                </button>
+
+                {/* Direct WhatsApp request for new drivers */}
+                <div className="text-center pt-2 border-t border-slate-100">
+                  <p className="text-[11px] text-slate-400 mb-2">كابتن جديد وترغب بالانضمام للأسطول؟</p>
+                  <a
+                    href="https://wa.me/963951854257?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D8%B1%D8%BA%D8%A8%20%D8%A8%D8%A7%D9%84%D8%A7%D9%86%D8%B6%D9%85%D8%A7%D9%85%20%D9%83%D9%83%D8%A7%D8%A8%D8%AA%D9%86%20%D8%AA%D9%88%D8%B5%D9%8A%D9%84%20%D9%81%D9%8A%20%D8%A7%D9%84%D9%85%D9%86%D8%B5%D8%A9"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black transition-all"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>تواصل مع الإدارة لطلب حساب كابتن عبر واتساب</span>
+                  </a>
+                </div>
+              </motion.form>
+            )}
+
+            {/* TAB 3: STORE OWNER FORM */}
             {role === "store" && (
               <motion.div
                 key="auth_store_form"
@@ -536,7 +704,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={storeLoginPhone}
                         onChange={(e) => setStoreLoginPhone(e.target.value)}
                         placeholder="09xxxxxxxx"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2 px-3 text-xs font-bold outline-none text-left"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none text-left"
                         dir="ltr"
                       />
                     </div>
@@ -551,7 +719,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={storeLoginPin}
                         onChange={(e) => setStoreLoginPin(e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="••••"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2 px-3 text-center text-base font-black tracking-widest outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-center text-base font-black tracking-widest outline-none"
                       />
                     </div>
                     <button
@@ -573,7 +741,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={newStoreName}
                         onChange={(e) => setNewStoreName(e.target.value)}
                         placeholder="مثال: مأكولات الشام، صيدلية السلام"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2 px-3 text-xs font-bold outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none"
                       />
                     </div>
                     <div className="space-y-1">
@@ -583,7 +751,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <select
                         value={newStoreCategory}
                         onChange={(e) => setNewStoreCategory(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-xs font-bold outline-none"
                       >
                         <option value="restaurants">مطاعم وجبات</option>
                         <option value="supermarkets">سوبرماركت وتموينات</option>
@@ -605,7 +773,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={newStorePhone}
                         onChange={(e) => setNewStorePhone(e.target.value)}
                         placeholder="09xxxxxxxx"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2 px-3 text-xs font-bold outline-none text-left"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none text-left"
                         dir="ltr"
                       />
                     </div>
@@ -620,7 +788,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={newStorePin}
                         onChange={(e) => setNewStorePin(e.target.value.replace(/[^0-9]/g, ""))}
                         placeholder="••••"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2 px-3 text-center text-base font-black tracking-widest outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-center text-base font-black tracking-widest outline-none"
                       />
                     </div>
                     <button
@@ -634,7 +802,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </motion.div>
             )}
 
-            {/* TAB 3: STAFF & ADMIN FORM */}
+            {/* TAB 4: STAFF & ADMIN FORM */}
             {role === "staff" && (
               <motion.form
                 key="auth_staff_form"
@@ -651,7 +819,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div className="w-8 h-8 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black">
                         🔐
                       </div>
-                      <h4 className="font-black text-xs sm:text-sm text-amber-400">بوابة الكوادر والإدارة المشفرة</h4>
+                      <h4 className="font-black text-xs sm:text-sm text-amber-400">بوابة الإدارة والكوادر المشفرة</h4>
                     </div>
                     {isLocked && (
                       <span className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">
@@ -660,7 +828,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     )}
                   </div>
                   <p className="text-slate-300 text-[10px] leading-relaxed">
-                    أدخل كلمة المرور الرئيسية للإدارة أو كود السائقين المصرح لهم (مثال: 1234 أو 5555).
+                    أدخل كلمة المرور الرئيسية للإدارة أو كود المسؤولين المصرح لهم (مثال: 1111 أو Admin@Tawseel2026#).
                   </p>
                 </div>
 

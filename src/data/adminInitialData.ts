@@ -1,4 +1,4 @@
-import { Craftsman, DriverMember, StaffMember, Coupon, AuditLog, AppSettings, RegisteredCustomer } from "../types";
+import { Craftsman, DriverMember, StaffMember, Coupon, AuditLog, AppSettings, RegisteredCustomer, Order } from "../types";
 
 export const initialCustomers: RegisteredCustomer[] = [
   { 
@@ -47,9 +47,9 @@ export const initialStaff: StaffMember[] = [
 ];
 
 export const initialDrivers: DriverMember[] = [
-  { id: "driver_1", name: "الكابتن أبو محمود", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 142, earnings: 710000, rating: 4.9, vehicle: "دراجة نارية سوزوكي" },
-  { id: "driver_2", name: "الكابتن طارق السريع", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 98, earnings: 490000, rating: 4.8, vehicle: "سكوتر كهربائي" },
-  { id: "driver_3", name: "الكابتن وسيم الورد", phone: "0993334455", pin: "3333", status: "busy", totalDeliveries: 64, earnings: 320000, rating: 4.7, vehicle: "دراجة نارية هوائية" }
+  { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 142, earnings: 710000, rating: 4.9, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-01-10" },
+  { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 98, earnings: 490000, rating: 4.8, vehicle: "سكوتر كهربائي", createdAt: "2025-01-20" },
+  { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "busy", totalDeliveries: 64, earnings: 320000, rating: 4.7, vehicle: "دراجة نارية هوائية", createdAt: "2025-02-05" }
 ];
 
 export const initialCraftsmen: Craftsman[] = [
@@ -75,3 +75,95 @@ export const initialAppSettings: AppSettings = {
   minOrderValue: 10000,
   activeRegions: ["وسط البلد", "الحارة الشرقية", "الحارة الغربية", "حي المدارس", "طريق السهل", "منطقة المزارع"]
 };
+
+export const initialOrders: Order[] = [
+  {
+    id: "tw-98124",
+    storeId: "1",
+    storeName: "شاورما وبطاطا الضيعة",
+    status: "picked_up",
+    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
+    customerName: "الحاج أبو عدنان (أحمد الخالد)",
+    customerPhone: "0991447788",
+    addressLandmark: "قرب الجامع الكبير",
+    addressDetails: "المنزل الثاني خلف مئذنة الجامع",
+    driverId: "driver_1",
+    driverName: "الكابتن أبو محمود",
+    driverPhone: "0991112233",
+    driverVehicle: "دراجة نارية سوزوكي",
+    assignedAt: new Date(Date.now() - 10 * 60000).toISOString(),
+    subtotal: 35000,
+    deliveryFee: 5000,
+    total: 40000,
+    items: [
+      {
+        product: {
+          id: "p1",
+          name: "وجبة شاورما عربي دبل",
+          price: 25000,
+          description: "شاورما لحم عربي مع بطاطا ومخلل وثومية",
+          image: "https://images.unsplash.com/photo-1529042410759-befb1204b468?w=500&auto=format&fit=crop&q=60",
+          category: "food",
+          storeId: "1"
+        },
+        quantity: 1,
+        totalItemPrice: 25000
+      },
+      {
+        product: {
+          id: "p2",
+          name: "صحن بطاطا مقلية عائلي",
+          price: 10000,
+          description: "بطاطا مقرمشة طازجة مع بهارات مميزة",
+          image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=500&auto=format&fit=crop&q=60",
+          category: "food",
+          storeId: "1"
+        },
+        quantity: 1,
+        totalItemPrice: 10000
+      }
+    ]
+  },
+  {
+    id: "tw-98125",
+    storeId: "2",
+    storeName: "سوبرماركت الأمانة",
+    status: "pending",
+    createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
+    customerName: "أم بشار النجار",
+    customerPhone: "0992558899",
+    addressLandmark: "الحارة الشرقية",
+    addressDetails: "بجانب معصرة الزيتون القديمة",
+    subtotal: 48000,
+    deliveryFee: 5000,
+    total: 53000,
+    items: [
+      {
+        product: {
+          id: "p3",
+          name: "زيت زيتون بلدي بكر (1 لتر)",
+          price: 40000,
+          description: "عصرة أولى معصور على البارد",
+          image: "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500&auto=format&fit=crop&q=60",
+          category: "supermarkets",
+          storeId: "2"
+        },
+        quantity: 1,
+        totalItemPrice: 40000
+      },
+      {
+        product: {
+          id: "p4",
+          name: "سكر أبيض ناعم (1 كغ)",
+          price: 8000,
+          description: "سكر نقي ممتاز للحلويات والشاي",
+          image: "https://images.unsplash.com/photo-1587734195503-904fca47e0e9?w=500&auto=format&fit=crop&q=60",
+          category: "supermarkets",
+          storeId: "2"
+        },
+        quantity: 1,
+        totalItemPrice: 8000
+      }
+    ]
+  }
+];

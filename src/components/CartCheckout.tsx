@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ArrowRight, Trash2, Plus, Minus, Tag, Check, MapPin, Phone, User, ShoppingBag, ShieldCheck } from "lucide-react";
+import { ArrowRight, Trash2, Plus, Minus, Tag, Check, MapPin, Phone, User, ShoppingCart, ShieldCheck } from "lucide-react";
 import { CartItem, MapNode, Store, StoreAddition, StoreSize, UserProfile } from "../types";
 
 interface CartCheckoutProps {
@@ -116,7 +116,7 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
       {cartItems.length === 0 ? (
         <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-sm space-y-4">
           <div className="w-16 h-16 bg-orange-50 rounded-2xl mx-auto flex items-center justify-center text-orange-500">
-            <ShoppingBag className="w-8 h-8" />
+            <ShoppingCart className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-black text-slate-800">سلة التسوق فارغة حالياً</h3>
           <p className="text-slate-400 text-xs max-w-sm mx-auto">

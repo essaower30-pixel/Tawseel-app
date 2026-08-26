@@ -126,6 +126,11 @@ export interface Order {
   prescriptionNotes?: string;
   isServiceOrder?: boolean;
   serviceType?: string;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
+  driverVehicle?: string;
+  assignedAt?: string;
 }
 
 export interface Coupon {
@@ -150,12 +155,16 @@ export interface DriverMember {
   id: string;
   name: string;
   phone: string;
+  username?: string;
+  password?: string;
   pin?: string;
   status: "available" | "busy" | "offline";
   totalDeliveries?: number;
   earnings?: number;
   rating?: number;
   vehicle?: string;
+  notes?: string;
+  createdAt?: string;
 }
 
 export interface Craftsman {

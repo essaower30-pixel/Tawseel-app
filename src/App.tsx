@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ShoppingBag,
+  ShoppingCart,
   Store as StoreIcon,
   Search,
   MapPin,
@@ -14,6 +15,7 @@ import {
   Flame,
   ShieldCheck,
   Bike,
+  LogIn,
   Utensils,
   Pill,
   Leaf,
@@ -35,13 +37,16 @@ import {
   Smartphone,
   Phone
 } from "lucide-react";
-import { CartItem, Category, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile } from "./types";
+import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores } from "./data/initialData";
+import { initialDrivers, initialOrders } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
 import { OrderTracker } from "./components/OrderTracker";
 import { Dashboard } from "./components/Dashboards";
+import { DriverPortal } from "./components/DriverPortal";
+import { StoreOwnerPortal } from "./components/StoreOwnerPortal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { openWhatsApp } from "./utils/whatsapp";
 
@@ -119,6 +124,8 @@ export default function App() {
     return (localStorage.getItem("tw_user_role") as any) || "customer";
   });
 
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+
   const [currentStoreId, setCurrentStoreId] = useState<string | null>(() => {
     return localStorage.getItem("tw_current_store_id") || null;
   });
@@ -144,6 +151,16 @@ export default function App() {
   const [adminPinError, setAdminPinError] = useState("");
   const ADMIN_SECRET_PIN = "1234";
 
+  // Drivers Fleet State
+  const [driversList, setDriversList] = useState<DriverMember[]>(() => {
+    try {
+      const raw = localStorage.getItem("tw_drivers_list");
+      return raw ? JSON.parse(raw) : initialDrivers;
+    } catch {
+      return initialDrivers;
+    }
+  });
+
   // Active Order State
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
     try {
@@ -155,8 +172,12 @@ export default function App() {
   });
 
   const [allOrders, setAllOrders] = useState<Order[]>(() => {
-    const raw = localStorage.getItem("tw_orders_list") || localStorage.getItem("tw_all_orders");
-    return raw ? JSON.parse(raw) : [];
+    try {
+      const raw = localStorage.getItem("tw_orders_list") || localStorage.getItem("tw_all_orders");
+      return raw ? JSON.parse(raw) : initialOrders;
+    } catch {
+      return initialOrders;
+    }
   });
 
   const [selectedLandmark, setSelectedLandmark] = useState<string>("center");
@@ -191,6 +212,10 @@ export default function App() {
   }, [cartItems]);
 
   useEffect(() => {
+    localStorage.setItem("tw_drivers_list", JSON.stringify(driversList));
+  }, [driversList]);
+
+  useEffect(() => {
     localStorage.setItem("tw_viewing_admin", String(isAdminMode));
   }, [isAdminMode]);
 
@@ -217,6 +242,61 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("tw_orders_list", JSON.stringify(allOrders));
   }, [allOrders]);
+
+  // Dynamic Live Sync: Keep active customer order updated with assigned driver & status in real-time
+  useEffect(() => {
+    if (activeOrder) {
+      const fresh = allOrders.find((o) => o.id === activeOrder.id);
+      if (
+        fresh &&
+        (fresh.status !== activeOrder.status ||
+          fresh.driverName !== activeOrder.driverName ||
+          fresh.driverPhone !== activeOrder.driverPhone ||
+          fresh.driverVehicle !== activeOrder.driverVehicle)
+      ) {
+        setActiveOrder(fresh);
+      }
+    }
+  }, [allOrders]);
+
+  const handleUpdateOrderStatus = (orderId: string, status: any) => {
+    setAllOrders((prev) =>
+      prev.map((o) => {
+        if (o.id === orderId) {
+          const updated = { ...o, status };
+          if (activeOrder && activeOrder.id === orderId) {
+            setActiveOrder(updated);
+          }
+          return updated;
+        }
+        return o;
+      })
+    );
+  };
+
+  const handleAssignDriverToOrder = (orderId: string, driver: DriverMember | null) => {
+    setAllOrders((prev) =>
+      prev.map((o) => {
+        if (o.id === orderId) {
+          const updated: Order = {
+            ...o,
+            driverId: driver ? driver.id : undefined,
+            driverName: driver ? driver.name : undefined,
+            driverPhone: driver ? driver.phone : undefined,
+            driverVehicle: driver ? (driver.vehicle || "دراجة نارية") : undefined,
+            assignedAt: driver ? new Date().toISOString() : undefined,
+            // When driver is assigned to a pending order, move status to accepted automatically
+            status: o.status === "pending" && driver ? "accepted" : o.status
+          };
+          if (activeOrder && activeOrder.id === orderId) {
+            setActiveOrder(updated);
+          }
+          return updated;
+        }
+        return o;
+      })
+    );
+  };
 
   useEffect(() => {
     if (userRole) {
@@ -348,10 +428,45 @@ export default function App() {
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
   };
 
+  const handleAuthSuccess = (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => {
+    localStorage.setItem("tw_customer_user", JSON.stringify(profile));
+    localStorage.setItem("tw_user_role", role);
+    setUserProfile(profile);
+    setUserRole(role);
+    setShowAuthModal(false);
+    if (role === "driver") {
+      setIsDriverMode(true);
+      setIsAdminMode(false);
+      setSelectedStore(null);
+      setIsViewingCart(false);
+      localStorage.setItem("tw_viewing_driver", "true");
+      localStorage.setItem("tw_viewing_admin", "false");
+    } else if (role === "admin") {
+      setIsAdminMode(true);
+      setIsDriverMode(false);
+      setSelectedStore(null);
+      setIsViewingCart(false);
+      localStorage.setItem("tw_viewing_admin", "true");
+      localStorage.setItem("tw_viewing_driver", "false");
+    } else if (role === "store_owner" && profile.storeId) {
+      setCurrentStoreId(profile.storeId);
+      localStorage.setItem("tw_current_store_id", profile.storeId);
+      setIsAdminMode(false);
+      setIsDriverMode(false);
+      setSelectedStore(null);
+      setIsViewingCart(false);
+    } else {
+      setIsAdminMode(false);
+      setIsDriverMode(false);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("tw_customer_user");
     localStorage.removeItem("tw_user_role");
     localStorage.removeItem("tw_current_store_id");
+    localStorage.removeItem("tw_viewing_admin");
+    localStorage.removeItem("tw_viewing_driver");
     setUserProfile(null);
     setUserRole("guest");
     setCurrentStoreId(null);
@@ -361,6 +476,7 @@ export default function App() {
     setIsViewingCart(false);
     setIsAdminMode(false);
     setIsDriverMode(false);
+    setShowAuthModal(true);
   };
 
   const handleShareWhatsApp = (type: "regular" | "business") => {
@@ -395,19 +511,7 @@ export default function App() {
   if (userRole === "guest" && !userProfile) {
     return (
       <AuthModal
-        onRegister={(profile, role) => {
-          localStorage.setItem("tw_customer_user", JSON.stringify(profile));
-          localStorage.setItem("tw_user_role", role);
-          setUserProfile(profile);
-          setUserRole(role);
-          if (role === "driver") {
-            setIsDriverMode(true);
-          } else if (role === "admin") {
-            setIsAdminMode(true);
-          } else if (role === "store_owner" && profile.storeId) {
-            setCurrentStoreId(profile.storeId);
-          }
-        }}
+        onRegister={handleAuthSuccess}
         stores={stores}
         onAddStore={(newStore) => setStores((prev) => [...prev, newStore])}
         activeOrder={activeOrder}
@@ -415,6 +519,11 @@ export default function App() {
           if (activeOrder) {
             setUserRole("customer");
           }
+        }}
+        onClose={() => {
+          const guestProfile: UserProfile = { name: "زائر متسوق", phone: "09xxxxxxxx", pin: "1234" };
+          setUserProfile(guestProfile);
+          setUserRole("customer");
         }}
       />
     );
@@ -467,6 +576,17 @@ export default function App() {
               </button>
             ) : (
               <>
+                {/* Login Button in Header */}
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(true)}
+                  className="py-2 px-2.5 sm:px-3.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95"
+                  title="تسجيل الدخول / تبديل الحساب (كابتن توصيل، متجر، إدارة، زبون)"
+                >
+                  <LogIn className="w-4 h-4 text-orange-600" />
+                  <span className="hidden xs:inline-block">تسجيل الدخول</span>
+                </button>
+
                 {/* Admin Mode Switch Button */}
                 {userRole === "admin" && (
                   <button
@@ -551,7 +671,7 @@ export default function App() {
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
-                    <ShoppingBag className="w-5 h-5" />
+                    <ShoppingCart className="w-5 h-5" />
                     <span className="hidden xs:inline-block">
                       {cartItems.length > 0 ? `السلة (${totalCartCount})` : "السلة"}
                     </span>
@@ -610,28 +730,24 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <Dashboard
-                userRole="store_owner"
-                userProfile={userProfile!}
+              <StoreOwnerPortal
+                storeId={currentStoreId}
                 stores={stores}
                 products={products}
                 orders={allOrders}
                 categories={categories}
-                mapNodes={mapNodes}
-                onAddStore={(s) => setStores((prev) => [...prev, s])}
+                userProfile={userProfile!}
                 onUpdateStore={(s) => setStores((prev) => prev.map((item) => (item.id === s.id ? s : item)))}
-                onDeleteStore={(id) => setStores((prev) => prev.filter((item) => item.id !== id))}
                 onAddProduct={(p) => setProducts((prev) => [...prev, p])}
                 onUpdateProduct={(p) => setProducts((prev) => prev.map((item) => (item.id === p.id ? p : item)))}
                 onDeleteProduct={(id) => setProducts((prev) => prev.filter((item) => item.id !== id))}
-                onAddCategory={(cat) => setCategories((prev) => [...prev, cat])}
-                onDeleteCategory={(catId) => setCategories((prev) => prev.filter((c) => c.id !== catId))}
-                onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
-                onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
-                onUpdateOrderStatus={(id, st) =>
-                  setAllOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: st } : o)))
-                }
+                onUpdateOrderStatus={handleUpdateOrderStatus}
                 onLogout={handleLogout}
+                onBackToCustomerView={() => {
+                  setUserRole("customer");
+                  setCurrentStoreId(null);
+                }}
+                currency="ل.س"
               />
             </motion.div>
           ) : isAdminMode && userRole === "admin" ? (
@@ -660,9 +776,8 @@ export default function App() {
                 onDeleteCategory={(catId) => setCategories((prev) => prev.filter((c) => c.id !== catId))}
                 onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
                 onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
-                onUpdateOrderStatus={(id, st) =>
-                  setAllOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: st } : o)))
-                }
+                onUpdateOrderStatus={handleUpdateOrderStatus}
+                onAssignDriver={handleAssignDriverToOrder}
                 onLogout={handleLogout}
               />
             </motion.div>
@@ -674,28 +789,19 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <Dashboard
-                userRole="driver"
+              <DriverPortal
                 userProfile={userProfile!}
-                stores={stores}
-                products={products}
                 orders={allOrders}
-                categories={categories}
-                mapNodes={mapNodes}
-                onAddStore={(s) => setStores((prev) => [...prev, s])}
-                onUpdateStore={(s) => setStores((prev) => prev.map((item) => (item.id === s.id ? s : item)))}
-                onDeleteStore={(id) => setStores((prev) => prev.filter((item) => item.id !== id))}
-                onAddProduct={(p) => setProducts((prev) => [...prev, p])}
-                onUpdateProduct={(p) => setProducts((prev) => prev.map((item) => (item.id === p.id ? p : item)))}
-                onDeleteProduct={(id) => setProducts((prev) => prev.filter((item) => item.id !== id))}
-                onAddCategory={(cat) => setCategories((prev) => [...prev, cat])}
-                onDeleteCategory={(catId) => setCategories((prev) => prev.filter((c) => c.id !== catId))}
-                onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
-                onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
-                onUpdateOrderStatus={(id, st) =>
-                  setAllOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status: st } : o)))
-                }
+                stores={stores}
+                driversList={driversList}
+                onUpdateOrderStatus={handleUpdateOrderStatus}
+                onAssignDriver={handleAssignDriverToOrder}
                 onLogout={handleLogout}
+                onBackToCustomerView={() => {
+                  setIsDriverMode(false);
+                  setUserRole("customer");
+                }}
+                currency="ل.س"
               />
             </motion.div>
           ) : activeOrder ? (
@@ -710,6 +816,8 @@ export default function App() {
                 order={activeOrder}
                 onBack={() => setActiveOrder(null)}
                 mapNodes={mapNodes}
+                stores={stores}
+                onCancelOrder={handleUpdateOrderStatus}
               />
             </motion.div>
           ) : isViewingCart ? (
@@ -1262,6 +1370,20 @@ export default function App() {
 
       {/* Standalone Elegant PWA Installation Modal on Entry */}
       <InstallPromptModal />
+
+      {/* Auth Modal Overlay when opened from Header */}
+      {showAuthModal && (
+        <AuthModal
+          onRegister={handleAuthSuccess}
+          stores={stores}
+          onAddStore={(newStore) => setStores((prev) => [...prev, newStore])}
+          activeOrder={activeOrder}
+          onTrackOrder={() => {
+            setShowAuthModal(false);
+          }}
+          onClose={() => setShowAuthModal(false)}
+        />
+      )}
     </div>
   );
 }
