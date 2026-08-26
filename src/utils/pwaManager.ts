@@ -15,7 +15,7 @@ export function getActiveAppIcon(_themeColor = "#f97316", _appName = "توصيل
       return custom;
     }
   } catch {}
-  return "/icon-512.png";
+  return "./icon-512.png";
 }
 
 /**

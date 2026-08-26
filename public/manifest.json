@@ -1,10 +1,10 @@
 {
-  "id": "/Tawseel-app/",
+  "id": "tawseel-app-pwa",
   "name": "توصيل - التوصيل المحلي",
   "short_name": "توصيل",
   "description": "تطبيق توصيل الطلبات للمحافظات والقرى",
-  "start_url": "/Tawseel-app/",
-  "scope": "/Tawseel-app/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#f97316",
@@ -13,25 +13,25 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/Tawseel-app/icon-192.png",
+      "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/Tawseel-app/icon-maskable-192.png",
+      "src": "./icon-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/Tawseel-app/icon-512.png",
+      "src": "./icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/Tawseel-app/icon-maskable-512.png",
+      "src": "./icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

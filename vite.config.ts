@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    base: '/Tawseel-app/',
+    base: './',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

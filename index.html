@@ -13,13 +13,13 @@
     <meta name="apple-mobile-web-app-title" content="توصيل" />
     
     <!-- Icons and Manifest -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/Tawseel-app/favicon.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/Tawseel-app/apple-touch-icon.png" />
-    <link rel="manifest" href="/Tawseel-app/manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./favicon.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.json" />
     
     <meta property="og:title" content="توصيل - التوصيل المحلي" />
     <meta property="og:description" content="تطبيق توصيل الطلبات للمحافظات والقرى، يدعم تتبع المندوب، المحادثة المباشرة، العروض، وإدارة الطلبات." />
-    <meta property="og:image" content="/Tawseel-app/icon-512.png" />
+    <meta property="og:image" content="./icon-512.png" />
     <meta property="og:type" content="website" />
     
     <!-- Google Fonts for crisp Arabic typography -->
@@ -41,7 +41,13 @@
       // Register Service Worker safely
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/Tawseel-app/sw.js', { scope: '/Tawseel-app/' }).catch((err) => {
+          const swPath = window.location.pathname.startsWith('/Tawseel-app') 
+            ? '/Tawseel-app/sw.js' 
+            : './sw.js';
+          const swScope = window.location.pathname.startsWith('/Tawseel-app') 
+            ? '/Tawseel-app/' 
+            : './';
+          navigator.serviceWorker.register(swPath, { scope: swScope }).catch((err) => {
             console.warn('SW registration:', err);
           });
         });

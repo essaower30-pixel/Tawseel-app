@@ -1,21 +1,32 @@
-const CACHE_NAME = 'tawseel-v23';
-const ASSETS_TO_CACHE = [
-  '/Tawseel-app/',
-  '/Tawseel-app/index.html',
-  '/Tawseel-app/manifest.json',
-  '/Tawseel-app/favicon.png',
-  '/Tawseel-app/icon-192.png',
-  '/Tawseel-app/icon-512.png',
-  '/Tawseel-app/icon-maskable-192.png',
-  '/Tawseel-app/icon-maskable-512.png',
-  '/Tawseel-app/apple-touch-icon.png'
-];
+const CACHE_NAME = 'tawseel-v25';
+
+const getBase = () => {
+  return self.location.pathname.includes('/Tawseel-app') ? '/Tawseel-app' : '';
+};
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
+  const base = getBase();
+  const assets = [
+    `${base}/`,
+    `${base}/index.html`,
+    `${base}/manifest.json`,
+    `${base}/favicon.png`,
+    `${base}/icon-192.png`,
+    `${base}/icon-512.png`,
+    `${base}/icon-maskable-192.png`,
+    `${base}/icon-maskable-512.png`,
+    `${base}/apple-touch-icon.png`
+  ];
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {});
+      return Promise.allSettled(
+        assets.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('Cache asset skip:', url, err);
+          })
+        )
+      );
     })
   );
 });
@@ -56,7 +67,13 @@ self.addEventListener('fetch', (event) => {
             return cachedResponse;
           }
           if (event.request.mode === 'navigate') {
-            return caches.match('/Tawseel-app/index.html') || caches.match('/Tawseel-app/');
+            const base = getBase();
+            return (
+              caches.match(`${base}/index.html`) ||
+              caches.match(`${base}/`) ||
+              caches.match('./index.html') ||
+              caches.match('/')
+            );
           }
           return new Response('Network error', { status: 408, headers: { 'Content-Type': 'text/plain' } });
         });
