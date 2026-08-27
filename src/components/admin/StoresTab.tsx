@@ -27,6 +27,7 @@ import {
 import { Category, Product, Store } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { ImageUploader } from "../ImageUploader";
 
 interface StoresTabProps {
   stores: Store[];
@@ -413,8 +414,8 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
       {/* Add / Edit Store Modal */}
       {showStoreModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border border-slate-200 shadow-2xl space-y-4 text-right max-h-[90vh] overflow-y-auto" dir="rtl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
+          <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-xl w-full border border-slate-200 shadow-2xl space-y-4 text-right my-auto" dir="rtl">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <StoreIcon className="w-5 h-5 text-orange-500" />
@@ -506,16 +507,22 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold mb-1 text-slate-700">رابط صورة المتجر (URL):</label>
-                <input
-                  type="url"
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-orange-500"
-                />
-              </div>
+              {/* Store Image Uploader (Studio & Camera, No URL) */}
+              <ImageUploader
+                value={image}
+                onChange={(val) => setImage(val)}
+                label="صورة أو واجهة المتجر / الشعار"
+                helperText="التقط صورة لافتة المتجر بالكاميرا أو استورد شعاره من الاستديو"
+                aspectRatio="wide"
+                presets={[
+                  { label: "مطاعم وشاورما", emoji: "🍔", url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60" },
+                  { label: "تموينات وسوبرماركت", emoji: "🛒", url: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500&auto=format&fit=crop&q=60" },
+                  { label: "خضار وفواكه طازجة", emoji: "🍎", url: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60" },
+                  { label: "حلويات ومخبوزات", emoji: "🍰", url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=60" },
+                  { label: "صيدلية وعناية", emoji: "💊", url: "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=500&auto=format&fit=crop&q=60" },
+                  { label: "قهوة ومشروبات", emoji: "☕", url: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=500&auto=format&fit=crop&q=60" }
+                ]}
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>

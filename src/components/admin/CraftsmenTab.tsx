@@ -250,8 +250,8 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
 
       {/* Add / Edit Craftsman Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right" dir="rtl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right my-auto" dir="rtl">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <Wrench className="w-5 h-5 text-orange-500" />

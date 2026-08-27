@@ -80,6 +80,9 @@ export interface UserProfile {
   phone: string;
   pin: string;
   storeId?: string;
+  staffId?: string;
+  role?: string;
+  permissions?: StaffPermission[];
 }
 
 export interface RegisteredCustomer {
@@ -146,16 +149,37 @@ export interface Coupon {
   isActive: boolean;
 }
 
+export type StaffRole = "manager" | "orders_clerk" | "accountant" | "support" | "products_specialist" | "custom";
+
+export type StaffPermission =
+  | "stats"
+  | "archive_reports"
+  | "vault"
+  | "customers"
+  | "orders"
+  | "stores"
+  | "products"
+  | "coupons"
+  | "drivers"
+  | "landmarks"
+  | "craftsmen"
+  | "staff"
+  | "logs"
+  | "settings"
+  | "share";
+
 export interface StaffMember {
   id: string;
   name: string;
-  role: "manager" | "orders_clerk" | "accountant" | "support";
+  role: StaffRole;
   pin: string;
   phone?: string;
   username?: string;
   password?: string;
+  permissions?: StaffPermission[];
   isActive?: boolean;
   createdAt?: string;
+  notes?: string;
 }
 
 export interface DriverMember {
@@ -203,4 +227,6 @@ export interface AppSettings {
   baseDeliveryFee: number;
   minOrderValue: number;
   activeRegions: string[];
+  adminPassword?: string;
+  adminPin?: string;
 }

@@ -15,6 +15,7 @@ import {
   Image as ImageIcon 
 } from "lucide-react";
 import { Category, Product, Store, StoreAddition, StoreSize } from "../../types";
+import { ImageUploader } from "../ImageUploader";
 
 interface ProductsTabProps {
   products: Product[];
@@ -303,8 +304,8 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
 
       {/* Add / Edit Product Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-xl w-full border border-slate-200 shadow-2xl space-y-4 text-right max-h-[90vh] overflow-y-auto" dir="rtl">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
+          <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-xl w-full border border-slate-200 shadow-2xl space-y-4 text-right my-auto" dir="rtl">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <Utensils className="w-5 h-5 text-orange-500" />
@@ -373,16 +374,22 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold mb-1 text-slate-700">رابط صورة المنتج (URL):</label>
-                <input
-                  type="url"
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-orange-500"
-                />
-              </div>
+              {/* Product Image Uploader (Studio & Camera, No URL) */}
+              <ImageUploader
+                value={image}
+                onChange={(val) => setImage(val)}
+                label="صورة الوجبة أو المنتج"
+                helperText="التقط صورة للوجبة بالكاميرا أو استورد صورتها من المعرض"
+                aspectRatio="wide"
+                presets={[
+                  { label: "شاورما عربي", emoji: "🌯", url: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&auto=format&fit=crop&q=60" },
+                  { label: "برغر وبطاطا", emoji: "🍔", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60" },
+                  { label: "بيتزا إيطالية", emoji: "🍕", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=60" },
+                  { label: "فروج مشوي", emoji: "🍗", url: "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=500&auto=format&fit=crop&q=60" },
+                  { label: "مشروبات وعصير", emoji: "🥤", url: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=60" },
+                  { label: "منتجات بقالية", emoji: "🧀", url: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60" }
+                ]}
+              />
 
               <div>
                 <label className="block font-bold mb-1 text-slate-700">الوصف والمكونات:</label>

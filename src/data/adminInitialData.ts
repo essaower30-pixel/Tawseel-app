@@ -64,10 +64,58 @@ export const initialCustomers: RegisteredCustomer[] = [
 ];
 
 export const initialStaff: StaffMember[] = [
-  { id: "staff_1", name: "المدير العام (أبو أحمد)", role: "manager", username: "admin_general", password: "admin_secret_1234", pin: "1234", phone: "0991234567", isActive: true, createdAt: "2025-01-01" },
-  { id: "staff_2", name: "أحمد علي (مسؤول الطلبات)", role: "orders_clerk", username: "orders_ahmed", password: "orders_pass_5555", pin: "5555", phone: "0992345678", isActive: true, createdAt: "2025-01-10" },
-  { id: "staff_3", name: "سامر كمال (المحاسب المالي)", role: "accountant", username: "accountant_samer", password: "finance_pass_7777", pin: "7777", phone: "0993456789", isActive: true, createdAt: "2025-01-15" },
-  { id: "staff_4", name: "مروان يوسف (موظف الدعم)", role: "support", username: "support_marwan", password: "support_pass_9999", pin: "9999", phone: "0994567890", isActive: true, createdAt: "2025-02-01" }
+  { 
+    id: "staff_1", 
+    name: "المدير العام (أبو أحمد)", 
+    role: "manager", 
+    username: "admin_general", 
+    password: "Admin@Tawseel2026#", 
+    pin: "1234", 
+    phone: "0991234567", 
+    permissions: ["stats", "archive_reports", "vault", "customers", "orders", "stores", "products", "coupons", "drivers", "landmarks", "craftsmen", "staff", "logs", "settings", "share"],
+    notes: "المدير العام للمنصة - صلاحيات تحكم مركزية كاملة",
+    isActive: true, 
+    createdAt: "2025-01-01" 
+  },
+  { 
+    id: "staff_2", 
+    name: "أحمد علي (مسؤول الطلبات)", 
+    role: "orders_clerk", 
+    username: "orders_ahmed", 
+    password: "orders_pass_5555", 
+    pin: "5555", 
+    phone: "0992345678", 
+    permissions: ["orders", "drivers", "customers", "landmarks", "archive_reports"],
+    notes: "متابعة الطلبات المباشرة وتوجيه الكباتن وحل استفسارات الزبائن",
+    isActive: true, 
+    createdAt: "2025-01-10" 
+  },
+  { 
+    id: "staff_3", 
+    name: "سامر كمال (المحاسب المالي)", 
+    role: "accountant", 
+    username: "accountant_samer", 
+    password: "finance_pass_7777", 
+    pin: "7777", 
+    phone: "0993456789", 
+    permissions: ["stats", "archive_reports", "logs", "customers"],
+    notes: "إدارة الحسابات والتقارير المالية ومستحقات المتاجر وأجور الكباتن",
+    isActive: true, 
+    createdAt: "2025-01-15" 
+  },
+  { 
+    id: "staff_4", 
+    name: "مروان يوسف (موظف الدعم)", 
+    role: "support", 
+    username: "support_marwan", 
+    password: "support_pass_9999", 
+    pin: "9999", 
+    phone: "0994567890", 
+    permissions: ["customers", "orders", "craftsmen", "landmarks"],
+    notes: "خدمة العملاء واستقبال المكالمات وإرشاد الزبائن والحرفيين",
+    isActive: true, 
+    createdAt: "2025-02-01" 
+  }
 ];
 
 export const initialDrivers: DriverMember[] = [
@@ -97,7 +145,9 @@ export const initialAppSettings: AppSettings = {
   currency: "ل.س",
   baseDeliveryFee: 5000,
   minOrderValue: 10000,
-  activeRegions: ["وسط البلد", "الحارة الشرقية", "الحارة الغربية", "حي المدارس", "طريق السهل", "منطقة المزارع"]
+  activeRegions: ["وسط البلد", "الحارة الشرقية", "الحارة الغربية", "حي المدارس", "طريق السهل", "منطقة المزارع"],
+  adminPassword: "Admin@Tawseel2026#",
+  adminPin: "1234"
 };
 
 export const initialOrders: Order[] = [

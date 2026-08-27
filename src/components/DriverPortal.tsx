@@ -15,10 +15,13 @@ import {
   Send,
   Navigation,
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
+import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
 
 interface DriverPortalProps {
   userProfile: UserProfile;
@@ -63,6 +66,16 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
     currentDriver.status || "available"
   );
   const [activeTab, setActiveTab] = useState<"my_orders" | "available_orders" | "history">("my_orders");
+  const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
+
+  const handleToggleSound = () => {
+    const next = !soundAlerts;
+    setSoundAlerts(next);
+    setSoundEnabled(next);
+    if (next) {
+      playOrderAlertSound("chime");
+    }
+  };
 
   const handleStatusChange = (newStatus: "available" | "busy" | "offline") => {
     setDriverStatus(newStatus);
@@ -124,6 +137,21 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Sound alert toggle button for driver */}
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className={`py-2 px-3.5 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                soundAlerts
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                  : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+              }`}
+              title="تفعيل/كتم صوت رنين الطلبات الجديدة المتاحة للتوصيل"
+            >
+              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+              <span>{soundAlerts ? "تنبيه الرنين مفعّل 🔔" : "الصوت مكتوم"}</span>
+            </button>
+
             {onBackToCustomerView && (
               <button
                 type="button"

@@ -82,8 +82,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onAddMapNode,
   onDeleteMapNode
 }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>("stats");
-
   // Persistent Emergency Rush Mode
   const [isEmergencyRush, setIsEmergencyRush] = useState<boolean>(() => {
     return localStorage.getItem("tw_emergency_rush") === "true";
@@ -106,8 +104,58 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
 
   const [currentStaff, setCurrentStaff] = useState<StaffMember | null>(() => {
+    const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
+    if (activeStaffId) {
+      const found = staffList.find(s => s.id === activeStaffId);
+      if (found) return found;
+    }
+    if (userProfile?.name) {
+      const foundByName = staffList.find(s => s.name === userProfile.name || s.pin === userProfile.pin);
+      if (foundByName) return foundByName;
+    }
     return staffList.find(s => s.role === "manager") || staffList[0] || null;
   });
+
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+    const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
+    let st: StaffMember | undefined;
+    if (activeStaffId) {
+      st = staffList.find(s => s.id === activeStaffId);
+    }
+    if (!st && userProfile?.name) {
+      st = staffList.find(s => s.name === userProfile.name || s.pin === userProfile.pin);
+    }
+    if (st && st.role !== "manager" && st.permissions && st.permissions.length > 0) {
+      return (st.permissions[0] as AdminTab) || "orders";
+    }
+    if (st?.role === "orders_clerk") return "orders";
+    if (st?.role === "accountant") return "archive_reports";
+    if (st?.role === "support") return "customers";
+    return "stats";
+  });
+
+  // Keep currentStaff in sync if userProfile changes
+  useEffect(() => {
+    const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
+    if (activeStaffId) {
+      const found = staffList.find(s => s.id === activeStaffId);
+      if (found && found.id !== currentStaff?.id) {
+        setCurrentStaff(found);
+      }
+    }
+  }, [userProfile, staffList]);
+
+  // Handler when staff switches in header
+  const handleSelectStaff = (st: StaffMember) => {
+    setCurrentStaff(st);
+    localStorage.setItem("tw_active_staff_id", st.id);
+    localStorage.setItem("tw_staff_role", st.role);
+    if (st.role !== "manager" && st.permissions && st.permissions.length > 0) {
+      if (!st.permissions.includes(activeTab as any)) {
+        setActiveTab((st.permissions[0] as AdminTab) || "orders");
+      }
+    }
+  };
 
   const handleAddStaff = (staff: StaffMember) => {
     const next = [...staffList, staff];
@@ -286,7 +334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onToggleEmergencyRush={handleToggleEmergencyRush}
         staffList={staffList}
         currentStaff={currentStaff}
-        onSelectStaff={setCurrentStaff}
+        onSelectStaff={handleSelectStaff}
         onLogout={onLogout}
       />
 
@@ -430,6 +478,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onAddCustomer={handleAddCustomer}
                 onUpdateCustomer={handleUpdateCustomer}
                 onDeleteCustomer={handleDeleteCustomer}
+                staffList={staffList}
+                onUpdateStaff={handleUpdateStaff}
                 auditLogs={auditLogs}
                 stores={stores}
                 onNavigateToTab={setActiveTab}

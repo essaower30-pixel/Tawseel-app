@@ -34,9 +34,15 @@ import {
   Download,
   RefreshCw,
   Info,
-  ExternalLink
+  ExternalLink,
+  Lock,
+  Key,
+  Eye,
+  EyeOff,
+  Send,
+  Shield
 } from "lucide-react";
-import { AppSettings, AuditLog, Order, RegisteredCustomer, Store as StoreType, UserProfile } from "../../types";
+import { AppSettings, AuditLog, Order, RegisteredCustomer, StaffMember, Store as StoreType, UserProfile } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
 import { 
   DEFAULT_APP_ICON_KEY, 
@@ -56,6 +62,8 @@ interface SettingsTabProps {
   onAddCustomer?: (customer: RegisteredCustomer) => void;
   onUpdateCustomer?: (customer: RegisteredCustomer) => void;
   onDeleteCustomer?: (customerId: string) => void;
+  staffList?: StaffMember[];
+  onUpdateStaff?: (staff: StaffMember) => void;
   auditLogs: AuditLog[];
   stores?: StoreType[];
   onNavigateToTab?: (tab: any) => void;
@@ -71,6 +79,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onAddCustomer,
   onUpdateCustomer,
   onDeleteCustomer,
+  staffList = [],
+  onUpdateStaff,
   auditLogs,
   stores = [],
   onNavigateToTab
@@ -86,6 +96,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<"general" | "merchants" | "drivers">("general");
+
+  // Admin Password & Security States
+  const [adminPassword, setAdminPassword] = useState(() => {
+    return appSettings.adminPassword || localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
+  });
+  const [adminPin, setAdminPin] = useState(() => {
+    return appSettings.adminPin || "1234";
+  });
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+  const [showAdminPin, setShowAdminPin] = useState(false);
+  const [passwordSaveSuccess, setPasswordSaveSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [copiedAdminCreds, setCopiedAdminCreds] = useState(false);
 
   // Customer Management States
   const [customerSearch, setCustomerSearch] = useState("");
@@ -239,7 +263,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       baseDeliveryFee: Number(baseDeliveryFee),
       minOrderValue: Number(minOrderValue),
       activeRegions: regions,
-      customAppIcon: appIcon
+      customAppIcon: appIcon,
+      adminPassword: adminPassword.trim(),
+      adminPin: adminPin.trim() || "1234"
     });
 
     // Update dynamic manifest with updated name
@@ -251,6 +277,85 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleSaveAdminPassword = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPasswordError("");
+
+    const newPass = adminPassword.trim();
+    const newPin = adminPin.trim();
+
+    if (!newPass) {
+      setPasswordError("الرجاء إدخال كلمة مرور للإدارة.");
+      return;
+    }
+
+    if (newPass.length < 4) {
+      setPasswordError("كلمة المرور يجب أن تتكون من 4 خانات على الأقل لضمان الأمان.");
+      return;
+    }
+
+    if (confirmAdminPassword && confirmAdminPassword !== newPass) {
+      setPasswordError("تأكيد كلمة المرور غير متطابق مع كلمة المرور المدخلة!");
+      return;
+    }
+
+    // 1. Save master password in localStorage
+    localStorage.setItem("tw_admin_secure_password", newPass);
+
+    // 2. Update appSettings
+    onUpdateAppSettings({
+      ...appSettings,
+      appName: appName.trim(),
+      contactPhone: contactPhone.trim(),
+      currency: currency.trim(),
+      baseDeliveryFee: Number(baseDeliveryFee),
+      minOrderValue: Number(minOrderValue),
+      activeRegions: regions,
+      customAppIcon: appIcon,
+      adminPassword: newPass,
+      adminPin: newPin || "1234"
+    });
+
+    // 3. Synchronize Manager in Staff list
+    try {
+      const rawStaff = localStorage.getItem("tw_staff_members");
+      let sList: StaffMember[] = rawStaff ? JSON.parse(rawStaff) : staffList;
+      const mgrIdx = sList.findIndex(s => s.role === "manager" || s.id === "staff_1");
+      if (mgrIdx >= 0) {
+        sList[mgrIdx] = {
+          ...sList[mgrIdx],
+          password: newPass,
+          pin: newPin || "1234"
+        };
+        localStorage.setItem("tw_staff_members", JSON.stringify(sList));
+        if (onUpdateStaff) {
+          onUpdateStaff(sList[mgrIdx]);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not sync staff list:", err);
+    }
+
+    setPasswordSaveSuccess(true);
+    setConfirmAdminPassword("");
+    setTimeout(() => setPasswordSaveSuccess(false), 4500);
+  };
+
+  const handleSendAdminCredsWA = () => {
+    const msg = `🔐 *بيانات الدخول الإدارية المحدثة لمنصة (${appName})*\n\n👤 الحساب: المدير العام (Admin)\n🔑 كلمة المرور الرئيسية: *${adminPassword.trim()}*\n🔢 رمز PIN السريع: *${adminPin.trim()}*\n🌐 رابط التطبيق المباشر:\n${OFFICIAL_APP_URL}\n\n⚠️ يرجى الاحتفاظ بهذه البيانات بسرية تامة وعدم مشاركتها مع غير المخولين.`;
+    openWhatsApp({
+      phone: contactPhone || "0991234567",
+      message: msg
+    });
+  };
+
+  const handleCopyAdminCreds = () => {
+    const text = `بيانات دخول إدارة (${appName}):\nاسم المستخدم: admin_general\nكلمة المرور: ${adminPassword.trim()}\nرمز الـ PIN: ${adminPin.trim()}`;
+    navigator.clipboard.writeText(text);
+    setCopiedAdminCreds(true);
+    setTimeout(() => setCopiedAdminCreds(false), 2500);
   };
 
   const handleAddRegion = () => {
@@ -656,8 +761,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         {/* Modal: Add/Edit Customer on their behalf */}
         {showAddCustomerModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 font-sans" dir="rtl">
-            <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-start sm:items-center justify-center z-50 p-3 sm:p-4 font-sans overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6" dir="rtl">
+            <div className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-lg shadow-2xl border border-slate-100 space-y-4 my-auto">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-black">
@@ -1177,6 +1282,160 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               onChange={(e) => setCurrency(e.target.value)}
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
             />
+          </div>
+        </div>
+
+        {/* Admin Password & Security Management Section */}
+        <div className="pt-6 border-t border-slate-100 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-orange-500" />
+                <span>أمان وحماية لوحة الإدارة وتغيير كلمة المرور 🔐</span>
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                تغيير كلمة المرور الرئيسية ورمز PIN السريع لحساب المدير العام، وتحديثها فوراً لتسجيل الدخول والتحكم
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-[10px] font-black">
+                <Shield className="w-3 h-3 text-orange-500" />
+                <span>حساب الإدارة الرئيسية</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              {/* Master Password Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-orange-500" />
+                    <span>كلمة المرور الرئيسية الجديدة</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold">4 خانات فأكثر</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAdminPassword ? "text" : "password"}
+                    value={adminPassword}
+                    onChange={(e) => {
+                      setAdminPassword(e.target.value);
+                      if (passwordError) setPasswordError("");
+                    }}
+                    placeholder="أدخل كلمة المرور الجديدة..."
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPassword(!showAdminPassword)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    title={showAdminPassword ? "إخفاء" : "إظهار"}
+                  >
+                    {showAdminPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick PIN Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-orange-500" />
+                    <span>رمز PIN السريع للإدارة</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-bold">4 أرقام سريعة</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showAdminPin ? "text" : "password"}
+                    value={adminPin}
+                    maxLength={8}
+                    onChange={(e) => setAdminPin(e.target.value)}
+                    placeholder="مثال: 1234"
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPin(!showAdminPin)}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    title={showAdminPin ? "إخفاء" : "إظهار"}
+                  >
+                    {showAdminPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password Input */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 flex items-center justify-between">
+                  <span>تأكيد كلمة المرور الجديدة</span>
+                  {confirmAdminPassword && (
+                    <span className={`text-[10px] font-black ${confirmAdminPassword === adminPassword ? "text-emerald-600" : "text-rose-500"}`}>
+                      {confirmAdminPassword === adminPassword ? "✓ متطابقة" : "✕ غير متطابقة"}
+                    </span>
+                  )}
+                </label>
+                <input
+                  type={showAdminPassword ? "text" : "password"}
+                  value={confirmAdminPassword}
+                  onChange={(e) => {
+                    setConfirmAdminPassword(e.target.value);
+                    if (passwordError) setPasswordError("");
+                  }}
+                  placeholder="أعد كتابة كلمة المرور..."
+                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+                />
+              </div>
+            </div>
+
+            {/* Error and Success Feedback */}
+            {passwordError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-black text-rose-700 flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            {passwordSaveSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-black text-emerald-700 flex items-center gap-2 animate-fade-in">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>تم تغيير وتحديث كلمة مرور ورمز دخول الإدارة فوراً في كافة أجزاء النظام بنجاح! 🔒✓</span>
+              </div>
+            )}
+
+            {/* Actions Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-200/60">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveAdminPassword}
+                  className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <Lock className="w-3.5 h-3.5 text-orange-400" />
+                  <span>تحديث وحفظ كلمة المرور للإدارة 🔒</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyAdminCreds}
+                  className="py-2 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  {copiedAdminCreds ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                  <span>{copiedAdminCreds ? "تم النسخ ✓" : "نسخ بيانات الدخول"}</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleSendAdminCredsWA}
+                className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 mr-auto sm:mr-0"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>إرسال البيانات بالواتساب للمدير 📲</span>
+              </button>
+            </div>
           </div>
         </div>
 

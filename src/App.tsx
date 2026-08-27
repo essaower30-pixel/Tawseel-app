@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ShoppingBag,
@@ -36,7 +36,11 @@ import {
   Compass,
   Smartphone,
   Phone,
-  Archive
+  Archive,
+  Volume2,
+  VolumeX,
+  Bell,
+  CheckCircle2
 } from "lucide-react";
 import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores } from "./data/initialData";
@@ -50,7 +54,21 @@ import { DriverPortal } from "./components/DriverPortal";
 import { StoreOwnerPortal } from "./components/StoreOwnerPortal";
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
+import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { openWhatsApp } from "./utils/whatsapp";
+import {
+  playOrderAlertSound,
+  isSoundEnabled,
+  setSoundEnabled,
+  showSystemNotification,
+  requestNotificationPermission,
+  getOrderBroadcastChannel,
+  broadcastNewOrder,
+  getSoundType,
+  setSoundType,
+  SoundType
+} from "./utils/soundNotifications";
+import { initHistoryProtection, handleAppBackButton } from "./utils/historyManager";
 
 // Category Icon Helper Component
 function CategoryIcon({ name, className }: { name: string; className?: string }) {
@@ -188,6 +206,183 @@ export default function App() {
     return localStorage.getItem("tw_emergency_rush") === "true";
   });
 
+  // Sound & Toast Notifications State
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => isSoundEnabled());
+  const [soundChoice, setSoundChoice] = useState<SoundType>(() => getSoundType());
+  const [showSoundModal, setShowSoundModal] = useState<boolean>(false);
+  const [hasNotifPermission, setHasNotifPermission] = useState<boolean>(() => 
+    typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
+  );
+
+  const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
+    const newToast: ToastItem = {
+      ...toast,
+      id: "toast-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+      createdAt: Date.now(),
+    };
+    setToasts((prev) => [newToast, ...prev.slice(0, 3)]); // Keep up to 4 toasts
+    
+    // Auto dismiss after 10 seconds
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+    }, 10000);
+  }, []);
+
+  const handleDismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const handleToggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabledState(next);
+    setSoundEnabled(next);
+    if (next) {
+      playOrderAlertSound(soundChoice);
+    }
+  };
+
+  const handleSelectSoundType = (type: SoundType) => {
+    setSoundChoice(type);
+    setSoundType(type);
+    playOrderAlertSound(type);
+  };
+
+  const handleRequestNotifPermission = async () => {
+    const granted = await requestNotificationPermission();
+    setHasNotifPermission(granted);
+    if (granted) {
+      showSystemNotification("تم تفعيل تنبيهات الطلبات 🔔", {
+        body: "ستتلقى إشعارات فورية عند وصول أي طلب جديد حتى عند إغلاق أو تصغير الشاشة."
+      });
+    }
+  };
+
+  const handleViewToastOrder = useCallback((order: Order) => {
+    if (isAdminMode || userRole === "admin") {
+      setIsAdminMode(true);
+      setIsDriverMode(false);
+      setSelectedStore(null);
+      setIsViewingCart(false);
+    } else if (isDriverMode || userRole === "driver") {
+      setIsDriverMode(true);
+      setIsAdminMode(false);
+      setSelectedStore(null);
+      setIsViewingCart(false);
+    } else if (currentStoreId) {
+      // already in merchant view
+    } else {
+      setActiveOrder(order);
+      setSelectedStore(null);
+      setIsViewingCart(false);
+    }
+  }, [isAdminMode, isDriverMode, userRole, currentStoreId]);
+
+  // Setup Back Button & PopState Protection to keep app running and handle navigation
+  useEffect(() => {
+    initHistoryProtection();
+
+    const onPopState = () => {
+      const hasOpenModal = showAuthModal || showCustomerArchiveModal || showAdminPinModal || showSoundModal;
+      const closeModal = () => {
+        setShowAuthModal(false);
+        setShowCustomerArchiveModal(false);
+        setShowAdminPinModal(false);
+        setShowSoundModal(false);
+      };
+
+      handleAppBackButton({
+        hasOpenModal,
+        closeModal,
+        isViewingCart,
+        closeCart: () => setIsViewingCart(false),
+        hasSelectedStore: !!selectedStore,
+        closeStore: () => setSelectedStore(null),
+        isAdminMode,
+        exitAdmin: () => setIsAdminMode(false),
+        isDriverMode,
+        exitDriver: () => setIsDriverMode(false),
+        currentStoreOwnerId: currentStoreId,
+        exitStoreOwner: () => setCurrentStoreId(null),
+      }, (msg) => {
+        addToastNotification({
+          order: { id: "tw-live", storeId: "", storeName: "توصيل القرية", items: [], subtotal: 0, deliveryFee: 0, total: 0, status: "pending", createdAt: new Date().toISOString(), customerName: "", customerPhone: "", addressLandmark: "" },
+          title: "التطبيق يعمل بنشاط 🔔",
+          message: msg,
+          type: "info"
+        });
+      });
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [
+    showAuthModal,
+    showCustomerArchiveModal,
+    showAdminPinModal,
+    showSoundModal,
+    isViewingCart,
+    selectedStore,
+    isAdminMode,
+    isDriverMode,
+    currentStoreId,
+    addToastNotification
+  ]);
+
+  // Real-time Cross-Window & Same-Window Order Broadcast Listener
+  useEffect(() => {
+    const handleOrderEvent = (order: Order) => {
+      // Play alert sound for admin, driver, or store owner
+      playOrderAlertSound();
+
+      // Show system notification
+      showSystemNotification(`طلب جديد #${order.id} 🔔`, {
+        body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
+      });
+
+      // Show in-app Toast
+      addToastNotification({
+        order,
+        title: "وصول طلب جديد إلى النظام! 🛍️",
+        message: `طلب #${order.id} وارد إلى (${order.storeName}) من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س`,
+        type: "new_order",
+        targetRole: "all"
+      });
+
+      // Update allOrders state if not already included
+      setAllOrders((prev) => {
+        if (prev.some((o) => o.id === order.id)) return prev;
+        return [order, ...prev];
+      });
+    };
+
+    // 1. Same-window custom event listener
+    const onCustomOrderEvent = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.order) {
+        handleOrderEvent(customEvent.detail.order);
+      }
+    };
+    window.addEventListener("tw_new_order_event", onCustomOrderEvent);
+
+    // 2. Cross-tab BroadcastChannel listener
+    const channel = getOrderBroadcastChannel();
+    if (channel) {
+      channel.onmessage = (event) => {
+        if (event.data && event.data.type === "NEW_ORDER" && event.data.order) {
+          handleOrderEvent(event.data.order);
+        }
+      };
+    }
+
+    return () => {
+      window.removeEventListener("tw_new_order_event", onCustomOrderEvent);
+      if (channel) {
+        channel.onmessage = null;
+      }
+    };
+  }, [addToastNotification]);
+
   // Auto-scroll to top on view changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -270,6 +465,21 @@ export default function App() {
           if (activeOrder && activeOrder.id === orderId) {
             setActiveOrder(updated);
           }
+          const statusLabels: Record<string, string> = {
+            accepted: "تم قبول الطلب وجارٍ التجهيز",
+            preparing: "الطلب قيد التجهيز الآن",
+            picked_up: "الكابتن استلم الطلب وهو في الطريق إليك 🛵",
+            delivered: "تم توصيل الطلب بنجاح ✅",
+            cancelled: "تم إلغاء الطلب ❌"
+          };
+          playOrderAlertSound("chime");
+          addToastNotification({
+            order: updated,
+            title: "تحديث حالة الطلب 📦",
+            message: `الطلب #${orderId}: ${statusLabels[status] || status}`,
+            type: "status_change",
+            targetRole: "all"
+          });
           return updated;
         }
         return o;
@@ -293,6 +503,19 @@ export default function App() {
           };
           if (activeOrder && activeOrder.id === orderId) {
             setActiveOrder(updated);
+          }
+          if (driver) {
+            playOrderAlertSound("chime");
+            addToastNotification({
+              order: updated,
+              title: "تم توجيه وتعيين كابتن للطلب 🛵",
+              message: `تم إسناد الطلب #${orderId} إلى الكابتن (${driver.name}) بنجاح`,
+              type: "driver_assigned",
+              targetRole: "all"
+            });
+            showSystemNotification(`تعيين كابتن للطلب #${orderId}`, {
+              body: `الكابتن ${driver.name} سيتولى توصيل الطلب إلى الزبون.`
+            });
           }
           return updated;
         }
@@ -407,6 +630,19 @@ export default function App() {
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
     setCartItems([]);
     setIsViewingCart(false);
+
+    // Play ringing alert sound & dispatch real-time notifications
+    playOrderAlertSound();
+    broadcastNewOrder(newOrder);
+    showSystemNotification(`طلب جديد #${newOrder.id} 🛍️`, {
+      body: `متجر: ${newOrder.storeName} | الزبون: ${newOrder.customerName} | الإجمالي: ${newOrder.total} ل.س`
+    });
+    addToastNotification({
+      order: newOrder,
+      title: "تم إرسال طلبكم بنجاح! 🛍️",
+      message: `طلب رقم #${newOrder.id} إلى (${newOrder.storeName}) بقيمة ${newOrder.total.toLocaleString()} ل.س`,
+      type: "new_order"
+    });
   };
 
   const handleCustomOrder = (customData: any) => {
@@ -429,6 +665,19 @@ export default function App() {
 
     setActiveOrder(newOrder);
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
+
+    // Play ringing alert sound & dispatch real-time notifications
+    playOrderAlertSound();
+    broadcastNewOrder(newOrder);
+    showSystemNotification(`طلب خاص جديد #${newOrder.id} 🔔`, {
+      body: `المرسل: ${newOrder.customerName} | ${newOrder.storeName}`
+    });
+    addToastNotification({
+      order: newOrder,
+      title: "تم إرسال الطلب المخصص بنجاح 📋",
+      message: `طلب #${newOrder.id} من الزبون ${newOrder.customerName}`,
+      type: "new_order"
+    });
   };
 
   const handleAuthSuccess = (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => {
@@ -533,10 +782,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-orange-500 selection:text-slate-950 pb-12" dir="rtl">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-800 flex flex-col items-center font-sans selection:bg-orange-500 selection:text-slate-950 pb-12" dir="rtl">
       {/* Top Application Header */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-4 px-4 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3 px-3 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
+        <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & Branding */}
           <div
             onClick={() => {
@@ -547,13 +796,13 @@ export default function App() {
                 setIsDriverMode(false);
               }
             }}
-            className="flex items-center gap-2.5 cursor-pointer"
+            className="flex items-center gap-2 sm:gap-2.5 cursor-pointer shrink-0"
           >
-            <div className="w-10 h-10 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800">
-              <Bike className="w-5.5 h-5.5 animate-bounce-slow" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-slate-900 text-orange-500 flex items-center justify-center shadow-md border border-slate-800 shrink-0">
+              <Bike className="w-5 h-5 sm:w-5.5 sm:h-5.5 animate-bounce-slow" />
             </div>
             <div>
-              <h1 className="font-extrabold text-slate-900 text-base sm:text-xl tracking-tight leading-none">
+              <h1 className="font-extrabold text-slate-900 text-sm sm:text-xl tracking-tight leading-none">
                 توصيل
               </h1>
               <p className="text-[9px] text-slate-400 font-bold leading-none mt-1 hidden xs:block">
@@ -563,7 +812,28 @@ export default function App() {
           </div>
 
           {/* Header Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap justify-end gap-1.5 sm:gap-3">
+            {/* Sound Notification quick toggle & settings button */}
+            <button
+              type="button"
+              onClick={() => setShowSoundModal(true)}
+              className={`py-2 px-2.5 sm:px-3 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap ${
+                soundEnabled
+                  ? "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800"
+                  : "border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-500"
+              }`}
+              title="إعدادات وتخصيص رنين وتنبيهات الطلبات"
+            >
+              {soundEnabled ? (
+                <Volume2 className="w-4 h-4 text-emerald-600 animate-pulse" />
+              ) : (
+                <VolumeX className="w-4 h-4 text-slate-400" />
+              )}
+              <span className="hidden md:inline">
+                {soundEnabled ? "صوت التنبيه مفعّل" : "الصوت مكتوم"}
+              </span>
+            </button>
+
             {activeOrder ? (
               <button
                 type="button"
@@ -579,7 +849,7 @@ export default function App() {
               </button>
             ) : (
               <>
-                {/* Login Button in Header (Always shows text 'تسجيل الدخول') */}
+                {/* Login Button in Header */}
                 <button
                   type="button"
                   onClick={() => setShowAuthModal(true)}
@@ -590,90 +860,7 @@ export default function App() {
                   <span>تسجيل الدخول</span>
                 </button>
 
-                {/* Admin Mode Switch Button */}
-                {userRole === "admin" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isAdminMode) {
-                        setIsAdminMode(false);
-                      } else {
-                        setAdminPinInput("");
-                        setAdminPinError("");
-                        setShowAdminPinModal(true);
-                      }
-                      setIsDriverMode(false);
-                      setSelectedStore(null);
-                      setIsViewingCart(false);
-                    }}
-                    className={`p-2.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-extrabold shadow-xs ${
-                      isAdminMode
-                        ? "bg-slate-900 border-slate-900 text-white"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
-                    title={isAdminMode ? "لوحة الزبون" : "لوحة المدير"}
-                  >
-                    <ShieldCheck className={`w-4 h-4 ${isAdminMode ? "text-orange-500 animate-pulse" : "text-orange-500"}`} />
-                    <span className="hidden xs:inline-block">
-                      {isAdminMode ? "لوحة الزبون" : "لوحة المدير"}
-                    </span>
-                  </button>
-                )}
-
-                {/* Driver Mode Switch Button */}
-                {userRole === "admin" && !isAdminMode && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDriverMode(!isDriverMode);
-                      setIsViewingCart(false);
-                      setSelectedStore(null);
-                    }}
-                    className={`p-2.5 sm:p-2 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 text-xs font-extrabold shadow-xs ${
-                      isDriverMode
-                        ? "bg-slate-900 border-slate-900 text-white"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
-                    }`}
-                    title={isDriverMode ? "لوحة الزبون" : "لوحة السائق"}
-                  >
-                    <Bike className={`w-4 h-4 ${isDriverMode ? "text-orange-500 animate-pulse" : "text-slate-500"}`} />
-                    <span className="hidden xs:inline-block">
-                      {isDriverMode ? "لوحة الزبون" : "لوحة السائق"}
-                    </span>
-                  </button>
-                )}
-
-                {/* Return to Driver Board if Driver */}
-                {userRole === "driver" && !isDriverMode && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDriverMode(true);
-                      setIsViewingCart(false);
-                      setSelectedStore(null);
-                    }}
-                    className="p-2.5 sm:p-2 rounded-xl border border-orange-500 bg-orange-500 text-white font-extrabold text-xs shadow-xs cursor-pointer flex items-center gap-1.5 hover:bg-orange-600 transition-all animate-pulse"
-                    title="العودة للوحة القيادة ومراقبة الطلبات"
-                  >
-                    <Bike className="w-4 h-4" />
-                    <span>العودة للوحة السائق 🏍️</span>
-                  </button>
-                )}
-
-                {/* Customer Orders Archive Button */}
-                {!isAdminMode && !isDriverMode && (
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomerArchiveModal(true)}
-                    className="p-2.5 sm:py-2 sm:px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 shadow-xs active:scale-95 whitespace-nowrap"
-                    title="أرشيف وسجل طلباتي السابقة"
-                  >
-                    <Archive className="w-4 h-4 text-orange-600" />
-                    <span className="hidden sm:inline-block">أرشيف طلباتي</span>
-                  </button>
-                )}
-
-                {/* Cart Button */}
+                {/* Cart Button (عربة التسوق) */}
                 {!isAdminMode && !isDriverMode && (
                   <button
                     type="button"
@@ -681,14 +868,15 @@ export default function App() {
                       setSelectedStore(null);
                       setIsViewingCart(true);
                     }}
-                    className={`relative p-2.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    className={`relative py-2 px-3 sm:px-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                       cartItems.length > 0
-                        ? "bg-orange-500 border-white text-white shadow-lg shadow-orange-500/15 font-extrabold text-xs px-2.5 sm:px-3.5"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-500/20 font-black text-xs"
+                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-black text-xs"
                     }`}
+                    title="عربة التسوق والطلبات"
                   >
-                    <ShoppingCart className="w-5 h-5" />
-                    <span className="hidden xs:inline-block">
+                    <ShoppingCart className="w-4 h-4 text-orange-600" />
+                    <span>
                       {cartItems.length > 0 ? `السلة (${totalCartCount})` : "السلة"}
                     </span>
                     {cartItems.length > 0 && (
@@ -698,8 +886,6 @@ export default function App() {
                     )}
                   </button>
                 )}
-
-
               </>
             )}
 
@@ -1281,13 +1467,13 @@ export default function App() {
       {/* Admin PIN Gate Modal with Smooth Animation */}
       <AnimatePresence>
         {showAdminPinModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" dir="rtl">
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6" dir="rtl">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               transition={{ duration: 0.2 }}
-              className="bg-white w-full max-w-sm rounded-3xl shadow-xl border border-slate-100 overflow-hidden"
+              className="bg-white w-full max-w-sm rounded-3xl shadow-xl border border-slate-100 overflow-hidden my-auto"
             >
               <div className="p-6 text-center space-y-4">
                 <div className="mx-auto w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center border border-orange-100 text-orange-500">
@@ -1416,6 +1602,161 @@ export default function App() {
           onClose={() => setShowAuthModal(false)}
         />
       )}
+
+      {/* Sound Settings & Notification Modal */}
+      {showSoundModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs" dir="rtl">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden text-right"
+          >
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 p-5 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
+                  <Volume2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                    إعدادات رنين وتنبيهات الطلبات
+                  </h3>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    تنبيهات فورية للمدير والمتاجر والكباتن
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSoundModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center text-sm font-black cursor-pointer transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Sound Toggle */}
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${soundEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-500"}`}>
+                    {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900">تشغيل الصوت عند الطلبات الجديدة</h4>
+                    <p className="text-[11px] text-slate-500">رنين فوري عند وصول طلب جديد</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleSound}
+                  className={`w-12 h-6.5 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 ease-in-out ${
+                    soundEnabled ? "bg-emerald-500 justify-end" : "bg-slate-300 justify-start"
+                  }`}
+                >
+                  <motion.div
+                    layout
+                    className="bg-white w-4.5 h-4.5 rounded-full shadow-md"
+                  />
+                </button>
+              </div>
+
+              {/* Sound Type Selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-black text-slate-700 block">
+                  اختر نغمة الرنين المناسبة:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: "ringtone", name: "رنين متجر كلاسيكي", icon: "🔔" },
+                    { id: "chime", name: "نغمة هادئة (Chime)", icon: "✨" },
+                    { id: "cashier", name: "جرس كاشير ومبيعات", icon: "💰" },
+                    { id: "urgent", name: "تنبيه سريع ومكرر", icon: "🚨" },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleSelectSoundType(s.id as SoundType)}
+                      className={`p-3 rounded-2xl border text-right transition-all cursor-pointer flex items-center justify-between text-xs font-black ${
+                        soundChoice === s.id
+                          ? "bg-orange-50 border-orange-400 text-orange-950 shadow-xs"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span>{s.icon}</span>
+                        <span>{s.name}</span>
+                      </span>
+                      {soundChoice === s.id && <CheckCircle2 className="w-4 h-4 text-orange-500 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Test Audio Button */}
+              <button
+                type="button"
+                onClick={() => playOrderAlertSound(soundChoice)}
+                className="w-full py-2.5 px-4 bg-orange-100 hover:bg-orange-200 text-orange-900 border border-orange-300/60 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Volume2 className="w-4 h-4" />
+                <span>تجربة صوت الرنين الآن 🔊</span>
+              </button>
+
+              {/* Browser Notification Permission */}
+              <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-blue-600" />
+                    <h4 className="text-xs font-black text-blue-900">إشعارات النظام المنبثقة</h4>
+                  </div>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                    hasNotifPermission ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                  }`}>
+                    {hasNotifPermission ? "مفعّلة ✅" : "غير مفعّلة"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-blue-800 leading-relaxed font-semibold">
+                  تفعيل الإشعارات يضمن وصول تنبيه برقم وتفاصيل الطلب حتى إذا تم تصغير المتصفح أو كان الهاتف مقفلاً.
+                </p>
+                {!hasNotifPermission && (
+                  <button
+                    type="button"
+                    onClick={handleRequestNotifPermission}
+                    className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs active:scale-95 flex items-center justify-center gap-1.5"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>تفعيل إشعارات المتصفح الآن</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Persistent Background note */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-[11px] text-slate-600 font-semibold leading-relaxed">
+                💡 <strong>استمرارية التنبيه:</strong> تم ضبط التطبيق بحيث يحافظ على استقبال الطلبات وتشغيل التنبيهات في الخلفية مع منع الإغلاق المفاجئ عند الضغط على زر الرجوع.
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowSoundModal(false)}
+                className="py-2.5 px-6 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                حفظ وإغلاق
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification Stack */}
+      <ToastNotification
+        toasts={toasts}
+        onDismiss={handleDismissToast}
+        onViewOrder={handleViewToastOrder}
+        currentRole={userRole}
+      />
     </div>
   );
 }

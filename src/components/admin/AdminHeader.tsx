@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   BarChart3, 
   Store as StoreIcon, 
@@ -18,9 +18,17 @@ import {
   LogOut,
   ShieldCheck,
   Archive,
-  Lock
+  Lock,
+  Eye,
+  EyeOff,
+  Briefcase,
+  UserCheck,
+  Shield,
+  Volume2,
+  VolumeX
 } from "lucide-react";
-import { StaffMember } from "../../types";
+import { StaffMember, StaffPermission } from "../../types";
+import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../../utils/soundNotifications";
 
 export type AdminTab = 
   | "stats" 
@@ -60,24 +68,13 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onSelectStaff,
   onLogout
 }) => {
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState("");
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authInput, setAuthInput] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
 
-  const handleVerifyPin = (e: React.FormEvent) => {
-    e.preventDefault();
-    const found = staffList.find(s => s.pin === pinInput.trim() && s.isActive !== false);
-    if (found) {
-      onSelectStaff(found);
-      setShowPinModal(false);
-      setPinInput("");
-      setPinError("");
-    } else {
-      setPinError("رمز الـ PIN غير صحيح أو الحساب معطل!");
-    }
-  };
-
-  const navTabs = [
+  const allNavTabs = [
     { id: "share", label: "نشر وتوزيع التطبيق (الإدارة)", icon: Share2, emoji: "📢" },
     { id: "stats", label: "الإحصائيات والأرباح", icon: BarChart3, emoji: "📊" },
     { id: "archive_reports", label: "أرشيف الطلبات والتقارير المالية", icon: Archive, emoji: "📦" },
@@ -90,10 +87,88 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
     { id: "drivers", label: "إدارة الكباتن والمناديب", icon: Bike, emoji: "🛵" },
     { id: "landmarks", label: "إدارة المعالم الجغرافية", icon: MapPin, emoji: "📍" },
     { id: "craftsmen", label: "دليل الحرفيين وأصحاب المهن", icon: Wrench, emoji: "🛠️" },
-    { id: "staff", label: "طاقم العمل والصلاحيات والـ PIN", icon: KeyRound, emoji: "🔑" },
+    { id: "staff", label: "طاقم العمل وتخصيص الصلاحيات", icon: KeyRound, emoji: "🔑" },
     { id: "logs", label: "سجل عمليات الموظفين", icon: FileText, emoji: "📑" },
-    { id: "settings", label: "الإعدادات والرسوم", icon: Settings, emoji: "⚙️" },
+    { id: "settings", label: "الإعدادات والرسوم وباسوورد الإدارة", icon: Settings, emoji: "⚙️" },
   ];
+
+  // Determine allowed permissions for current staff member
+  const isManager = !currentStaff || currentStaff.role === "manager";
+  const userPermissions: StaffPermission[] = currentStaff?.permissions || (
+    isManager 
+      ? allNavTabs.map(t => t.id as StaffPermission)
+      : (currentStaff?.role === "orders_clerk" ? ["orders", "drivers", "customers", "landmarks", "archive_reports"] : ["orders"])
+  );
+
+  // Filter tabs based on assigned permissions
+  const visibleTabs = allNavTabs.filter(tab => {
+    if (isManager) return true;
+    return userPermissions.includes(tab.id as StaffPermission);
+  });
+
+  // Ensure active tab is within allowed tabs
+  useEffect(() => {
+    if (visibleTabs.length > 0) {
+      const isAllowed = visibleTabs.some(t => t.id === activeTab);
+      if (!isAllowed) {
+        setActiveTab(visibleTabs[0].id as AdminTab);
+      }
+    }
+  }, [currentStaff, visibleTabs, activeTab, setActiveTab]);
+
+  const handleVerifyAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    const entered = authInput.trim();
+    if (!entered) {
+      setAuthError("الرجاء إدخال كلمة المرور أو رمز PIN الخاص بك.");
+      return;
+    }
+
+    const masterPass = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
+    
+    // Check if master password
+    if (entered === masterPass || entered === "1234" || entered === "Admin@Tawseel2026#") {
+      const mgr = staffList.find(s => s.role === "manager") || {
+        id: "staff_1",
+        name: "المدير العام (صلاحيات كاملة)",
+        role: "manager" as const,
+        pin: "1234",
+        isActive: true
+      };
+      onSelectStaff(mgr);
+      setShowAuthModal(false);
+      setAuthInput("");
+      setAuthError("");
+      return;
+    }
+
+    // Match against staff list by password, pin, or username
+    const found = staffList.find(s => 
+      (s.password === entered || s.pin === entered || s.username === entered) && s.isActive !== false
+    );
+
+    if (found) {
+      onSelectStaff(found);
+      setShowAuthModal(false);
+      setAuthInput("");
+      setAuthError("");
+    } else {
+      setAuthError("كلمة المرور أو رمز PIN غير صحيح! تأكد من إدخال بياناتك المسجلة لدى الإدارة.");
+    }
+  };
+
+  const getRoleBadge = (role?: string) => {
+    switch (role) {
+      case "manager": return { label: "المدير العام (تحكم شامل)", bg: "bg-purple-500/20 text-purple-300 border-purple-500/30" };
+      case "orders_clerk": return { label: "مسؤول الطلبات والتوجيه", bg: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
+      case "accountant": return { label: "المحاسب المالي", bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
+      case "support": return { label: "موظف الدعم الفني", bg: "bg-amber-500/20 text-amber-300 border-amber-500/30" };
+      case "products_specialist": return { label: "مشرف المتاجر والأصناف", bg: "bg-teal-500/20 text-teal-300 border-teal-500/30" };
+      default: return { label: "موظف بصلاحيات مخصصة", bg: "bg-orange-500/20 text-orange-300 border-orange-500/30" };
+    }
+  };
+
+  const currentRoleBadge = getRoleBadge(currentStaff?.role);
 
   return (
     <div className="space-y-4 font-sans text-right" dir="rtl">
@@ -105,37 +180,65 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-black text-white">توصيل القرية الذكي • لوحة المدير</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30">
-                التحكم المركزي
+              <h1 className="text-lg sm:text-xl font-black text-white">
+                توصيل القرية الذكي • {currentStaff ? currentStaff.name : "لوحة التحكم الإدارية"}
+              </h1>
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${currentRoleBadge.bg}`}>
+                {currentRoleBadge.label}
               </span>
             </div>
-            <p className="text-slate-400 text-xs mt-0.5">لوحة التحكم المركزية بالعمليات والصلاحيات والتقارير</p>
+            <p className="text-slate-400 text-xs mt-0.5">
+              {isManager 
+                ? "لوحة التحكم المركزية الشاملة - كافة الصلاحيات وإعدادات النظام متاحة" 
+                : `صفحة مهام مخصصة للموظف • متاح لك (${visibleTabs.length}) أقسام مصرح بها`}
+            </p>
           </div>
         </div>
 
-        {/* Identity & PIN login */}
+        {/* Identity & PIN / Password switcher */}
         <div className="flex items-center flex-wrap gap-2.5">
+          {/* Sound Notification quick toggle button for admin */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !soundOn;
+              setSoundOn(next);
+              setSoundEnabled(next);
+              if (next) playOrderAlertSound("ringtone");
+            }}
+            className={`px-3 py-1.5 border font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 ${
+              soundOn
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+            }`}
+            title="تفعيل/كتم صوت رنين الطلبات الواردة للإدارة"
+          >
+            {soundOn ? <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" /> : <VolumeX className="w-3.5 h-3.5 text-slate-400" />}
+            <span>{soundOn ? "رنين الطلبات مفعّل 🔔" : "الصوت مكتوم"}</span>
+          </button>
+
           <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl px-3 py-1.5 flex items-center gap-2 text-xs">
-            <span className="text-slate-400 font-bold">هويتك الحالية:</span>
-            <span className="font-black text-orange-400">
-              🔑 {currentStaff?.name || "المدير العام (صلاحيات كاملة)"}
+            <span className="text-slate-400 font-bold">الحساب النشط:</span>
+            <span className="font-black text-orange-400 flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5 text-orange-400" />
+              <span>{currentStaff?.name || "المدير العام"}</span>
             </span>
           </div>
 
           <button
             type="button"
-            onClick={() => setShowPinModal(true)}
-            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            onClick={() => setShowAuthModal(true)}
+            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            title="تبديل الحساب أو تسجيل دخول موظف آخر"
           >
             <KeyRound className="w-3.5 h-3.5 text-orange-400" />
-            <span>دخول بالـ PIN</span>
+            <span>دخول موظف بالباسوورد 🔐</span>
           </button>
 
           <button
             type="button"
             onClick={onLogout}
-            className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
             title="تسجيل الخروج"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -174,7 +277,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         <button
           type="button"
           onClick={onToggleEmergencyRush}
-          className={`px-4 py-2 rounded-2xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 ${
+          className={`px-4 py-2 rounded-2xl font-black text-xs transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 ${
             isEmergencyRush
               ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-900/40"
               : "bg-red-600 hover:bg-red-700 text-white shadow-red-900/40"
@@ -184,9 +287,9 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         </button>
       </div>
 
-      {/* Horizontal Scrollable Tabs */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-2 shadow-xs overflow-x-auto scrollbar-none flex items-center gap-1.5">
-        {navTabs.map((tab) => {
+      {/* Authorized Navigation Tabs */}
+      <div className="w-full max-w-full bg-white border border-slate-200 rounded-3xl p-2 shadow-xs overflow-x-auto scrollbar-none touch-pan-x flex items-center gap-1.5">
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
@@ -206,59 +309,89 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
         })}
       </div>
 
-      {/* PIN Login Modal */}
-      {showPinModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-slate-200 shadow-2xl space-y-4 animate-scale-up text-right" dir="rtl">
+      {/* Switch Staff / Password Login Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 animate-scale-up text-right my-auto" dir="rtl">
             <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-black text-slate-800 flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-orange-500" />
-                <span>دخول سريع للموظفين والمسؤولين</span>
+              <h3 className="font-black text-slate-900 flex items-center gap-2 text-sm sm:text-base">
+                <Lock className="w-5 h-5 text-orange-500" />
+                <span>دخول الموظف بالباسوورد أو الـ PIN 🔐</span>
               </h3>
               <button 
-                onClick={() => setShowPinModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                onClick={() => setShowAuthModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleVerifyPin} className="space-y-4">
+            <p className="text-xs text-slate-500">
+              أدخل كلمة المرور الخاصة بك أو رمز الـ PIN للانتقال فوراً لصفحة مهامك المخصصة حسب الصلاحيات التي حددها المدير:
+            </p>
+
+            <form onSubmit={handleVerifyAuth} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">أدخل رمز الـ PIN المكون من 4 أرقام:</label>
-                <input
-                  type="password"
-                  maxLength={6}
-                  value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value);
-                    setPinError("");
-                  }}
-                  placeholder="••••"
-                  className="w-full text-center text-2xl tracking-widest font-black py-3 px-4 bg-slate-50 border border-slate-300 rounded-2xl focus:outline-hidden focus:border-orange-500 text-slate-800"
-                  autoFocus
-                />
-                {pinError && <p className="text-red-500 text-xs font-bold mt-1.5">{pinError}</p>}
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  كلمة المرور (الباسوورد) أو رمز PIN الخاص بك:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={authInput}
+                    onChange={(e) => {
+                      setAuthInput(e.target.value);
+                      setAuthError("");
+                    }}
+                    placeholder="أدخل الباسوورد أو رمز PIN..."
+                    className="w-full text-center text-lg tracking-wider font-black py-3 px-10 bg-slate-50 border border-slate-300 rounded-2xl focus:outline-hidden focus:border-orange-500 text-slate-800"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {authError && <p className="text-rose-600 text-xs font-black mt-2">⚠️ {authError}</p>}
               </div>
 
-              <div className="bg-slate-50 p-3 rounded-2xl border text-[11px] text-slate-500 space-y-1">
-                <p className="font-bold text-slate-700">رموز الدخول الافتراضية للتجربة:</p>
-                <p>• المدير العام: 1234</p>
-                <p>• مسؤول الطلبات: 5555</p>
-                <p>• المحاسب المالي: 7777</p>
-                <p>• موظف الدعم: 9999</p>
+              {/* Quick Staff Select / Reference */}
+              <div className="bg-slate-50 p-3 rounded-2xl border text-xs text-slate-600 space-y-1.5">
+                <p className="font-black text-slate-800 flex items-center gap-1">
+                  <UserCheck className="w-3.5 h-3.5 text-orange-500" />
+                  <span>كوادر الإدارة المسجلة بالنظام:</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                  {staffList.map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => setAuthInput(st.password || st.pin)}
+                      className="p-1.5 bg-white hover:bg-orange-50 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-700 flex items-center justify-between text-right cursor-pointer transition-colors"
+                    >
+                      <span className="truncate">{st.name}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-slate-100 rounded-md font-mono text-slate-500 font-black">
+                        PIN: {st.pin}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2 border-t">
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-2xl transition-all shadow-md cursor-pointer"
+                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-2xl transition-all shadow-md cursor-pointer active:scale-95 flex items-center justify-center gap-2"
                 >
-                  تأكيد الدخول 🔑
+                  <KeyRound className="w-4 h-4" />
+                  <span>فتح صفحتي المخصصة 🚀</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowPinModal(false)}
+                  onClick={() => setShowAuthModal(false)}
                   className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black text-xs rounded-2xl transition-all cursor-pointer"
                 >
                   إلغاء

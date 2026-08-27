@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { User, Store as StoreIcon, Bike, Key, ShieldCheck, Download, Eye, EyeOff, X, ArrowRight, MessageCircle } from "lucide-react";
 import { Store, UserProfile, DriverMember } from "../types";
-import { initialDrivers } from "../data/adminInitialData";
+import { initialDrivers, initialStaff } from "../data/adminInitialData";
 
 interface AuthModalProps {
   onRegister: (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => void;
@@ -301,9 +301,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     try {
       const raw = localStorage.getItem("tw_staff_members");
       if (raw) staffMembers = JSON.parse(raw);
-    } catch (err) {}
+      else staffMembers = initialStaff;
+    } catch (err) {
+      staffMembers = initialStaff;
+    }
 
-    const matchedStaff = staffMembers.find((s: any) => s.pin === entered || s.password === entered);
+    const matchedStaff = staffMembers.find((s: any) => 
+      s.pin === entered || s.password === entered || s.username === entered
+    );
 
     if (
       entered === masterAdminPassword ||
@@ -311,25 +316,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       legacyAdminPins.includes(entered) ||
       (matchedStaff && matchedStaff.role === "manager")
     ) {
-      let adminName = "المدير العام";
-      if (matchedStaff) adminName = matchedStaff.name;
-      else if (entered === "1111") adminName = "المدير العام";
-      else if (entered === "2222") adminName = "أم عبده (مسؤول الطلبات)";
-      else if (entered === "3333") adminName = "أبو سمير (المحاسب المالي)";
-      else if (entered === "4444") adminName = "أبو جودة (موظف الدعم)";
+      let adminName = "المدير العام (أبو أحمد)";
+      let staffId = "staff_1";
+      if (matchedStaff) {
+        adminName = matchedStaff.name;
+        staffId = matchedStaff.id;
+      }
 
-      setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم تأكيد الصلاحيات الإدارية!`);
+      localStorage.setItem("tw_active_staff_id", staffId);
+      localStorage.setItem("tw_staff_role", "manager");
+
+      setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم تأكيد الصلاحيات الإدارية الكاملة!`);
       setIsSuccess(true);
       setFailedAttempts(0);
       setTimeout(() => {
-        onRegister({ name: adminName, phone: "0933111222", pin: entered }, "admin");
+        onRegister({ 
+          name: adminName, 
+          phone: matchedStaff?.phone || "0991234567", 
+          pin: matchedStaff?.pin || entered,
+          staffId: staffId,
+          role: "manager"
+        }, "admin");
       }, 700);
     } else if (matchedStaff) {
-      setSuccessMsg(`أهلاً بك يا ${matchedStaff.name}. تم تسجيل الدخول بنجاح!`);
+      localStorage.setItem("tw_active_staff_id", matchedStaff.id);
+      localStorage.setItem("tw_staff_role", matchedStaff.role);
+
+      setSuccessMsg(`أهلاً بك يا ${matchedStaff.name}. جاري فتح صفحتك المخصصة حسب الصلاحيات...`);
       setIsSuccess(true);
       setFailedAttempts(0);
       setTimeout(() => {
-        onRegister({ name: matchedStaff.name, phone: matchedStaff.phone || "0933111222", pin: entered }, "admin");
+        onRegister({ 
+          name: matchedStaff.name, 
+          phone: matchedStaff.phone || "0991234567", 
+          pin: matchedStaff.pin || entered,
+          staffId: matchedStaff.id,
+          role: matchedStaff.role,
+          permissions: matchedStaff.permissions
+        }, "admin");
       }, 700);
     } else {
       const nextFail = failedAttempts + 1;

@@ -19,11 +19,14 @@ import {
   Send,
   Printer,
   Calendar,
-  DollarSign
+  DollarSign,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category } from "../types";
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
+import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
 
 interface StoreOwnerPortalProps {
   storeId: string;
@@ -74,6 +77,16 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [activeTab, setActiveTab] = useState<"orders" | "products" | "archive">("orders");
   const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
+  const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
+
+  const handleToggleSound = () => {
+    const next = !soundAlerts;
+    setSoundAlerts(next);
+    setSoundEnabled(next);
+    if (next) {
+      playOrderAlertSound("ringtone");
+    }
+  };
 
   const handleToggleStoreStatus = () => {
     const nextStatus = isOpen ? "closed" : "open";
@@ -158,6 +171,21 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Sound alert toggle for store orders */}
+            <button
+              type="button"
+              onClick={handleToggleSound}
+              className={`py-2 px-3.5 rounded-xl border text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                soundAlerts
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                  : "bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700"
+              }`}
+              title="تفعيل/كتم صوت رنين الطلبات الواردة للمتجر"
+            >
+              {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+              <span>{soundAlerts ? "رنين الطلبات مفعّل 🔔" : "الصوت مكتوم"}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleToggleStoreStatus}
