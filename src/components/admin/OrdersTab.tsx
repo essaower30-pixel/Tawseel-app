@@ -15,6 +15,7 @@ import {
   Pill,
   Camera,
   ZoomIn,
+  ShoppingBag,
   X
 } from "lucide-react";
 import { DriverMember, Order } from "../../types";
@@ -237,7 +238,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                     )}
 
                     {/* Prescription Details */}
-                    {(order.prescriptionImage || order.prescriptionNotes || order.customOrderText) && (
+                    {(order.prescriptionImage || order.prescriptionNotes) && (
                       <div className="mt-2 pt-2 border-t border-emerald-200 bg-emerald-50/70 p-2 rounded-xl space-y-1.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="font-black text-emerald-950 flex items-center gap-1 text-[11px]">
@@ -262,12 +263,6 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                           </p>
                         )}
 
-                        {order.customOrderText && !order.prescriptionNotes && (
-                          <p className="text-slate-700 text-[11px] font-medium bg-white p-1.5 rounded-lg border border-emerald-100">
-                            {order.customOrderText}
-                          </p>
-                        )}
-
                         {order.prescriptionImage && (
                           <div 
                             onClick={() => setZoomedImage(order.prescriptionImage || null)}
@@ -280,6 +275,57 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
                               🔍 اضغط للتكبير
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Custom Store Order Details */}
+                    {(order.isCustomStoreOrder || (order.customOrderText && !order.prescriptionNotes) || order.customOrderImage) && (
+                      <div className="mt-2 pt-2 border-t border-orange-200 bg-orange-50/70 p-2 rounded-xl space-y-1.5 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-orange-950 flex items-center gap-1 text-[11px]">
+                            <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
+                            <span>طلب خاص / منتجات خارجية</span>
+                          </span>
+                          {order.customOrderImage && (
+                            <button
+                              type="button"
+                              onClick={() => setZoomedImage(order.customOrderImage || null)}
+                              className="text-[10px] font-black bg-orange-600 text-white px-2 py-0.5 rounded-md hover:bg-orange-700 cursor-pointer flex items-center gap-1"
+                            >
+                              <ZoomIn className="w-3 h-3" />
+                              <span>تكبير الصورة</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {order.customOrderText && (
+                          <div className="bg-white p-2 rounded-lg border border-orange-200 text-slate-800 text-[11px] font-semibold whitespace-pre-line">
+                            {order.customOrderText}
+                          </div>
+                        )}
+
+                        {order.estimatedBudget && (
+                          <div className="text-[10px] font-bold text-slate-700 bg-white/80 p-1.5 rounded border border-orange-100 flex items-center justify-between">
+                            <span>الميزانية المقترحة:</span>
+                            <span className="font-mono text-emerald-700 font-black">{order.estimatedBudget.toLocaleString()} ل.س</span>
+                          </div>
+                        )}
+
+                        {order.customOrderImage && (
+                          <div 
+                            onClick={() => setZoomedImage(order.customOrderImage || null)}
+                            className="relative rounded-lg overflow-hidden border border-orange-300 bg-slate-900 h-24 cursor-pointer group"
+                          >
+                            <img
+                              src={order.customOrderImage}
+                              alt="صورة الطلب الخاص"
+                              className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                              🔍 اضغط للتكبير (ورقة الطلب)
                             </div>
                           </div>
                         )}

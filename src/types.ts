@@ -130,6 +130,9 @@ export interface Order {
   notes?: string;
   paymentMethod?: "cash" | "electronic";
   customOrderText?: string;
+  customOrderImage?: string;
+  estimatedBudget?: number;
+  isCustomStoreOrder?: boolean;
   prescriptionImage?: string;
   prescriptionNotes?: string;
   isServiceOrder?: boolean;

@@ -54,6 +54,7 @@ import { DriverPortal } from "./components/DriverPortal";
 import { StoreOwnerPortal } from "./components/StoreOwnerPortal";
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
+import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { openWhatsApp } from "./utils/whatsapp";
 import {
@@ -243,6 +244,7 @@ export default function App() {
   const [hasNewUpdate, setHasNewUpdate] = useState<boolean>(() => hasPendingUpdate());
   const [currentAppUpdate, setCurrentAppUpdate] = useState<AppUpdateInfo>(() => getLatestUpdate());
   const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
+  const [showHomeCustomOrderModal, setShowHomeCustomOrderModal] = useState<boolean>(false);
 
   useEffect(() => {
     const checkUpdates = () => {
@@ -1581,6 +1583,35 @@ export default function App() {
               </div>
             </div>
 
+            {/* Custom Store Order Quick Home Banner */}
+            <div 
+              onClick={() => setShowHomeCustomOrderModal(true)}
+              className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-orange-500/20 cursor-pointer hover:opacity-95 transition-all flex flex-col sm:flex-row items-center justify-between gap-3 text-right group active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0 shadow-inner">
+                  🛍️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-white/25 text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase">
+                      ميزة جديدة ✍️
+                    </span>
+                    <h3 className="font-black text-sm sm:text-base">طلب خاص من أي متجر (منتجات غير معروضة)</h3>
+                  </div>
+                  <p className="text-white/90 text-xs font-semibold mt-1">
+                    اختر أي متجر في بلدتك واكتب مقاضيك أو صوّر ورقة الطلبات بالكاميرا ليحضرها لك فوراً!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="w-full sm:w-auto bg-white text-orange-600 hover:bg-orange-50 font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer shrink-0 pointer-events-none"
+              >
+                ابدأ الطلب الخاص الآن 🚀
+              </button>
+            </div>
+
             {/* 4. Categories Selector */}
             <div className="space-y-3">
               <div className="flex items-center justify-between text-right">
@@ -2180,6 +2211,17 @@ export default function App() {
           onApplyUpdate={handleApplyUpdate}
         />
       )}
+
+      {/* Global Custom Store Order Modal (من الصفحة الرئيسية) */}
+      <CustomStoreOrderModal
+        isOpen={showHomeCustomOrderModal}
+        onClose={() => setShowHomeCustomOrderModal(false)}
+        stores={stores}
+        userProfile={userProfile}
+        landmarks={mapNodes.map((n) => n.name).length > 0 ? mapNodes.map((n) => n.name) : ["وسط البلد", "الحي الغربي", "الحي الشرقي", "قرب المسجد الكبير", "طريق المدرسة", "مفرق المزارع"]}
+        currentLandmark={selectedLandmark}
+        onSubmit={handleCustomOrder}
+      />
 
       {/* Floating Toast Notification Stack */}
       <ToastNotification

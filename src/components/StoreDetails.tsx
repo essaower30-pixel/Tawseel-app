@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, Sparkles, Send, MessageSquare, Pill, Stethoscope } from "lucide-react";
+import { ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, Sparkles, Send, MessageSquare, Pill, Stethoscope, ShoppingBag, Edit3 } from "lucide-react";
 import { CartItem, Product, Store, StoreAddition, StoreSize, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
 import { PrescriptionModal } from "./PrescriptionModal";
+import { CustomStoreOrderModal } from "./CustomStoreOrderModal";
 
 interface StoreDetailsProps {
   store: Store;
@@ -35,6 +36,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   // Special Modals
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [showCustomOrderModal, setShowCustomOrderModal] = useState(false);
 
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceName, setServiceName] = useState(customerUser?.name || "");
@@ -224,6 +226,31 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         </div>
       )}
 
+      {/* CUSTOM STORE ORDER BANNER (For all stores) */}
+      <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-sm">
+            🛍️
+          </div>
+          <div>
+            <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+              لم تجد ما تبحث عنه في القائمة؟ طلب مخصص من ({store.name})
+            </h4>
+            <p className="text-slate-600 text-[11px] font-semibold mt-0.5">
+              اكتب طلبك الخاص أو صوّر ورقة المقاضي / المنتج بالكاميرا وسيحضرها لك المتجر فوراً!
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCustomOrderModal(true)}
+          className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-md shadow-orange-600/20 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>طلب خاص من هذا المتجر ✍️</span>
+        </button>
+      </div>
+
       {isServiceStore && (
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
           <div>
@@ -256,10 +283,20 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
       {/* Products Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {storeProducts.length === 0 ? (
-          <div className="col-span-full bg-white rounded-3xl p-10 text-center border border-slate-200/80 space-y-2">
-            <p className="text-3xl">📦</p>
-            <h4 className="font-extrabold text-slate-700 text-sm">لا توجد منتجات مطابقة في هذا المتجر</h4>
-            <p className="text-slate-400 text-xs">جرب البحث بكلمات أخرى أو تصفح المتاجر الأخرى.</p>
+          <div className="col-span-full bg-white rounded-3xl p-8 sm:p-10 text-center border border-slate-200/80 space-y-3">
+            <p className="text-4xl">📦</p>
+            <h4 className="font-extrabold text-slate-800 text-sm sm:text-base">لم نعثر على هذا الصنف في القائمة</h4>
+            <p className="text-slate-500 text-xs max-w-md mx-auto">
+              لا تقلق! يمكنك إرسال اسم المنتج أو وصفه كطلب خاص وسيقوم متجر ({store.name}) بتأمينه لك فوراً.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowCustomOrderModal(true)}
+              className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs py-2.5 px-6 rounded-2xl shadow-sm cursor-pointer transition-all active:scale-95"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>طلب هذا المنتج بالاسم / بالصورة 🛍️</span>
+            </button>
           </div>
         ) : (
           storeProducts.map((product) => {
@@ -497,6 +534,22 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         stores={[store]}
         defaultStoreId={store.id}
         defaultStoreCategory={store.category}
+        userProfile={customerUser}
+        landmarks={["وسط البلد", "الحي الغربي", "الحي الشرقي", "قرب المسجد الكبير", "طريق المدرسة", "مفرق المزارع"]}
+        currentLandmark="وسط البلد"
+        onSubmit={(orderData) => {
+          if (onSubmitCustomOrder) {
+            onSubmitCustomOrder(orderData);
+          }
+        }}
+      />
+
+      {/* Custom Store Order Modal */}
+      <CustomStoreOrderModal
+        isOpen={showCustomOrderModal}
+        onClose={() => setShowCustomOrderModal(false)}
+        stores={[store]}
+        defaultStoreId={store.id}
         userProfile={customerUser}
         landmarks={["وسط البلد", "الحي الغربي", "الحي الشرقي", "قرب المسجد الكبير", "طريق المدرسة", "مفرق المزارع"]}
         currentLandmark="وسط البلد"

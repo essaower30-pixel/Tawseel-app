@@ -342,7 +342,7 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
         </div>
 
         {/* Medical Prescription & Doctor Notes Section */}
-        {(order.prescriptionImage || order.prescriptionNotes || order.customOrderText) && (
+        {(order.prescriptionImage || order.prescriptionNotes) && (
           <div className="bg-emerald-50/80 border-2 border-emerald-200 rounded-3xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -369,13 +369,6 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
               </div>
             )}
 
-            {order.customOrderText && !order.prescriptionNotes && (
-              <div className="bg-white p-3.5 rounded-2xl border border-emerald-200 text-xs text-slate-700 leading-relaxed font-semibold">
-                <span className="text-[10px] text-emerald-800 font-black block mb-1">تفاصيل الطلب:</span>
-                {order.customOrderText}
-              </div>
-            )}
-
             {order.prescriptionImage && (
               <div className="space-y-2 pt-1">
                 <span className="text-[11px] font-black text-emerald-900 block">صورة الراشيتة الطبية:</span>
@@ -391,6 +384,66 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-black">
                     <ZoomIn className="w-4 h-4" />
                     <span>اضغط لتكبير وقراءة الراشيتة</span>
+                  </div>
+                  <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-xs">
+                    🔍 تكبير
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Custom Store Order Section (قائمة المقاضي أو صورة الورقة) */}
+        {(order.isCustomStoreOrder || (order.customOrderText && !order.prescriptionNotes) || order.customOrderImage) && (
+          <div className="bg-orange-50/80 border-2 border-orange-200 rounded-3xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center font-black">
+                  🛍️
+                </div>
+                <div>
+                  <h5 className="font-black text-xs sm:text-sm text-orange-950">طلب خاص من المتجر (منتجات غير معروضة)</h5>
+                  <p className="text-[11px] text-orange-700 font-bold">تم إرسال قائمة الأغراض للمتجر لتحضيرها</p>
+                </div>
+              </div>
+              {order.customOrderImage && (
+                <span className="text-[10px] font-black bg-orange-100 text-orange-800 px-3 py-1 rounded-full border border-orange-300 flex items-center gap-1">
+                  <Camera className="w-3 h-3 text-orange-700" />
+                  <span>صورة مرفقة</span>
+                </span>
+              )}
+            </div>
+
+            {order.customOrderText && (
+              <div className="bg-white p-3.5 rounded-2xl border border-orange-200 text-xs text-slate-800 leading-relaxed font-semibold whitespace-pre-line">
+                <span className="text-[10px] text-orange-800 font-black block mb-1">قائمة الأغراض المطلوبة:</span>
+                {order.customOrderText}
+              </div>
+            )}
+
+            {order.estimatedBudget && (
+              <div className="bg-white/90 p-2.5 rounded-xl border border-orange-200 text-xs text-slate-700 font-bold flex items-center justify-between">
+                <span>الميزانية المقترحة من طرفك:</span>
+                <span className="font-mono text-emerald-700 font-black">{order.estimatedBudget.toLocaleString()} ل.س</span>
+              </div>
+            )}
+
+            {order.customOrderImage && (
+              <div className="space-y-2 pt-1">
+                <span className="text-[11px] font-black text-orange-900 block">صورة الطلب المرفقة:</span>
+                <div 
+                  onClick={() => setZoomedImage(order.customOrderImage || null)}
+                  className="relative rounded-2xl overflow-hidden border-2 border-orange-300 bg-slate-950 max-w-sm group cursor-pointer shadow-md"
+                >
+                  <img
+                    src={order.customOrderImage}
+                    alt="صورة الطلب الخاص"
+                    className="w-full h-44 object-contain group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-black">
+                    <ZoomIn className="w-4 h-4" />
+                    <span>اضغط لتكبير الصورة</span>
                   </div>
                   <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-xs">
                     🔍 تكبير

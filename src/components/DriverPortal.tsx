@@ -17,7 +17,12 @@ import {
   ArrowRight,
   AlertCircle,
   Volume2,
-  VolumeX
+  VolumeX,
+  Pill,
+  ShoppingBag,
+  Camera,
+  ZoomIn,
+  X
 } from "lucide-react";
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -67,6 +72,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   );
   const [activeTab, setActiveTab] = useState<"my_orders" | "available_orders" | "history">("my_orders");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const handleToggleSound = () => {
     const next = !soundAlerts;
@@ -394,16 +400,72 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
                     </div>
 
                     {/* Items List Summary */}
-                    <div className="bg-slate-50/70 p-3 rounded-2xl border text-xs space-y-1">
-                      <span className="text-[10px] font-bold text-slate-400 block">محتويات الطلب:</span>
-                      <div className="divide-y divide-slate-200 text-slate-700">
-                        {order.items.map((it, idx) => (
-                          <div key={idx} className="py-1 flex items-center justify-between">
-                            <span>{it.quantity}x {it.product.name} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
-                            <span className="font-mono font-bold">{it.totalItemPrice.toLocaleString()} {currency}</span>
+                    <div className="bg-slate-50/70 p-3 rounded-2xl border text-xs space-y-2">
+                      <span className="font-black text-slate-700 block">محتويات وأغراض الطلب:</span>
+                      {order.items && order.items.length > 0 && (
+                        <div className="divide-y divide-slate-200 text-slate-700">
+                          {order.items.map((it, idx) => (
+                            <div key={idx} className="py-1 flex items-center justify-between">
+                              <span>{it.quantity}x {it.product.name} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
+                              <span className="font-mono font-bold">{it.totalItemPrice.toLocaleString()} {currency}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Prescription info for driver */}
+                      {(order.prescriptionImage || order.prescriptionNotes) && (
+                        <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl space-y-1.5 text-xs text-emerald-950">
+                          <div className="flex items-center justify-between font-black">
+                            <span className="flex items-center gap-1">
+                              <Pill className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>راشيتة أدوية / استشارة</span>
+                            </span>
+                            {order.prescriptionImage && (
+                              <button
+                                type="button"
+                                onClick={() => setZoomedImage(order.prescriptionImage || null)}
+                                className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded-md hover:bg-emerald-700 cursor-pointer flex items-center gap-1"
+                              >
+                                <ZoomIn className="w-3 h-3" />
+                                <span>تكبير</span>
+                              </button>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                          {order.prescriptionNotes && (
+                            <p className="text-[11px] text-slate-700 bg-white p-1.5 rounded-lg border border-emerald-100 font-medium">
+                              {order.prescriptionNotes}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Custom store order info for driver */}
+                      {(order.isCustomStoreOrder || (order.customOrderText && !order.prescriptionNotes) || order.customOrderImage) && (
+                        <div className="bg-orange-50 border border-orange-200 p-2.5 rounded-xl space-y-1.5 text-xs text-orange-950">
+                          <div className="flex items-center justify-between font-black">
+                            <span className="flex items-center gap-1">
+                              <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
+                              <span>طلب خاص / مقاضي خارجية</span>
+                            </span>
+                            {order.customOrderImage && (
+                              <button
+                                type="button"
+                                onClick={() => setZoomedImage(order.customOrderImage || null)}
+                                className="text-[10px] bg-orange-600 text-white px-2 py-0.5 rounded-md hover:bg-orange-700 cursor-pointer flex items-center gap-1"
+                              >
+                                <ZoomIn className="w-3 h-3" />
+                                <span>تكبير الورقة</span>
+                              </button>
+                            )}
+                          </div>
+                          {order.customOrderText && (
+                            <div className="text-[11px] text-slate-800 bg-white p-2 rounded-lg border border-orange-100 font-semibold whitespace-pre-line">
+                              {order.customOrderText}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Driver Action Buttons: Stepper Progression */}
@@ -509,6 +571,34 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Image Zoom Modal for Driver */}
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          dir="rtl"
+        >
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
+            <button
+              type="button"
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-2 left-2 z-10 bg-black/60 hover:bg-black text-white p-2.5 rounded-full backdrop-blur-xs transition-colors cursor-pointer"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img
+              src={zoomedImage}
+              alt="معاينة الصورة"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-white/80 text-xs font-bold mt-3 bg-black/50 px-4 py-1.5 rounded-full">
+              اضغط في أي مكان للإغلاق
+            </p>
+          </div>
         </div>
       )}
     </div>
