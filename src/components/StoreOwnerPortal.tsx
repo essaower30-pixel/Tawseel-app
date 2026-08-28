@@ -21,7 +21,9 @@ import {
   Calendar,
   DollarSign,
   Volume2,
-  VolumeX
+  VolumeX,
+  MessageSquare,
+  MessageCircle
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -127,14 +129,14 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     return { deliveredTotal, deliveredCount };
   }, [archivedStoreOrders]);
 
-  const handleSendMerchantReportWhatsApp = () => {
+  const handleSendMerchantReportWhatsApp = (type: "regular" | "business" = "regular") => {
     const periodLabel = archiveDateFilter === "today" ? "اليوم" : archiveDateFilter === "yesterday" ? "الأمس" : archiveDateFilter === "week" ? "آخر 7 أيام" : "كافة الطلبات";
     let msg = `📊 *تقرير مبيعات متجر (${currentStore.name})* 📊\n📅 *الفترة:* ${periodLabel}\n⏱️ *تاريخ الإصدار:* ${new Date().toLocaleString("ar-SY")}\n\n📦 *إجمالي الطلبات:* ${archivedStoreOrders.length} طلب\n✅ *المسلمة بنجاح:* ${storeArchiveStats.deliveredCount} طلب\n💰 *صافي مبيعات المتجر:* ${storeArchiveStats.deliveredTotal.toLocaleString()} ${currency}\n\n───────────────\nتفاصيل الطلبات:\n`;
     archivedStoreOrders.forEach((o) => {
       msg += `• #${o.id.slice(-4)} | ${o.customerName} | ${o.subtotal?.toLocaleString()} ${currency} | ${o.status === "delivered" ? "مسلم ✅" : o.status}\n`;
     });
     msg += `\n───────────────\nتطبيق توصيل - بوابة التاجر 🌟`;
-    openWhatsApp({ phone: currentStore.contactPhone || userProfile.phone, message: msg });
+    openWhatsApp({ phone: currentStore.contactPhone || userProfile.phone, message: msg, type });
   };
 
   // Filter products for this store
@@ -455,14 +457,25 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={handleSendMerchantReportWhatsApp}
-                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                onClick={() => handleSendMerchantReportWhatsApp("regular")}
+                className="py-2 px-3.5 bg-[#25D366] hover:bg-[#20ba56] text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                title="إرسال التقرير عبر واتساب العادي"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>إرسال تقرير مبيعاتي بالواتساب 📊</span>
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>واتساب 💬</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSendMerchantReportWhatsApp("business")}
+                className="py-2 px-3.5 bg-[#075E54] hover:bg-[#054a43] text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+                title="إرسال التقرير عبر واتساب الأعمال"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>واتساب أعمال 💼</span>
               </button>
 
               <button

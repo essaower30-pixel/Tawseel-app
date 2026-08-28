@@ -14,6 +14,7 @@ import {
   Check,
   Send,
   MessageCircle,
+  MessageSquare,
   Eye,
   EyeOff,
   UserCheck,
@@ -232,7 +233,7 @@ ${permNames}`;
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleSendCredentialsWhatsApp = (staff: StaffMember) => {
+  const handleSendCredentialsWhatsApp = (staff: StaffMember, type: "regular" | "business" = "regular") => {
     const permNames = (staff.permissions || DEFAULT_ROLE_PERMISSIONS[staff.role] || [])
       .map(pid => `• ${ALL_PERMISSIONS.find(p => p.id === pid)?.label || pid}`)
       .join("\n");
@@ -256,7 +257,8 @@ https://essaower30-pixel.github.io/Tawseel-app/
 
     openWhatsApp({
       phone: staff.phone || "0991234567",
-      message
+      message,
+      type
     });
   };
 
@@ -474,14 +476,27 @@ https://essaower30-pixel.github.io/Tawseel-app/
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSendCredentialsWhatsApp(member)}
-                    className="py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>إرسال بالواتساب 📲</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSendCredentialsWhatsApp(member, "regular")}
+                      className="py-1.5 px-2.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                      title="إرسال بيانات الدخول عبر واتساب العادي"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+                      <span>واتساب 💬</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSendCredentialsWhatsApp(member, "business")}
+                      className="py-1.5 px-2.5 bg-[#075E54]/10 hover:bg-[#075E54]/20 text-[#075E54] border border-[#075E54]/30 rounded-xl text-[11px] font-black transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                      title="إرسال بيانات الدخول عبر واتساب الأعمال"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-[#075E54]" />
+                      <span>واتساب أعمال 💼</span>
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-1">
                     <button

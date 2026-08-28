@@ -100,9 +100,29 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                       <Sparkles className="w-3.5 h-3.5 text-orange-400 inline" />
                       {toast.title}
                     </span>
-                    <span className="bg-orange-500/20 text-orange-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/30">
-                      طلب #{toast.order.id}
-                    </span>
+
+                    {toast.type === "info" ? (
+                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        التطبيق نشط ⚡
+                      </span>
+                    ) : (
+                      <span className="bg-orange-500/20 text-orange-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/30">
+                        {currentRole === "admin"
+                          ? "إشعار الإدارة 🛡️"
+                          : currentRole === "store_owner"
+                          ? "إشعار المتجر 🏪"
+                          : currentRole === "driver"
+                          ? "إشعار الكابتن 🛵"
+                          : `طلب #${toast.order.id}`}
+                      </span>
+                    )}
+
+                    {soundOn && toast.type === "new_order" && (
+                      <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-1.5 py-0.5 rounded-md border border-emerald-500/20 flex items-center gap-0.5">
+                        <Volume2 className="w-2.5 h-2.5 animate-pulse" />
+                        <span>رنين</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Close button */}
@@ -119,39 +139,59 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                   {toast.message}
                 </p>
 
-                {/* Details summary */}
-                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-300 flex-wrap">
-                  {toast.order.storeName && (
-                    <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
-                      <StoreIcon className="w-3 h-3 text-orange-400" />
-                      {toast.order.storeName}
-                    </span>
-                  )}
-                  {toast.order.total !== undefined && (
-                    <span className="font-black text-orange-400 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
-                      {toast.order.total.toLocaleString()} ل.س
-                    </span>
-                  )}
-                  {toast.order.customerName && (
-                    <span className="text-slate-400">
-                      👤 {toast.order.customerName}
-                    </span>
-                  )}
-                </div>
+                {/* Details summary (only for real orders) */}
+                {toast.type !== "info" && toast.order.id !== "tw-live" && (
+                  <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-300 flex-wrap">
+                    {toast.order.storeName && (
+                      <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
+                        <StoreIcon className="w-3 h-3 text-orange-400" />
+                        {toast.order.storeName}
+                      </span>
+                    )}
+                    {toast.order.total !== undefined && toast.order.total > 0 && (
+                      <span className="font-black text-orange-400 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
+                        {toast.order.total.toLocaleString()} ل.س
+                      </span>
+                    )}
+                    {toast.order.customerName && (
+                      <span className="text-slate-400">
+                        👤 {toast.order.customerName}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between gap-2 pt-2.5 mt-1 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onViewOrder(toast.order);
-                      onDismiss(toast.id);
-                    }}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5"
-                  >
-                    <span>معاينة وتفاصيل الطلب</span>
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                  </button>
+                  {toast.type === "info" || toast.order.id === "tw-live" ? (
+                    <button
+                      type="button"
+                      onClick={() => onDismiss(toast.id)}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5"
+                    >
+                      <span>حسناً، التطبيق قيد العمل بنجاح ✓</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onViewOrder(toast.order);
+                        onDismiss(toast.id);
+                      }}
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5"
+                    >
+                      <span>
+                        {currentRole === "admin"
+                          ? "معاينة وإدارة الطلب في لوحة الإدارة 🛵"
+                          : currentRole === "store_owner"
+                          ? "قبول وتجهيز الطلب في المتجر ⚡"
+                          : currentRole === "driver"
+                          ? "استلام وتوصيل الطلب 🚀"
+                          : "معاينة وتفاصيل الطلب"}
+                      </span>
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                    </button>
+                  )}
 
                   {/* Sound quick toggle button */}
                   <div className="relative">

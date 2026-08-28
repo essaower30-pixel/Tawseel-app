@@ -4,6 +4,7 @@ import {
   Plus, 
   Phone, 
   MessageCircle, 
+  MessageSquare,
   Star, 
   Trash2, 
   CheckCircle2, 
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { DriverMember } from "../../types";
 import { ContactActions } from "../ContactActions";
+import { openWhatsApp } from "../../utils/whatsapp";
 
 interface DriversTabProps {
   driversList: DriverMember[];
@@ -106,10 +108,13 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleSendCredentialsWhatsApp = (driver: DriverMember) => {
+  const handleSendCredentialsWhatsApp = (driver: DriverMember, type: "regular" | "business" = "regular") => {
     const text = `مرحباً كابتن ${driver.name} 🛵\nتم إنشاء وتفعيل حسابك في منصة "توصيل".\n\n📌 بيانات الدخول الخاصة بك:\n👤 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور / PIN: ${driver.pin || "1111"}\n\n🌐 يمكنك الدخول مباشرة عبر تبويب "دخول كابتن توصيل 🛵" من خلال الرابط التالي:\nhttps://essaower30-pixel.github.io/Tawseel-app/\n\nبالتوفيق، إدارة منصة توصيل 🚀`;
-    const cleanPhone = driver.phone.replace(/^0/, "963").replace(/\D/g, "");
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`, "_blank");
+    openWhatsApp({
+      phone: driver.phone,
+      message: text,
+      type
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -213,12 +218,22 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => handleSendCredentialsWhatsApp(driver)}
-                      className="py-1.5 px-2.5 bg-[#25D366] hover:bg-[#20ba56] text-white rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs"
-                      title="إرسال بيانات الدخول للكابتن عبر واتساب"
+                      onClick={() => handleSendCredentialsWhatsApp(driver, "regular")}
+                      className="py-1.5 px-2 bg-[#25D366] hover:bg-[#20ba56] text-white rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs active:scale-95"
+                      title="إرسال بيانات الدخول للكابتن عبر واتساب العادي"
                     >
-                      <Send className="w-3 h-3" />
+                      <MessageSquare className="w-3 h-3" />
                       <span>واتساب</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSendCredentialsWhatsApp(driver, "business")}
+                      className="py-1.5 px-2 bg-[#075E54] hover:bg-[#054a43] text-white rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer shadow-xs active:scale-95"
+                      title="إرسال بيانات الدخول للكابتن عبر واتساب الأعمال"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      <span>أعمال</span>
                     </button>
                   </div>
                 </div>

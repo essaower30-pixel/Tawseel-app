@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { User, Store as StoreIcon, Bike, Key, ShieldCheck, Download, Eye, EyeOff, X, ArrowRight, MessageCircle } from "lucide-react";
+import { User, Store as StoreIcon, Bike, Key, ShieldCheck, Download, Eye, EyeOff, X, ArrowRight, MessageCircle, MessageSquare } from "lucide-react";
 import { Store, UserProfile, DriverMember } from "../types";
 import { initialDrivers, initialStaff } from "../data/adminInitialData";
+import { openWhatsApp } from "../utils/whatsapp";
 
 interface AuthModalProps {
   onRegister: (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => void;
@@ -670,17 +671,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </button>
 
                 {/* Direct WhatsApp request for new drivers */}
-                <div className="text-center pt-2 border-t border-slate-100">
-                  <p className="text-[11px] text-slate-400 mb-2">كابتن جديد وترغب بالانضمام للأسطول؟</p>
-                  <a
-                    href="https://wa.me/963951854257?text=%D9%85%D8%B1%D8%AD%D8%A8%D8%A7%D9%8B%D8%8C%20%D8%A3%D8%B1%D8%BA%D8%A8%20%D8%A8%D8%A7%D9%84%D8%A7%D9%86%D8%B6%D9%85%D8%A7%D9%85%20%D9%83%D9%83%D8%A7%D8%A8%D8%AA%D9%86%20%D8%AA%D9%88%D8%B5%D9%8A%D9%84%20%D9%81%D9%8A%20%D8%A7%D9%84%D9%85%D9%86%D8%B5%D8%A9"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-black transition-all"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>تواصل مع الإدارة لطلب حساب كابتن عبر واتساب</span>
-                  </a>
+                <div className="text-center pt-2 border-t border-slate-100 space-y-2">
+                  <p className="text-[11px] text-slate-500 font-bold">كابتن جديد وترغب بالانضمام للأسطول؟</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openWhatsApp({
+                          phone: "963951854257",
+                          message: "مرحباً، أرغب بالانضمام ككابتن توصيل في المنصة 🛵",
+                          type: "regular"
+                        })
+                      }
+                      className="py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba56] text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>واتساب العادي 💬</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openWhatsApp({
+                          phone: "963951854257",
+                          message: "مرحباً، أرغب بالانضمام ككابتن توصيل في المنصة 🛵",
+                          type: "business"
+                        })
+                      }
+                      className="py-2.5 px-3 bg-[#075E54] hover:bg-[#054a43] text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>واتساب الأعمال 💼</span>
+                    </button>
+                  </div>
                 </div>
               </motion.form>
             )}
@@ -823,6 +845,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </button>
                   </form>
                 )}
+
+                {/* Direct WhatsApp help for stores & merchants */}
+                <div className="text-center pt-3 border-t border-slate-100 space-y-2">
+                  <p className="text-[11px] text-slate-500 font-bold">تحتاج مساعدة في تسجيل أو تفعيل متجرك؟</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openWhatsApp({
+                          phone: "963951854257",
+                          message: "مرحباً إدارة المنصة، أحتاج مساعدة بخصوص تسجيل أو تفعيل حساب متجري 🏪",
+                          type: "regular"
+                        })
+                      }
+                      className="py-2 px-3 bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+                      <span>واتساب العادي 💬</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openWhatsApp({
+                          phone: "963951854257",
+                          message: "مرحباً إدارة المنصة، أحتاج مساعدة بخصوص تسجيل أو تفعيل حساب متجري 🏪",
+                          type: "business"
+                        })
+                      }
+                      className="py-2 px-3 bg-[#075E54]/10 hover:bg-[#075E54]/20 text-[#075E54] border border-[#075E54]/30 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-[#075E54]" />
+                      <span>واتساب الأعمال 💼</span>
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             )}
 

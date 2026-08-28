@@ -127,27 +127,50 @@ export function playOrderAlertSound(typeOverride?: SoundType): void {
       osc2.stop(now + 1.2);
 
     } else if (type === "ringtone") {
-      // Pleasant double ring / phone chime
-      const playPulse = (startTime: number) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(800, startTime);
-        osc.frequency.setValueAtTime(850, startTime + 0.05);
-        osc.frequency.setValueAtTime(800, startTime + 0.1);
-        
-        gain.gain.setValueAtTime(0.5, startTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.35);
-        osc.connect(gain);
-        gain.connect(masterGain);
-        osc.start(startTime);
-        osc.stop(startTime + 0.35);
+      // Authentic dual-tone phone/terminal ringing chime (صوت رنين هاتف وطلبات مميز)
+      const playRingBurst = (startTime: number) => {
+        // Frequency pair 1: 853 Hz (telephony ringtone standard)
+        const osc1 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(853, startTime);
+        gain1.gain.setValueAtTime(0.45, startTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, startTime + 0.38);
+        osc1.connect(gain1);
+        gain1.connect(masterGain);
+        osc1.start(startTime);
+        osc1.stop(startTime + 0.38);
+
+        // Frequency pair 2: 960 Hz
+        const osc2 = ctx.createOscillator();
+        const gain2 = ctx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(960, startTime);
+        gain2.gain.setValueAtTime(0.45, startTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, startTime + 0.38);
+        osc2.connect(gain2);
+        gain2.connect(masterGain);
+        osc2.start(startTime);
+        osc2.stop(startTime + 0.38);
+
+        // Harmonic bell overtone: 1209 Hz for crisp delivery alert
+        const osc3 = ctx.createOscillator();
+        const gain3 = ctx.createGain();
+        osc3.type = "triangle";
+        osc3.frequency.setValueAtTime(1209, startTime);
+        gain3.gain.setValueAtTime(0.25, startTime);
+        gain3.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+        osc3.connect(gain3);
+        gain3.connect(masterGain);
+        osc3.start(startTime);
+        osc3.stop(startTime + 0.35);
       };
 
-      playPulse(now);
-      playPulse(now + 0.18);
-      playPulse(now + 0.55);
-      playPulse(now + 0.73);
+      // Play 4 ringing pulses in a classic double-ring sequence: (Trrrinng... Trrrinng... Pause... Trrrinng... Trrrinng!)
+      playRingBurst(now);
+      playRingBurst(now + 0.22);
+      playRingBurst(now + 0.65);
+      playRingBurst(now + 0.87);
 
     } else if (type === "urgent") {
       // Vibrant attention-getting triple beep
@@ -265,10 +288,62 @@ export function broadcastNewOrder(order: any): void {
       channel.postMessage({ type: "NEW_ORDER", order, timestamp: Date.now() });
     } catch {}
   }
-  // Also dispatch a window event for same-tab subscribers
+  // Also store in localStorage to guarantee cross-tab detection across all browsers
   if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("tw_last_broadcast_order", JSON.stringify({ order, timestamp: Date.now() }));
+    } catch {}
     window.dispatchEvent(
       new CustomEvent("tw_new_order_event", { detail: { order, timestamp: Date.now() } })
     );
   }
+}
+
+/**
+ * Trigger physical device vibration for incoming order alerts
+ */
+export function triggerOrderVibration(): void {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate([350, 150, 350, 150, 600]);
+    } catch {}
+  }
+}
+
+/**
+ * Alternate document title to alert user if window/tab is in the background
+ */
+let titleFlashTimer: any = null;
+let originalDocumentTitle = "";
+
+export function flashTabTitle(alertTitle: string = "🔔 (طلب جديد وارد!)"): void {
+  if (typeof document === "undefined") return;
+  if (!originalDocumentTitle) {
+    originalDocumentTitle = document.title || "توصيل - خدمة التوصيل السريع بالقرية";
+  }
+  if (titleFlashTimer) {
+    clearInterval(titleFlashTimer);
+  }
+  let toggle = false;
+  titleFlashTimer = setInterval(() => {
+    document.title = toggle ? alertTitle : originalDocumentTitle;
+    toggle = !toggle;
+  }, 1000);
+
+  const stopFlash = () => {
+    if (titleFlashTimer) {
+      clearInterval(titleFlashTimer);
+      titleFlashTimer = null;
+    }
+    if (originalDocumentTitle) {
+      document.title = originalDocumentTitle;
+    }
+    window.removeEventListener("focus", stopFlash);
+    window.removeEventListener("click", stopFlash);
+    window.removeEventListener("touchstart", stopFlash);
+  };
+
+  window.addEventListener("focus", stopFlash);
+  window.addEventListener("click", stopFlash);
+  window.addEventListener("touchstart", stopFlash);
 }

@@ -18,7 +18,9 @@ import {
   RefreshCw, 
   FileText,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  MessageSquare,
+  MessageCircle
 } from "lucide-react";
 import { DriverMember, RegisteredCustomer, StaffMember, Store } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
@@ -172,7 +174,7 @@ export const CredentialsVaultTab: React.FC<CredentialsVaultTabProps> = ({
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const handleSendWhatsAppCredentials = (acc: AccountItem) => {
+  const handleSendWhatsAppCredentials = (acc: AccountItem, type: "regular" | "business" = "regular") => {
     const pwd = acc.password || acc.pin || "غير محدد";
     const msg = `مرحباً بك يا ${acc.name} 🌸
 
@@ -189,7 +191,7 @@ ${window.location.origin}
 
 نحن دائماً بخدمتكم في حال احتجتم أي مساعدة!`;
 
-    openWhatsApp({ phone: acc.phone, message: msg });
+    openWhatsApp({ phone: acc.phone, message: msg, type });
   };
 
   const handleOpenEdit = (acc: AccountItem) => {
@@ -468,33 +470,43 @@ ${window.location.origin}
                   </div>
                 </div>
 
-                {/* Card Action Buttons (Direct WhatsApp Help + Quick Copy) */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                {/* Card Action Buttons (Direct WhatsApp Regular & Business + Quick Copy) */}
+                <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => handleSendWhatsAppCredentials(acc)}
-                    className="w-full py-2 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
-                    title="إرسال بيانات الحساب للمستخدم عبر واتساب في حال نسيها أو طلب المساعدة"
+                    onClick={() => handleSendWhatsAppCredentials(acc, "regular")}
+                    className="py-2 px-1 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 text-[#128C7E] font-black text-[11px] rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+                    title="إرسال بيانات الحساب عبر واتساب العادي"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>إرسال بواتساب</span>
+                    <MessageSquare className="w-3.5 h-3.5 text-[#25D366]" />
+                    <span className="truncate">واتساب</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSendWhatsAppCredentials(acc, "business")}
+                    className="py-2 px-1 bg-[#075E54]/10 hover:bg-[#075E54]/20 border border-[#075E54]/30 text-[#075E54] font-black text-[11px] rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+                    title="إرسال بيانات الحساب عبر واتساب الأعمال"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-[#075E54]" />
+                    <span className="truncate">أعمال</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleCopyCredentials(acc)}
-                    className="w-full py-2 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                    className="py-2 px-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[11px] rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
                     title="نسخ بيانات الدخول للحافظة"
                   >
                     {copiedId === acc.id ? (
                       <>
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-700">تم النسخ!</span>
+                        <span className="text-emerald-700 truncate">تم!</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5 text-slate-500" />
-                        <span>نسخ البيانات</span>
+                        <span className="truncate">نسخ</span>
                       </>
                     )}
                   </button>

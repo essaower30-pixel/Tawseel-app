@@ -343,11 +343,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setTimeout(() => setPasswordSaveSuccess(false), 4500);
   };
 
-  const handleSendAdminCredsWA = () => {
+  const handleSendAdminCredsWA = (type: "regular" | "business" = "regular") => {
     const msg = `🔐 *بيانات الدخول الإدارية المحدثة لمنصة (${appName})*\n\n👤 الحساب: المدير العام (Admin)\n🔑 كلمة المرور الرئيسية: *${adminPassword.trim()}*\n🔢 رمز PIN السريع: *${adminPin.trim()}*\n🌐 رابط التطبيق المباشر:\n${OFFICIAL_APP_URL}\n\n⚠️ يرجى الاحتفاظ بهذه البيانات بسرية تامة وعدم مشاركتها مع غير المخولين.`;
     openWhatsApp({
       phone: contactPhone || "0991234567",
-      message: msg
+      message: msg,
+      type
     });
   };
 
@@ -1427,14 +1428,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleSendAdminCredsWA}
-                className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 mr-auto sm:mr-0"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span>إرسال البيانات بالواتساب للمدير 📲</span>
-              </button>
+              <div className="flex items-center gap-2 mr-auto sm:mr-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleSendAdminCredsWA("regular")}
+                  className="py-2 px-3 bg-[#25D366] hover:bg-[#20ba56] text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  title="إرسال بيانات الدخول عبر واتساب العادي"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>واتساب 💬</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendAdminCredsWA("business")}
+                  className="py-2 px-3 bg-[#075E54] hover:bg-[#054a43] text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  title="إرسال بيانات الدخول عبر واتساب الأعمال"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>واتساب أعمال 💼</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

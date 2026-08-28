@@ -18,7 +18,9 @@ import {
   Filter,
   Receipt,
   Eye,
-  ChevronDown
+  ChevronDown,
+  MessageSquare,
+  MessageCircle
 } from "lucide-react";
 import { DriverMember, Order, Store } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
@@ -157,7 +159,7 @@ export const OrdersArchiveReportsTab: React.FC<OrdersArchiveReportsTabProps> = (
     window.print();
   };
 
-  const handleSendWhatsAppReport = () => {
+  const handleSendWhatsAppReport = (type: "regular" | "business" = "regular") => {
     const periodLabel = 
       dateFilter === "today" ? "اليوم" :
       dateFilter === "yesterday" ? "الأمس" :
@@ -191,7 +193,7 @@ export const OrdersArchiveReportsTab: React.FC<OrdersArchiveReportsTabProps> = (
 
     msg += `\n───────────────\nصدر عن نظام الإدارة والتقارير الذكي 🌟`;
 
-    openWhatsApp({ phone: "0991234567", message: msg });
+    openWhatsApp({ phone: "0991234567", message: msg, type });
   };
 
   const handleExportCSV = () => {
@@ -580,14 +582,23 @@ export const OrdersArchiveReportsTab: React.FC<OrdersArchiveReportsTabProps> = (
 
             {/* Actions */}
             <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  onClick={handleSendWhatsAppReport}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl flex items-center gap-2 transition-all cursor-pointer"
+                  onClick={() => handleSendWhatsAppReport("regular")}
+                  className="px-3.5 py-2.5 bg-[#25D366] hover:bg-[#20ba56] text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>مشاركة التقرير عبر واتساب</span>
+                  <MessageSquare className="w-4 h-4" />
+                  <span>واتساب العادي 💬</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendWhatsAppReport("business")}
+                  className="px-3.5 py-2.5 bg-[#075E54] hover:bg-[#054a43] text-white font-black text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>واتساب أعمال 💼</span>
                 </button>
 
                 <button

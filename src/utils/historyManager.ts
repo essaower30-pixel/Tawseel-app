@@ -11,6 +11,8 @@ export interface BackHandlerState {
   closeCart: () => void;
   hasSelectedStore: boolean;
   closeStore: () => void;
+  hasActiveOrder?: boolean;
+  closeActiveOrder?: () => void;
   isAdminMode: boolean;
   exitAdmin: () => void;
   isDriverMode: boolean;
@@ -67,6 +69,13 @@ export function handleAppBackButton(
     return true;
   }
 
+  // 3b. If viewing active order tracker, go back to store list
+  if (state.hasActiveOrder && state.closeActiveOrder) {
+    state.closeActiveOrder();
+    window.history.pushState({ twApp: true, depth: 2 }, "");
+    return true;
+  }
+
   // 4. If in Admin mode, exit back to customer view
   if (state.isAdminMode) {
     state.exitAdmin();
@@ -88,16 +97,19 @@ export function handleAppBackButton(
     return true;
   }
 
-  // 7. If at the root screen, prevent accidental tab exit and inform user that background notifications stay active
+  // 7. If at the root screen, prevent accidental app termination and inform user that notifications remain active
   const now = Date.now();
-  if (now - lastBackPressTime > 2500) {
+  if (now - lastBackPressTime > 2000) {
     lastBackPressTime = now;
     if (onStayActiveNotice) {
-      onStayActiveNotice("التطبيق يستمر في العمل واستقبال تنبيهات الطلبات الجديدة 🔔");
+      onStayActiveNotice("التطبيق يستمر في العمل واستقبال تنبيهات ورنين الطلبات الجديدة 🔔");
     }
-    window.history.pushState({ twApp: true, depth: 2 }, "");
-    return true;
+  } else {
+    // If tapped rapidly again, reassure the user that the app is active in background
+    if (onStayActiveNotice) {
+      onStayActiveNotice("تطبيق التوصيل نشط في الخلفية 🛵 الإشعارات والرنين يعملان باستمرار.");
+    }
   }
-
-  return false;
+  window.history.pushState({ twApp: true, depth: 2 }, "");
+  return true;
 }

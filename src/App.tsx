@@ -66,6 +66,8 @@ import {
   broadcastNewOrder,
   getSoundType,
   setSoundType,
+  triggerOrderVibration,
+  flashTabTitle,
   SoundType
 } from "./utils/soundNotifications";
 import { initHistoryProtection, handleAppBackButton } from "./utils/historyManager";
@@ -298,6 +300,8 @@ export default function App() {
         closeCart: () => setIsViewingCart(false),
         hasSelectedStore: !!selectedStore,
         closeStore: () => setSelectedStore(null),
+        hasActiveOrder: !!activeOrder,
+        closeActiveOrder: () => setActiveOrder(null),
         isAdminMode,
         exitAdmin: () => setIsAdminMode(false),
         isDriverMode,
@@ -307,7 +311,7 @@ export default function App() {
       }, (msg) => {
         addToastNotification({
           order: { id: "tw-live", storeId: "", storeName: "توصيل القرية", items: [], subtotal: 0, deliveryFee: 0, total: 0, status: "pending", createdAt: new Date().toISOString(), customerName: "", customerPhone: "", addressLandmark: "" },
-          title: "التطبيق يعمل بنشاط 🔔",
+          title: "التطبيق يعمل بنشاط في الخلفية 🔔",
           message: msg,
           type: "info"
         });
@@ -321,6 +325,7 @@ export default function App() {
     showCustomerArchiveModal,
     showAdminPinModal,
     showSoundModal,
+    activeOrder,
     isViewingCart,
     selectedStore,
     isAdminMode,
@@ -331,20 +336,44 @@ export default function App() {
 
   // Real-time Cross-Window & Same-Window Order Broadcast Listener
   useEffect(() => {
-    const handleOrderEvent = (order: Order) => {
-      // Play alert sound for admin, driver, or store owner
-      playOrderAlertSound();
+    const recentHandledOrders = new Set<string>();
 
-      // Show system notification
-      showSystemNotification(`طلب جديد #${order.id} 🔔`, {
+    const handleOrderEvent = (order: Order) => {
+      // Prevent duplicate sounds/toasts for the same order within 3 seconds
+      if (recentHandledOrders.has(order.id)) return;
+      recentHandledOrders.add(order.id);
+      setTimeout(() => recentHandledOrders.delete(order.id), 4000);
+
+      // Play ringing alert sound for incoming orders
+      playOrderAlertSound("ringtone");
+      triggerOrderVibration();
+      flashTabTitle(`🔔 (طلب جديد #${order.id})`);
+
+      // Determine role-tailored title & message
+      let toastTitle = "وصول طلب جديد إلى النظام! 🛍️";
+      let toastMessage = `طلب #${order.id} وارد إلى (${order.storeName}) من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س`;
+
+      if (isAdminMode || userRole === "admin") {
+        toastTitle = "🔔 طلب جديد وارد للإدارة!";
+        toastMessage = `طلب #${order.id} من الزبون ${order.customerName} إلى (${order.storeName}) - الإجمالي: ${order.total.toLocaleString()} ل.س`;
+      } else if (currentStoreId && order.storeId === currentStoreId) {
+        toastTitle = "🏪 طلب جديد وارد لمتجرك!";
+        toastMessage = `طلب جديد #${order.id} بقيمة ${order.total.toLocaleString()} ل.س من الزبون ${order.customerName}`;
+      } else if (isDriverMode || userRole === "driver") {
+        toastTitle = "🛵 طلب توصيل جديد متاح للكابتن!";
+        toastMessage = `طلب #${order.id} من (${order.storeName}) جاهز للاستلام والتوصيل إلى (${order.addressLandmark || "القرية"})`;
+      }
+
+      // Show system notification if browser is in background
+      showSystemNotification(toastTitle, {
         body: `متجر: ${order.storeName} | الزبون: ${order.customerName} | الإجمالي: ${order.total} ل.س`,
       });
 
       // Show in-app Toast
       addToastNotification({
         order,
-        title: "وصول طلب جديد إلى النظام! 🛍️",
-        message: `طلب #${order.id} وارد إلى (${order.storeName}) من الزبون ${order.customerName} بقيمة ${order.total.toLocaleString()} ل.س`,
+        title: toastTitle,
+        message: toastMessage,
         type: "new_order",
         targetRole: "all"
       });
@@ -375,13 +404,27 @@ export default function App() {
       };
     }
 
+    // 3. Storage event listener (universal fallback across all browser tabs)
+    const onStorageEvent = (e: StorageEvent) => {
+      if (e.key === "tw_last_broadcast_order" && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.order) {
+            handleOrderEvent(parsed.order);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", onStorageEvent);
+
     return () => {
       window.removeEventListener("tw_new_order_event", onCustomOrderEvent);
+      window.removeEventListener("storage", onStorageEvent);
       if (channel) {
         channel.onmessage = null;
       }
     };
-  }, [addToastNotification]);
+  }, [addToastNotification, isAdminMode, isDriverMode, userRole, currentStoreId]);
 
   // Auto-scroll to top on view changes
   useEffect(() => {
@@ -631,8 +674,9 @@ export default function App() {
     setCartItems([]);
     setIsViewingCart(false);
 
-    // Play ringing alert sound & dispatch real-time notifications
-    playOrderAlertSound();
+    // Play ringing alert sound & dispatch real-time notifications to Admin & Store
+    playOrderAlertSound("ringtone");
+    triggerOrderVibration();
     broadcastNewOrder(newOrder);
     showSystemNotification(`طلب جديد #${newOrder.id} 🛍️`, {
       body: `متجر: ${newOrder.storeName} | الزبون: ${newOrder.customerName} | الإجمالي: ${newOrder.total} ل.س`
@@ -667,7 +711,8 @@ export default function App() {
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
 
     // Play ringing alert sound & dispatch real-time notifications
-    playOrderAlertSound();
+    playOrderAlertSound("ringtone");
+    triggerOrderVibration();
     broadcastNewOrder(newOrder);
     showSystemNotification(`طلب خاص جديد #${newOrder.id} 🔔`, {
       body: `المرسل: ${newOrder.customerName} | ${newOrder.storeName}`
