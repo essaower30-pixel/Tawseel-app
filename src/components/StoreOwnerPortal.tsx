@@ -23,7 +23,11 @@ import {
   Volume2,
   VolumeX,
   MessageSquare,
-  MessageCircle
+  MessageCircle,
+  Pill,
+  Camera,
+  ZoomIn,
+  X
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -80,6 +84,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const handleToggleSound = () => {
     const next = !soundAlerts;
@@ -429,17 +434,72 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                         )}
                       </div>
 
-                      {/* Items */}
+                      {/* Items / Prescription */}
                       <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
                         <span className="font-black text-slate-800 block">الأصناف المطلوبة للتحضير:</span>
-                        <div className="divide-y divide-slate-200 text-slate-700 space-y-1 max-h-28 overflow-y-auto">
-                          {order.items.map((it, idx) => (
-                            <div key={idx} className="pt-1 flex items-center justify-between font-bold">
-                              <span>{it.quantity}x {it.product.name} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
-                              <span className="font-mono">{it.totalItemPrice.toLocaleString()} {currency}</span>
+                        {order.items && order.items.length > 0 ? (
+                          <div className="divide-y divide-slate-200 text-slate-700 space-y-1 max-h-28 overflow-y-auto">
+                            {order.items.map((it, idx) => (
+                              <div key={idx} className="pt-1 flex items-center justify-between font-bold">
+                                <span>{it.quantity}x {it.product.name} {it.selectedSize ? `(${it.selectedSize.name})` : ""}</span>
+                                <span className="font-mono">{it.totalItemPrice.toLocaleString()} {currency}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-slate-400 text-xs italic">طلب خاص / راشيتة طبية</p>
+                        )}
+
+                        {/* Prescription Info for Pharmacists & Doctors */}
+                        {(order.prescriptionImage || order.prescriptionNotes || order.customOrderText) && (
+                          <div className="mt-2 pt-2 border-t border-emerald-200 bg-emerald-50/60 p-2.5 rounded-xl space-y-2 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-black text-emerald-950 flex items-center gap-1">
+                                <Pill className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>وصفة / راشيتة أدوية</span>
+                              </span>
+                              {order.prescriptionImage && (
+                                <button
+                                  type="button"
+                                  onClick={() => setZoomedImage(order.prescriptionImage || null)}
+                                  className="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md hover:bg-emerald-700 cursor-pointer flex items-center gap-1"
+                                >
+                                  <ZoomIn className="w-3 h-3" />
+                                  <span>تكبير الراشيتة</span>
+                                </button>
+                              )}
                             </div>
-                          ))}
-                        </div>
+
+                            {order.prescriptionNotes && (
+                              <p className="text-slate-700 text-[11px] font-medium bg-white p-1.5 rounded-lg border border-emerald-100">
+                                {order.prescriptionNotes}
+                              </p>
+                            )}
+
+                            {order.customOrderText && !order.prescriptionNotes && (
+                              <p className="text-slate-700 text-[11px] font-medium bg-white p-1.5 rounded-lg border border-emerald-100">
+                                {order.customOrderText}
+                              </p>
+                            )}
+
+                            {order.prescriptionImage && (
+                              <div 
+                                onClick={() => setZoomedImage(order.prescriptionImage || null)}
+                                className="relative rounded-lg overflow-hidden border border-emerald-300 bg-slate-900 h-24 cursor-pointer group"
+                              >
+                                <img
+                                  src={order.prescriptionImage}
+                                  alt="راشيتة"
+                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                                  🔍 اضغط للتكبير وقراءة الوصفة
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <div className="pt-2 border-t flex justify-between font-black text-slate-900">
                           <span>قيمة المنتجات:</span>
                           <span className="text-orange-600">{order.subtotal.toLocaleString()} {currency}</span>
@@ -653,6 +713,42 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Prescription Image Zoom Modal */}
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          dir="rtl"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-3xl w-full max-h-[90vh] bg-slate-950 rounded-3xl p-3 flex flex-col items-center justify-center shadow-2xl border border-slate-800 cursor-default"
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center font-bold cursor-pointer transition-all active:scale-95"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-full flex items-center justify-between px-3 py-2 text-white border-b border-slate-800 mb-2">
+              <span className="font-black text-xs sm:text-sm flex items-center gap-1.5">
+                <Pill className="w-4 h-4 text-emerald-400" />
+                <span>معاينة صورة الراشيتة الطبية المكبرة</span>
+              </span>
+              <span className="text-[11px] text-slate-400">انقر خارج الإطار للإغلاق</span>
+            </div>
+            <div className="w-full overflow-auto flex items-center justify-center max-h-[75vh]">
+              <img
+                src={zoomedImage}
+                alt="راشيتة أدوية مكبرة"
+                className="max-w-full max-h-[75vh] object-contain rounded-xl"
+              />
+            </div>
           </div>
         </div>
       )}

@@ -13,7 +13,11 @@ import {
   AlertTriangle,
   Receipt,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Pill,
+  Camera,
+  ZoomIn,
+  X
 } from "lucide-react";
 import { MapNode, Order } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -33,6 +37,8 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
   onCancelOrder,
   stores = []
 }) => {
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
   // Purely computed based on live order status
   const currentStep = (() => {
     switch (order.status) {
@@ -335,6 +341,66 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
             ))}
         </div>
 
+        {/* Medical Prescription & Doctor Notes Section */}
+        {(order.prescriptionImage || order.prescriptionNotes || order.customOrderText) && (
+          <div className="bg-emerald-50/80 border-2 border-emerald-200 rounded-3xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+                  <Pill className="w-4 h-4" />
+                </div>
+                <div>
+                  <h5 className="font-black text-xs sm:text-sm text-emerald-950">وصفة / راشيتة أدوية مرفقة</h5>
+                  <p className="text-[11px] text-emerald-700 font-bold">تم إرسالها للصيدلاني / الطبيب لتجهيزها بدقة</p>
+                </div>
+              </div>
+              {order.prescriptionImage && (
+                <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1">
+                  <Camera className="w-3 h-3 text-emerald-700" />
+                  <span>صورة راشيتة مرفقة</span>
+                </span>
+              )}
+            </div>
+
+            {order.prescriptionNotes && (
+              <div className="bg-white p-3.5 rounded-2xl border border-emerald-200 text-xs text-slate-700 leading-relaxed font-semibold">
+                <span className="text-[10px] text-emerald-800 font-black block mb-1">تفاصيل الأدوية والملاحظات:</span>
+                {order.prescriptionNotes}
+              </div>
+            )}
+
+            {order.customOrderText && !order.prescriptionNotes && (
+              <div className="bg-white p-3.5 rounded-2xl border border-emerald-200 text-xs text-slate-700 leading-relaxed font-semibold">
+                <span className="text-[10px] text-emerald-800 font-black block mb-1">تفاصيل الطلب:</span>
+                {order.customOrderText}
+              </div>
+            )}
+
+            {order.prescriptionImage && (
+              <div className="space-y-2 pt-1">
+                <span className="text-[11px] font-black text-emerald-900 block">صورة الراشيتة الطبية:</span>
+                <div 
+                  onClick={() => setZoomedImage(order.prescriptionImage || null)}
+                  className="relative rounded-2xl overflow-hidden border-2 border-emerald-300 bg-slate-950 max-w-sm group cursor-pointer shadow-md"
+                >
+                  <img
+                    src={order.prescriptionImage}
+                    alt="صورة الراشيتة"
+                    className="w-full h-44 object-contain group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-black">
+                    <ZoomIn className="w-4 h-4" />
+                    <span>اضغط لتكبير وقراءة الراشيتة</span>
+                  </div>
+                  <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-xs">
+                    🔍 تكبير
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Financial Totals */}
         <div className="pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
           <div className="flex justify-between">
@@ -374,6 +440,42 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({
           />
         </div>
       </div>
+
+      {/* Prescription Image Zoom Modal */}
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)}
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
+          dir="rtl"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative max-w-3xl w-full max-h-[90vh] bg-slate-950 rounded-3xl p-3 flex flex-col items-center justify-center shadow-2xl border border-slate-800 cursor-default"
+          >
+            <button
+              type="button"
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center font-bold cursor-pointer transition-all active:scale-95"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-full flex items-center justify-between px-3 py-2 text-white border-b border-slate-800 mb-2">
+              <span className="font-black text-xs sm:text-sm flex items-center gap-1.5">
+                <Pill className="w-4 h-4 text-emerald-400" />
+                <span>معاينة صورة الراشيتة الطبية المكبرة</span>
+              </span>
+              <span className="text-[11px] text-slate-400">انقر خارج الإطار للإغلاق</span>
+            </div>
+            <div className="w-full overflow-auto flex items-center justify-center max-h-[75vh]">
+              <img
+                src={zoomedImage}
+                alt="راشيتة أدوية مكبرة"
+                className="max-w-full max-h-[75vh] object-contain rounded-xl"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

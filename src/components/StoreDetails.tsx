@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, Sparkles, Send, MessageSquare } from "lucide-react";
+import { ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, Sparkles, Send, MessageSquare, Pill, Stethoscope } from "lucide-react";
 import { CartItem, Product, Store, StoreAddition, StoreSize, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
+import { PrescriptionModal } from "./PrescriptionModal";
 
 interface StoreDetailsProps {
   store: Store;
@@ -34,9 +35,6 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   // Special Modals
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
-  const [prescriptionName, setPrescriptionName] = useState(customerUser?.name || "");
-  const [prescriptionPhone, setPrescriptionPhone] = useState(customerUser?.phone || "");
-  const [prescriptionNotes, setPrescriptionNotes] = useState("");
 
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [serviceName, setServiceName] = useState(customerUser?.name || "");
@@ -95,27 +93,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
     return base + additionsTotal;
   };
 
-  const isPharmacy = store.category === "pharmacies" || store.id === "store_shifa";
-  const isServiceStore = ["doctors", "crafts", "drivers"].includes(store.category) || store.isService;
-
-  const handlePrescriptionSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!prescriptionNotes.trim()) {
-      alert("الرجاء كتابة تفاصيل الوصفة أو الأدوية المطلوبة.");
-      return;
-    }
-    if (onSubmitCustomOrder) {
-      onSubmitCustomOrder({
-        storeId: store.id,
-        storeName: store.name,
-        customerName: prescriptionName,
-        customerPhone: prescriptionPhone,
-        prescriptionNotes,
-        isPharmacyOrder: true
-      });
-    }
-    setShowPrescriptionModal(false);
-  };
+  const isPharmacy = store.category === "pharmacies" || store.id === "store_shifa" || store.name.includes("صيدل");
+  const isDoctor = store.category === "doctors" || store.name.includes("طبيب") || store.name.includes("دكتور") || store.name.includes("عيادة");
+  const isServiceStore = ["crafts", "drivers"].includes(store.category) || (store.isService && !isPharmacy && !isDoctor);
 
   const handleServiceSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,21 +185,41 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         </div>
       </div>
 
-      {/* Special Quick Action Buttons for Pharmacy or Services */}
+      {/* Special Quick Action Buttons for Pharmacy or Doctors or Services */}
       {isPharmacy && (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
           <div>
-            <h4 className="font-black text-emerald-900 text-sm">💊 خدمة طلب واستشارة الوصفات الطبية</h4>
+            <h4 className="font-black text-emerald-900 text-sm">💊 خدمة طلب واستشارة الوصفات والراشيتات الطبية</h4>
             <p className="text-emerald-700 text-xs font-semibold mt-0.5">
-              يمكنك كتابة أسماء الأدوية أو تصوير وصفتك الطبية ليقوم الصيدلاني بتجهيزها فوراً.
+              يمكنك تصوير الراشيتة بالكاميرا فوراً أو استيرادها من الاستديو ليقوم الصيدلاني بتجهيزها وصرفها لك.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setShowPrescriptionModal(true)}
-            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap"
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
           >
-            طلب أدوية ووصفة طبية 📋
+            <Pill className="w-4 h-4" />
+            <span>طلب أدوية وراشيتة طبية 📋</span>
+          </button>
+        </div>
+      )}
+
+      {isDoctor && (
+        <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
+          <div>
+            <h4 className="font-black text-cyan-950 text-sm">🩺 استشارة طبية وطلب فحص / راشيتة أدوية</h4>
+            <p className="text-cyan-800 text-xs font-semibold mt-0.5">
+              يمكنك إرفاق صورة الراشيتة الطبية (كاميرا أو استديو) واستشارة الطبيب مباشرة وتحديد الموعد.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrescriptionModal(true)}
+            className="w-full sm:w-auto bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+          >
+            <Stethoscope className="w-4 h-4" />
+            <span>إرسال راشيتة / استشارة للطبيب 📋</span>
           </button>
         </div>
       )}
@@ -491,76 +491,21 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
       </AnimatePresence>
 
       {/* Prescription Modal */}
-      <AnimatePresence>
-        {showPrescriptionModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-right"
-            >
-              <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="font-black text-slate-800 text-base">💊 طلب وصفة طبية / استشارة صيدلانية</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowPrescriptionModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handlePrescriptionSubmit} className="space-y-3 text-xs">
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">اسم المريض:</label>
-                  <input
-                    type="text"
-                    required
-                    value={prescriptionName}
-                    onChange={(e) => setPrescriptionName(e.target.value)}
-                    placeholder="الاسم الكامل"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">رقم الموبايل للتواصل:</label>
-                  <input
-                    type="tel"
-                    required
-                    value={prescriptionPhone}
-                    onChange={(e) => setPrescriptionPhone(e.target.value)}
-                    placeholder="09xxxxxxxx"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none text-left"
-                    dir="ltr"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">تفاصيل الأدوية أو الأعراض:</label>
-                  <textarea
-                    rows={3}
-                    required
-                    value={prescriptionNotes}
-                    onChange={(e) => setPrescriptionNotes(e.target.value)}
-                    placeholder="اكتب أسماء الأدوية، الجرعات المطلوبة، أو الأعراض التي تشكو منها..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer"
-                >
-                  إرسال الطلب للصيدلية فوراً 📋
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <PrescriptionModal
+        isOpen={showPrescriptionModal}
+        onClose={() => setShowPrescriptionModal(false)}
+        stores={[store]}
+        defaultStoreId={store.id}
+        defaultStoreCategory={store.category}
+        userProfile={customerUser}
+        landmarks={["وسط البلد", "الحي الغربي", "الحي الشرقي", "قرب المسجد الكبير", "طريق المدرسة", "مفرق المزارع"]}
+        currentLandmark="وسط البلد"
+        onSubmit={(orderData) => {
+          if (onSubmitCustomOrder) {
+            onSubmitCustomOrder(orderData);
+          }
+        }}
+      />
 
       {/* Service Modal */}
       <AnimatePresence>
