@@ -86,7 +86,11 @@ import {
   approveStoreOnServer,
   updateStoreOnServer,
   deleteStoreOnServer,
-  saveOrderOnServer
+  saveOrderOnServer,
+  updateOrderOnServer,
+  saveProductOnServer,
+  updateProductOnServer,
+  deleteProductOnServer
 } from "./utils/apiSync";
 
 // Category Icon Helper Component
@@ -583,15 +587,33 @@ export default function App() {
     await deleteStoreOnServer(storeId);
   };
 
-  // Background server sync: syncs stores across browsers/devices
+  // Product management handlers
+  const handleAddNewProduct = async (product: Product) => {
+    setProducts((prev) => [...prev, product]);
+    await saveProductOnServer(product);
+  };
+
+  const handleUpdateProduct = async (product: Product) => {
+    setProducts((prev) => prev.map((item) => (item.id === product.id ? product : item)));
+    await updateProductOnServer(product);
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    setProducts((prev) => prev.filter((item) => item.id !== productId));
+    await deleteProductOnServer(productId);
+  };
+
+  // Background server sync: continuous sync across all devices, portals, and browsers
   useEffect(() => {
     let isMounted = true;
+    const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
 
     const performSync = async () => {
       const serverData = await fetchServerSync();
       if (!serverData || !isMounted) return;
 
-      if (serverData.stores && serverData.stores.length > 0) {
+      // 1. Sync Stores
+      if (serverData.stores && Array.isArray(serverData.stores)) {
         setStores((currentLocal) => {
           const currentMap = new Map<string, Store>(currentLocal.map((s) => [s.id, s]));
           let hasDiff = false;
@@ -604,8 +626,8 @@ export default function App() {
             }
           }
 
-          if (hasDiff) {
-            // Check if there's a new pending store to notify admin
+          if (hasDiff || currentLocal.length !== serverData.stores.length) {
+            // Check if there's a new pending store waiting for Admin approval
             const newPending = serverData.stores.find(
               (s) => s.isApproved === false && !currentLocal.some((cl) => cl.id === s.id && cl.isApproved === false)
             );
@@ -617,7 +639,144 @@ export default function App() {
               });
               playOrderAlertSound("chime");
             }
+
+            // Check if Store Owner's store was just approved by Admin!
+            if (userRole === "store_owner" && userProfile) {
+              const uPhone = cleanPhone(userProfile.phone);
+              const myServerStore = serverData.stores.find((s) => 
+                (currentStoreId && s.id === currentStoreId) || 
+                (uPhone && cleanPhone(s.ownerPhone) === uPhone) ||
+                (uPhone && cleanPhone(s.contactPhone) === uPhone)
+              );
+              const myLocalStore = currentLocal.find((s) => 
+                (currentStoreId && s.id === currentStoreId) || 
+                (uPhone && cleanPhone(s.ownerPhone) === uPhone) ||
+                (uPhone && cleanPhone(s.contactPhone) === uPhone)
+              );
+
+              if (myServerStore && myServerStore.isApproved === true && myLocalStore && myLocalStore.isApproved === false) {
+                addToastNotification({
+                  title: "🎉 مبارك! تم اعتماد وتفعيل متجرك!",
+                  message: `تمت موافقة الإدارة على تفعيل متجر "${myServerStore.name}". متجرك الآن معتمد وظاهر لجميع زبائن القرية!`,
+                  type: "info"
+                });
+                playOrderAlertSound("chime");
+              }
+            }
+
             return ensureInitialStoresPreserved(serverData.stores);
+          }
+          return currentLocal;
+        });
+      }
+
+      // 2. Sync Orders
+      if (serverData.orders && Array.isArray(serverData.orders)) {
+        setAllOrders((currentLocal) => {
+          const currentMap = new Map<string, Order>(currentLocal.map((o) => [o.id, o]));
+          let hasDiff = false;
+          const newlyArrivedOrders: Order[] = [];
+
+          for (const sOrder of serverData.orders) {
+            const localOrder = currentMap.get(sOrder.id);
+            if (!localOrder) {
+              hasDiff = true;
+              newlyArrivedOrders.push(sOrder);
+            } else if (
+              localOrder.status !== sOrder.status || 
+              localOrder.driverId !== sOrder.driverId || 
+              localOrder.driverName !== sOrder.driverName
+            ) {
+              hasDiff = true;
+            }
+          }
+
+          if (hasDiff) {
+            // Process newly arrived incoming orders alerts
+            if (newlyArrivedOrders.length > 0) {
+              newlyArrivedOrders.forEach((newOrd) => {
+                // If Store Owner:
+                if (userRole === "store_owner") {
+                  const uPhone = cleanPhone(userProfile?.phone);
+                  const isMyStoreOrder = 
+                    newOrd.storeId === currentStoreId || 
+                    (userProfile?.name && newOrd.storeName?.includes(userProfile.name)) ||
+                    stores.some(s => s.id === newOrd.storeId && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone));
+
+                  if (isMyStoreOrder) {
+                    playOrderAlertSound("ringtone");
+                    triggerOrderVibration();
+                    addToastNotification({
+                      order: newOrd,
+                      title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
+                      message: `طلب جديد #${newOrd.id} بقيمة ${newOrd.total.toLocaleString()} ل.س من الزبون ${newOrd.customerName}`,
+                      type: "new_order"
+                    });
+                  }
+                }
+
+                // If Admin:
+                if (isAdminMode || userRole === "admin") {
+                  playOrderAlertSound("ringtone");
+                  addToastNotification({
+                    order: newOrd,
+                    title: "🔔 طلب جديد وارد للإدارة! 🛍️",
+                    message: `طلب #${newOrd.id} إلى (${newOrd.storeName}) من الزبون ${newOrd.customerName}`,
+                    type: "new_order"
+                  });
+                }
+
+                // If Driver:
+                if (isDriverMode || userRole === "driver") {
+                  playOrderAlertSound("chime");
+                  addToastNotification({
+                    order: newOrd,
+                    title: "🛵 طلب توصيل جديد متاح للكابتن!",
+                    message: `طلب #${newOrd.id} جاهز للتوصيل من (${newOrd.storeName})`,
+                    type: "new_order"
+                  });
+                }
+              });
+            }
+
+            // Sync Customer's active tracking order
+            if (activeOrder) {
+              const freshActive = serverData.orders.find((o) => o.id === activeOrder.id);
+              if (
+                freshActive && 
+                (freshActive.status !== activeOrder.status ||
+                 freshActive.driverName !== activeOrder.driverName ||
+                 freshActive.driverPhone !== activeOrder.driverPhone)
+              ) {
+                setActiveOrder(freshActive);
+                playOrderAlertSound("chime");
+                const statusLabels: Record<string, string> = {
+                  accepted: "تم قبول الطلب وجارٍ التجهيز",
+                  preparing: "الطلب قيد التجهيز الآن",
+                  picked_up: "الكابتن استلم الطلب وهو في الطريق إليك 🛵",
+                  delivered: "تم توصيل الطلب بنجاح ✅",
+                  cancelled: "تم إلغاء الطلب ❌"
+                };
+                addToastNotification({
+                  order: freshActive,
+                  title: "تحديث حالة طلبك 🛵",
+                  message: `طلب #${freshActive.id}: ${statusLabels[freshActive.status] || freshActive.status}`,
+                  type: "status_change"
+                });
+              }
+            }
+
+            return serverData.orders;
+          }
+          return currentLocal;
+        });
+      }
+
+      // 3. Sync Products
+      if (serverData.products && Array.isArray(serverData.products) && serverData.products.length > 0) {
+        setProducts((currentLocal) => {
+          if (serverData.products.length !== currentLocal.length) {
+            return serverData.products;
           }
           return currentLocal;
         });
@@ -625,7 +784,7 @@ export default function App() {
     };
 
     performSync();
-    const interval = setInterval(performSync, 4000);
+    const interval = setInterval(performSync, 2500);
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
@@ -641,9 +800,9 @@ export default function App() {
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", performSync);
     };
-  }, [isAdminMode, userRole, addToastNotification]);
+  }, [isAdminMode, isDriverMode, userRole, userProfile, currentStoreId, activeOrder, stores, addToastNotification]);
 
-  const handleUpdateOrderStatus = (orderId: string, status: any) => {
+  const handleUpdateOrderStatus = async (orderId: string, status: any) => {
     setAllOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
@@ -671,20 +830,25 @@ export default function App() {
         return o;
       })
     );
+    await updateOrderOnServer(orderId, { status });
   };
 
-  const handleAssignDriverToOrder = (orderId: string, driver: DriverMember | null) => {
+  const handleAssignDriverToOrder = async (orderId: string, driver: DriverMember | null) => {
+    const driverUpdates: Partial<Order> = {
+      driverId: driver ? driver.id : undefined,
+      driverName: driver ? driver.name : undefined,
+      driverPhone: driver ? driver.phone : undefined,
+      driverVehicle: driver ? (driver.vehicle || "دراجة نارية") : undefined,
+      assignedAt: driver ? new Date().toISOString() : undefined,
+      status: driver ? "accepted" : undefined
+    };
+
     setAllOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
           const updated: Order = {
             ...o,
-            driverId: driver ? driver.id : undefined,
-            driverName: driver ? driver.name : undefined,
-            driverPhone: driver ? driver.phone : undefined,
-            driverVehicle: driver ? (driver.vehicle || "دراجة نارية") : undefined,
-            assignedAt: driver ? new Date().toISOString() : undefined,
-            // When driver is assigned to a pending order, move status to accepted automatically
+            ...driverUpdates,
             status: o.status === "pending" && driver ? "accepted" : o.status
           };
           if (activeOrder && activeOrder.id === orderId) {
@@ -708,6 +872,7 @@ export default function App() {
         return o;
       })
     );
+    await updateOrderOnServer(orderId, driverUpdates);
   };
 
   useEffect(() => {
@@ -794,7 +959,7 @@ export default function App() {
     });
   };
 
-  const handleCheckout = (orderData: any) => {
+  const handleCheckout = async (orderData: any) => {
     const store = stores.find((s) => s.id === orderData.storeId);
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const deliveryFee = store ? store.deliveryFee : 5;
@@ -817,6 +982,9 @@ export default function App() {
     setCartItems([]);
     setIsViewingCart(false);
 
+    // Save order to server storage for multi-device sync
+    await saveOrderOnServer(newOrder);
+
     // Play ringing alert sound & dispatch real-time notifications to Admin & Store
     playOrderAlertSound("ringtone");
     triggerOrderVibration();
@@ -832,7 +1000,7 @@ export default function App() {
     });
   };
 
-  const handleCustomOrder = (customData: any) => {
+  const handleCustomOrder = async (customData: any) => {
     const orderId = "tw-" + Math.floor(Math.random() * 90000 + 10000);
     const newOrder: Order = {
       id: orderId,
@@ -853,6 +1021,9 @@ export default function App() {
     setActiveOrder(newOrder);
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
 
+    // Save custom order to server storage
+    await saveOrderOnServer(newOrder);
+
     // Play ringing alert sound & dispatch real-time notifications
     playOrderAlertSound("ringtone");
     triggerOrderVibration();
@@ -871,6 +1042,18 @@ export default function App() {
   const handleAuthSuccess = (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => {
     localStorage.setItem("tw_customer_user", JSON.stringify(profile));
     localStorage.setItem("tw_user_role", role);
+    
+    // Save last active role for the AuthModal tab selection
+    if (role === "store_owner") {
+      localStorage.setItem("tw_last_active_role", "store");
+    } else if (role === "driver") {
+      localStorage.setItem("tw_last_active_role", "driver");
+    } else if (role === "admin") {
+      localStorage.setItem("tw_last_active_role", "staff");
+    } else {
+      localStorage.setItem("tw_last_active_role", "customer");
+    }
+
     setUserProfile(profile);
     setUserRole(role);
     setShowAuthModal(false);
@@ -888,9 +1071,17 @@ export default function App() {
       setIsViewingCart(false);
       localStorage.setItem("tw_viewing_admin", "true");
       localStorage.setItem("tw_viewing_driver", "false");
-    } else if (role === "store_owner" && profile.storeId) {
-      setCurrentStoreId(profile.storeId);
-      localStorage.setItem("tw_current_store_id", profile.storeId);
+    } else if (role === "store_owner") {
+      const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+      const matchedStore = stores.find(s => 
+        (profile.storeId && s.id === profile.storeId) ||
+        (profile.phone && cleanPhone(s.ownerPhone) === cleanPhone(profile.phone)) ||
+        (profile.phone && cleanPhone(s.contactPhone) === cleanPhone(profile.phone)) ||
+        (profile.name && s.name.includes(profile.name))
+      );
+      const sId = profile.storeId || matchedStore?.id || "store_" + Date.now();
+      setCurrentStoreId(sId);
+      localStorage.setItem("tw_current_store_id", sId);
       setIsAdminMode(false);
       setIsDriverMode(false);
       setSelectedStore(null);
@@ -902,6 +1093,17 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    // Preserve tw_last_active_role and tw_saved_* credentials for fast PIN-only subsequent login
+    if (userRole === "store_owner") {
+      localStorage.setItem("tw_last_active_role", "store");
+    } else if (userRole === "driver") {
+      localStorage.setItem("tw_last_active_role", "driver");
+    } else if (userRole === "admin") {
+      localStorage.setItem("tw_last_active_role", "staff");
+    } else {
+      localStorage.setItem("tw_last_active_role", "customer");
+    }
+
     localStorage.removeItem("tw_customer_user");
     localStorage.removeItem("tw_user_role");
     localStorage.removeItem("tw_current_store_id");
@@ -1119,25 +1321,40 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full relative min-h-[500px]">
         {/* Router Views with Smooth Transition */}
         <AnimatePresence mode="wait">
-          {userRole === "store_owner" && currentStoreId ? (
+          {userRole === "store_owner" ? (
             <motion.div
-              key={`store_owner_${currentStoreId}`}
+              key={`store_owner_${currentStoreId || userProfile?.storeId || "owner"}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
               <StoreOwnerPortal
-                storeId={currentStoreId}
+                storeId={
+                  currentStoreId ||
+                  userProfile?.storeId ||
+                  (userProfile?.phone
+                    ? stores.find((s) => {
+                        const uPhone = (userProfile.phone || "").replace(/[^0-9]/g, "");
+                        return (
+                          (s.ownerPhone && s.ownerPhone.replace(/[^0-9]/g, "") === uPhone) ||
+                          (s.contactPhone && s.contactPhone.replace(/[^0-9]/g, "") === uPhone) ||
+                          (userProfile.name && s.name.includes(userProfile.name))
+                        );
+                      })?.id
+                    : null) ||
+                  stores[0]?.id ||
+                  "store_owner"
+                }
                 stores={stores}
                 products={products}
                 orders={allOrders}
                 categories={categories}
                 userProfile={userProfile!}
                 onUpdateStore={handleUpdateStore}
-                onAddProduct={(p) => setProducts((prev) => [...prev, p])}
-                onUpdateProduct={(p) => setProducts((prev) => prev.map((item) => (item.id === p.id ? p : item)))}
-                onDeleteProduct={(id) => setProducts((prev) => prev.filter((item) => item.id !== id))}
+                onAddProduct={handleAddNewProduct}
+                onUpdateProduct={handleUpdateProduct}
+                onDeleteProduct={handleDeleteProduct}
                 onUpdateOrderStatus={handleUpdateOrderStatus}
                 onLogout={handleLogout}
                 onBackToCustomerView={() => {
@@ -1166,9 +1383,9 @@ export default function App() {
                 onAddStore={handleAddNewStore}
                 onUpdateStore={handleUpdateStore}
                 onDeleteStore={handleDeleteStore}
-                onAddProduct={(p) => setProducts((prev) => [...prev, p])}
-                onUpdateProduct={(p) => setProducts((prev) => prev.map((item) => (item.id === p.id ? p : item)))}
-                onDeleteProduct={(id) => setProducts((prev) => prev.filter((item) => item.id !== id))}
+                onAddProduct={handleAddNewProduct}
+                onUpdateProduct={handleUpdateProduct}
+                onDeleteProduct={handleDeleteProduct}
                 onAddCategory={(cat) => setCategories((prev) => [...prev, cat])}
                 onDeleteCategory={(catId) => setCategories((prev) => prev.filter((c) => c.id !== catId))}
                 onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}

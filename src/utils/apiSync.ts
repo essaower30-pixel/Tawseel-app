@@ -2,11 +2,22 @@ import { Store, Order, Product, Category } from "../types";
 import { initialStores, initialProducts, initialCategories, initialMapNodes } from "../data/initialData";
 import { initialOrders } from "../data/adminInitialData";
 
+export interface ServerNotification {
+  id: string;
+  type: "STORE_REGISTERED" | "STORE_APPROVED" | "NEW_ORDER" | "ORDER_UPDATED";
+  title: string;
+  message: string;
+  targetStoreId?: string;
+  order?: Order;
+  timestamp: number;
+}
+
 export interface ServerSyncData {
   stores: Store[];
   products: Product[];
   orders: Order[];
-  categories: Category[];
+  notifications?: ServerNotification[];
+  categories?: Category[];
   lastUpdated: number;
 }
 
@@ -134,3 +145,49 @@ export async function updateOrderOnServer(orderId: string, updates: Partial<Orde
     return false;
   }
 }
+
+// Save product on central server
+export async function saveProductOnServer(product: Product): Promise<Product> {
+  try {
+    const res = await fetch(`${API_BASE}/api/products`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(product)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.product || product;
+    }
+  } catch (err) {
+    console.warn("Failed to send product to server:", err);
+  }
+  return product;
+}
+
+// Update product on central server
+export async function updateProductOnServer(product: Product): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/products/${product.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(product)
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Delete product on central server
+export async function deleteProductOnServer(productId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/products/${productId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+

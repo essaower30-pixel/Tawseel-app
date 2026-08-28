@@ -10,7 +10,7 @@ app.use(express.json({ limit: "25mb" }));
 
 const STORAGE_FILE = path.join(process.cwd(), "server_storage.json");
 
-// Default initial stores including the gypsum decor store from merchant registration
+// Default initial stores
 const defaultInitialStores = [
   {
     id: "store_yasmin",
@@ -195,6 +195,11 @@ function readServerData() {
     if (fs.existsSync(STORAGE_FILE)) {
       const content = fs.readFileSync(STORAGE_FILE, "utf-8");
       const parsed = JSON.parse(content);
+      if (!parsed.stores) parsed.stores = defaultInitialStores;
+      if (!parsed.orders) parsed.orders = [];
+      if (!parsed.products) parsed.products = [];
+      if (!parsed.notifications) parsed.notifications = [];
+      
       // Ensure gypsum decor store exists
       if (!parsed.stores.some((s: any) => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215")) {
         const gypsum = defaultInitialStores.find((s) => s.id === "store_gypsum_decor");
@@ -212,6 +217,8 @@ function readServerData() {
   const initialData = {
     stores: defaultInitialStores,
     orders: [],
+    products: [],
+    notifications: [],
     lastUpdated: Date.now()
   };
   writeServerData(initialData);
@@ -232,7 +239,7 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// 2. API: Full Sync Endpoint
+// 2. API: Unified Full Sync Endpoint
 app.get("/api/sync", (req, res) => {
   const data = readServerData();
   res.json(data);
@@ -244,7 +251,7 @@ app.get("/api/stores", (req, res) => {
   res.json(data.stores || []);
 });
 
-// 4. API: Register / Add a store (from mobile or admin)
+// 4. API: Register / Add a store (from mobile merchant registration or admin dashboard)
 app.post("/api/stores", (req, res) => {
   const newStore = req.body;
   if (!newStore || !newStore.name) {
@@ -252,15 +259,35 @@ app.post("/api/stores", (req, res) => {
   }
 
   const data = readServerData();
-  const existingIdx = data.stores.findIndex(
-    (s: any) => s.id === newStore.id || (s.ownerPhone && s.ownerPhone === newStore.ownerPhone)
-  );
+  const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+  const targetPhone = cleanPhone(newStore.ownerPhone || newStore.contactPhone);
+
+  const existingIdx = data.stores.findIndex((s: any) => {
+    if (s.id === newStore.id) return true;
+    if (targetPhone && (cleanPhone(s.ownerPhone) === targetPhone || cleanPhone(s.contactPhone) === targetPhone)) {
+      return true;
+    }
+    return false;
+  });
 
   if (existingIdx >= 0) {
     data.stores[existingIdx] = { ...data.stores[existingIdx], ...newStore };
   } else {
     data.stores.unshift(newStore);
   }
+
+  // Record system broadcast notification
+  data.notifications = [
+    {
+      id: "notif_" + Date.now(),
+      type: "STORE_REGISTERED",
+      title: "طلب انضمام متجر جديد 🏪",
+      message: `قام متجر "${newStore.name}" بالتسجيل وينتظر موافقة واعتماد الإدارة.`,
+      targetStoreId: newStore.id,
+      timestamp: Date.now()
+    },
+    ...(data.notifications || []).slice(0, 30)
+  ];
 
   writeServerData(data);
   return res.json({ success: true, store: newStore });
@@ -278,8 +305,21 @@ app.post("/api/stores/:id/approve", (req, res) => {
 
   store.isApproved = true;
   store.status = "open";
-  writeServerData(data);
 
+  // Add approval broadcast notification
+  data.notifications = [
+    {
+      id: "notif_" + Date.now(),
+      type: "STORE_APPROVED",
+      title: "تم اعتماد وتفعيل المتجر 🎉",
+      message: `تم اعتماد وتفعيل متجر "${store.name}" بنجاح وأصبح متاحاً للزبائن.`,
+      targetStoreId: store.id,
+      timestamp: Date.now()
+    },
+    ...(data.notifications || []).slice(0, 30)
+  ];
+
+  writeServerData(data);
   return res.json({ success: true, store });
 });
 
@@ -317,7 +357,22 @@ app.get("/api/orders", (req, res) => {
 app.post("/api/orders", (req, res) => {
   const newOrder = req.body;
   const data = readServerData();
-  data.orders = [newOrder, ...(data.orders || [])];
+  data.orders = [newOrder, ...(data.orders || []).filter((o: any) => o.id !== newOrder.id)];
+
+  // Record new order notification
+  data.notifications = [
+    {
+      id: "notif_order_" + Date.now(),
+      type: "NEW_ORDER",
+      title: "طلب جديد وارد! 🛍️",
+      message: `طلب #${newOrder.id} وارد إلى (${newOrder.storeName}) بقيمة ${newOrder.total} ل.س`,
+      targetStoreId: newOrder.storeId,
+      order: newOrder,
+      timestamp: Date.now()
+    },
+    ...(data.notifications || []).slice(0, 30)
+  ];
+
   writeServerData(data);
   res.json({ success: true, order: newOrder });
 });
@@ -329,10 +384,59 @@ app.put("/api/orders/:id", (req, res) => {
   const idx = data.orders.findIndex((o: any) => o.id === orderId);
   if (idx >= 0) {
     data.orders[idx] = { ...data.orders[idx], ...updates };
+
+    // Record order status update notification
+    data.notifications = [
+      {
+        id: "notif_update_" + Date.now(),
+        type: "ORDER_UPDATED",
+        title: "تحديث حالة الطلب 📦",
+        message: `الطلب #${orderId}: ${updates.status || "تم تحديث الطلب"}`,
+        order: data.orders[idx],
+        timestamp: Date.now()
+      },
+      ...(data.notifications || []).slice(0, 30)
+    ];
+
     writeServerData(data);
     return res.json({ success: true, order: data.orders[idx] });
   }
   res.status(404).json({ error: "الطلب غير موجود" });
+});
+
+// 9. API: Products
+app.get("/api/products", (req, res) => {
+  const data = readServerData();
+  res.json(data.products || []);
+});
+
+app.post("/api/products", (req, res) => {
+  const newProduct = req.body;
+  const data = readServerData();
+  data.products = [newProduct, ...(data.products || []).filter((p: any) => p.id !== newProduct.id)];
+  writeServerData(data);
+  res.json({ success: true, product: newProduct });
+});
+
+app.put("/api/products/:id", (req, res) => {
+  const productId = req.params.id;
+  const updates = req.body;
+  const data = readServerData();
+  const idx = (data.products || []).findIndex((p: any) => p.id === productId);
+  if (idx >= 0) {
+    data.products[idx] = { ...data.products[idx], ...updates };
+    writeServerData(data);
+    return res.json({ success: true, product: data.products[idx] });
+  }
+  res.status(404).json({ error: "المنتج غير موجود" });
+});
+
+app.delete("/api/products/:id", (req, res) => {
+  const productId = req.params.id;
+  const data = readServerData();
+  data.products = (data.products || []).filter((p: any) => p.id !== productId);
+  writeServerData(data);
+  res.json({ success: true });
 });
 
 // Mount Vite middleware for dev or static files for prod
@@ -357,3 +461,4 @@ async function start() {
 }
 
 start();
+

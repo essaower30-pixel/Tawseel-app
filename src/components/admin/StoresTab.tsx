@@ -453,21 +453,31 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                     <span>الموافقة وتفعيل المتجر فوراً في التطبيق ✅</span>
                   </button>
 
-                  <div className="grid grid-cols-3 gap-1.5">
+                  <div className="grid grid-cols-4 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => handleSendApprovalWA(st)}
-                      className="py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
-                      title="مراسلة التفعيل والبيانات عبر الواتساب"
+                      onClick={() => handleSendApprovalWA(st, "regular")}
+                      className="py-2 px-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      title="مراسلة التفعيل والبيانات عبر واتساب العادي"
                     >
-                      <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
                       <span>واتساب</span>
                     </button>
 
                     <button
                       type="button"
+                      onClick={() => handleSendApprovalWA(st, "business")}
+                      className="py-2 px-1.5 bg-[#075E54]/10 hover:bg-[#075E54]/20 text-[#075E54] border border-[#075E54]/30 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      title="مراسلة التفعيل والبيانات عبر واتساب الأعمال"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-[#075E54]" />
+                      <span>أعمال</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() => openEditModal(st)}
-                      className="py-2 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      className="py-2 px-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                     >
                       <Edit className="w-3.5 h-3.5 text-slate-600" />
                       <span>تعديل</span>
@@ -476,10 +486,10 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                     <button
                       type="button"
                       onClick={() => onDeleteStore(st.id)}
-                      className="py-2 px-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
+                      className="py-2 px-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                      <span>رفض/حذف</span>
+                      <span>رفض</span>
                     </button>
                   </div>
                 </div>
@@ -583,20 +593,29 @@ export const StoresTab: React.FC<StoresTabProps> = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleToggleStoreStatus(st)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer ${
-                    isOpen 
-                      ? "bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600" 
-                      : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
-                  }`}
-                  title={isOpen ? "إغلاق المتجر مؤقتاً" : "فتح المتجر للزبائن"}
-                >
-                  <Power className="w-3.5 h-3.5" />
-                  <span>{isOpen ? "إغلاق" : "فتح"}</span>
-                </button>
+              <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStoreStatus(st)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer ${
+                      isOpen 
+                        ? "bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-600" 
+                        : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700"
+                    }`}
+                    title={isOpen ? "إغلاق المتجر مؤقتاً" : "فتح المتجر للزبائن"}
+                  >
+                    <Power className="w-3.5 h-3.5" />
+                    <span>{isOpen ? "إغلاق" : "فتح"}</span>
+                  </button>
+
+                  <ContactActions 
+                    phone={st.ownerPhone || st.contactPhone || "0944111222"} 
+                    name={st.name} 
+                    defaultMessage={`مرحباً متجر (${st.name})، من إدارة منصة توصيل.`} 
+                    variant="compact" 
+                  />
+                </div>
 
                 <div className="flex items-center gap-1">
                   <button
