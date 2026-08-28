@@ -71,6 +71,14 @@ import {
   SoundType
 } from "./utils/soundNotifications";
 import { initHistoryProtection, handleAppBackButton } from "./utils/historyManager";
+import { 
+  getLatestUpdate, 
+  hasPendingUpdate, 
+  acknowledgeUpdate, 
+  subscribeToUpdates, 
+  AppUpdateInfo 
+} from "./utils/updateManager";
+import { AppUpdateModal } from "./components/AppUpdateModal";
 
 // Category Icon Helper Component
 function CategoryIcon({ name, className }: { name: string; className?: string }) {
@@ -217,6 +225,46 @@ export default function App() {
     typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
   );
 
+  // App Update & Feature Releases State (إشعار التحديث الجديد للمستخدمين)
+  const [hasNewUpdate, setHasNewUpdate] = useState<boolean>(() => hasPendingUpdate());
+  const [currentAppUpdate, setCurrentAppUpdate] = useState<AppUpdateInfo>(() => getLatestUpdate());
+  const [showUpdateModal, setShowUpdateModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkUpdates = () => {
+      setHasNewUpdate(hasPendingUpdate());
+      setCurrentAppUpdate(getLatestUpdate());
+    };
+    checkUpdates();
+    const unsubscribe = subscribeToUpdates(checkUpdates);
+    return () => unsubscribe();
+  }, []);
+
+  const handleApplyUpdate = () => {
+    acknowledgeUpdate(currentAppUpdate.id);
+    setHasNewUpdate(false);
+    setShowUpdateModal(false);
+    addToastNotification({
+      order: {
+        id: "tw-update-" + Date.now().toString().slice(-4),
+        storeId: "system",
+        storeName: "تحديث التطبيق",
+        items: [],
+        subtotal: 0,
+        deliveryFee: 0,
+        total: 0,
+        status: "completed",
+        createdAt: new Date().toISOString(),
+        customerName: userProfile?.name || "المستخدم",
+        customerPhone: userProfile?.phone || "",
+        addressLandmark: "النظام"
+      },
+      title: "تم تحديث التطبيق بنجاح! 🚀",
+      message: `تم تفعيل الإصدار ${currentAppUpdate.version} وتثبيت الميزات الجديدة واختفت أيقونة التحديث بنجاح. نتمنى لك تجربة مميزة!`,
+      type: "info"
+    });
+  };
+
   const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
     const newToast: ToastItem = {
       ...toast,
@@ -285,12 +333,13 @@ export default function App() {
     initHistoryProtection();
 
     const onPopState = () => {
-      const hasOpenModal = showAuthModal || showCustomerArchiveModal || showAdminPinModal || showSoundModal;
+      const hasOpenModal = showAuthModal || showCustomerArchiveModal || showAdminPinModal || showSoundModal || showUpdateModal;
       const closeModal = () => {
         setShowAuthModal(false);
         setShowCustomerArchiveModal(false);
         setShowAdminPinModal(false);
         setShowSoundModal(false);
+        setShowUpdateModal(false);
       };
 
       handleAppBackButton({
@@ -858,6 +907,23 @@ export default function App() {
 
           {/* Header Action Buttons */}
           <div className="flex items-center flex-wrap justify-end gap-1.5 sm:gap-3">
+            {/* App Update Notification Icon & Button (الايقونة تختفي بعد التحديث) */}
+            {hasNewUpdate && (
+              <button
+                type="button"
+                onClick={() => setShowUpdateModal(true)}
+                className="py-2 px-2.5 sm:px-3 rounded-xl border border-amber-300 bg-linear-to-r from-amber-100/95 via-orange-100/90 to-amber-50 hover:from-amber-200 hover:to-orange-200 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 animate-pulse shrink-0"
+                title="يوجد تحديث وميزات جديدة للتطبيق - اضغط للتحديث"
+              >
+                <div className="relative flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-orange-600 animate-spin-slow shrink-0" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-orange-600 ring-2 ring-white animate-ping" />
+                </div>
+                <span className="hidden xs:inline text-orange-950 font-black">تحديث جديد 🚀</span>
+                <span className="xs:hidden text-[10px] text-orange-950 font-black">تحديث 🚀</span>
+              </button>
+            )}
+
             {/* Sound Notification quick toggle & settings button */}
             <button
               type="button"
@@ -1793,6 +1859,15 @@ export default function App() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* App Update Modal (نافذة ميزات وتطبيق التحديث - تختفي الأيقونة بعد التحديث) */}
+      {showUpdateModal && (
+        <AppUpdateModal
+          update={currentAppUpdate}
+          onClose={() => setShowUpdateModal(false)}
+          onApplyUpdate={handleApplyUpdate}
+        />
       )}
 
       {/* Floating Toast Notification Stack */}

@@ -51,6 +51,14 @@ import {
   generateDefaultSvgIcon, 
   resizeImageToDataUrl 
 } from "../../utils/pwaManager";
+import {
+  getLatestUpdate,
+  publishNewUpdate,
+  resetUpdateAcknowledgment,
+  subscribeToUpdates,
+  AppUpdateInfo
+} from "../../utils/updateManager";
+import { AppUpdateModal } from "../AppUpdateModal";
 
 interface SettingsTabProps {
   currentSubView: "customers" | "logs" | "settings" | "share";
@@ -134,6 +142,76 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [isUpdatingIcon, setIsUpdatingIcon] = useState(false);
   const [iconUpdateSuccess, setIconUpdateSuccess] = useState(false);
   const [showPwaInstallGuide, setShowPwaInstallGuide] = useState(false);
+
+  // System Update Management States (إدارة ونشر التحديثات للمستخدمين)
+  const [latestUpdate, setLatestUpdate] = useState<AppUpdateInfo>(() => getLatestUpdate());
+  const [newUpdateVersion, setNewUpdateVersion] = useState("");
+  const [newUpdateTitle, setNewUpdateTitle] = useState("");
+  const [newUpdateNotes, setNewUpdateNotes] = useState("");
+  const [newFeatureInput, setNewFeatureInput] = useState("");
+  const [updateFeaturesList, setUpdateFeaturesList] = useState<string[]>(() => [...getLatestUpdate().features]);
+  const [updatePublishSuccess, setUpdatePublishSuccess] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [iconResetSuccess, setIconResetSuccess] = useState(false);
+
+  useEffect(() => {
+    const syncLatest = () => {
+      const u = getLatestUpdate();
+      setLatestUpdate(u);
+    };
+    const unsub = subscribeToUpdates(syncLatest);
+    return () => unsub();
+  }, []);
+
+  const handleAddFeature = () => {
+    const trimmed = newFeatureInput.trim();
+    if (trimmed && !updateFeaturesList.includes(trimmed)) {
+      setUpdateFeaturesList([...updateFeaturesList, trimmed]);
+      setNewFeatureInput("");
+    }
+  };
+
+  const handleRemoveFeature = (index: number) => {
+    setUpdateFeaturesList(updateFeaturesList.filter((_, idx) => idx !== index));
+  };
+
+  const handleAddQuickFeaturePreset = (featureText: string) => {
+    if (!updateFeaturesList.includes(featureText)) {
+      setUpdateFeaturesList([...updateFeaturesList, featureText]);
+    }
+  };
+
+  const handlePublishUpdate = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (updateFeaturesList.length === 0) {
+      alert("الرجاء إضافة ميزة أو تعديل واحد على الأقل لنشر التحديث للمستخدمين.");
+      return;
+    }
+
+    const versionToUse = newUpdateVersion.trim() || `v2.5.${Math.floor(Math.random() * 90 + 10)}`;
+    const titleToUse = newUpdateTitle.trim() || "تحديث جديد للمنصة والخدمات 🚀";
+
+    const published = publishNewUpdate({
+      version: versionToUse,
+      title: titleToUse,
+      features: updateFeaturesList,
+      notes: newUpdateNotes.trim() || undefined,
+      publishedBy: "الإدارة العامة"
+    });
+
+    setLatestUpdate(published);
+    setNewUpdateTitle("");
+    setNewUpdateVersion("");
+    setNewUpdateNotes("");
+    setUpdatePublishSuccess(true);
+    setTimeout(() => setUpdatePublishSuccess(false), 5000);
+  };
+
+  const handleResetUpdateIconForTesting = () => {
+    resetUpdateAcknowledgment();
+    setIconResetSuccess(true);
+    setTimeout(() => setIconResetSuccess(false), 3500);
+  };
 
   useEffect(() => {
     // Keep app icon in sync
@@ -1560,6 +1638,234 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </div>
 
+        {/* App Updates & Feature Releases Management Section (نشر وإدارة التحديثات والميزات الجديدة) */}
+        <div className="pt-6 border-t border-slate-100 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-orange-500" />
+                <span>إدارة ونشر تحديثات التطبيق والميزات الجديدة للمستخدمين 🚀</span>
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                عند إضافة ميزات جديدة أو إجراء تعديلات على التطبيق، يمكنك نشر إشعار التحديث من هنا ليظهر فوراً كأيقونة منبهة لجميع المستخدمين وتختفي تلقائياً فور قيامهم بالتحديث
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping"></span>
+                <span>الإصدار المنشور: {latestUpdate.version}</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+            {/* Current Active Update Summary Box */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center font-black text-xs">
+                    🚀
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-slate-900 block">{latestUpdate.title}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      الإصدار الحالي: {latestUpdate.version} • تاريخ النشر: {latestUpdate.releaseDate} • {latestUpdate.features.length} ميزات وتعديلات
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPreviewModal(true)}
+                    className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                    title="معاينة النافذة المنبثقة كما تظهر للمستخدمين"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-slate-500" />
+                    <span>معاينة نافذة التحديث للمستخدمين 👁️</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetUpdateIconForTesting}
+                    className="py-1.5 px-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-800 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                    title="إعادة إظهار أيقونة التحديث في الشريط العلوي لتجربتها"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
+                    <span>إظهار الأيقونة للتجربة 🔄</span>
+                  </button>
+                </div>
+              </div>
+
+              {iconResetSuccess && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-black text-emerald-700 flex items-center gap-2 animate-fade-in">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>تمت إعادة تعيين حالة التحديث! ستظهر أيقونة التحديث الآن في أعلى الشاشة لتجربتها واختبار اختفائها بعد النقر عليها.</span>
+                </div>
+              )}
+
+              {/* Display current features */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-black text-slate-700 block">الميزات والتعديلات النشطة في هذا التحديث:</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {latestUpdate.features.map((feat, fIdx) => (
+                    <div key={fIdx} className="p-2 bg-slate-50 rounded-xl border border-slate-200/70 text-[11px] text-slate-700 font-bold flex items-start gap-2">
+                      <span className="text-emerald-600 shrink-0 mt-0.5">✓</span>
+                      <span className="flex-1">{feat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Form to publish a brand new update */}
+            <div className="pt-2 space-y-3">
+              <span className="text-xs font-black text-slate-900 block">
+                نشر تحديث جديد أو تعديل وإضافة ميزات جديدة للنظام:
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-black text-slate-700 block mb-1">
+                    عنوان التحديث الرئيسي
+                  </label>
+                  <input
+                    type="text"
+                    value={newUpdateTitle}
+                    onChange={(e) => setNewUpdateTitle(e.target.value)}
+                    placeholder="مثال: تحديث سرعة التوصيل وإضافة خدمات وحرفيين جدد 🚀"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-black text-slate-700 block mb-1">
+                    رقم أو كود الإصدار
+                  </label>
+                  <input
+                    type="text"
+                    value={newUpdateVersion}
+                    onChange={(e) => setNewUpdateVersion(e.target.value)}
+                    placeholder="مثال: v2.5.1 أو v2.6.0"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+                  />
+                </div>
+              </div>
+
+              {/* Features Builder */}
+              <div className="space-y-2">
+                <label className="text-[11px] font-black text-slate-700 block">
+                  بنود الميزات والتعديلات الجديدة التي قامت الإدارة بإضافتها:
+                </label>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newFeatureInput}
+                    onChange={(e) => setNewFeatureInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddFeature();
+                      }
+                    }}
+                    placeholder="اكتب ميزة أو تعديل جديد هنا ثم اضغط إضافة (مثال: إضافة قسم الصيدلية والتموينات)..."
+                    className="flex-1 p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddFeature}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>إضافة للبند</span>
+                  </button>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex items-center flex-wrap gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-400 font-bold ml-1">إضافة ميزات سريعة جاهزة:</span>
+                  {[
+                    "⚡ تسريع استجابة الطلبات والتوصيل",
+                    "🏪 إضافة متاجر وتصنيفات جديدة",
+                    "🛵 تحسين تعيين الكباتن والتتبع الميداني",
+                    "🏷️ دعم كوبونات خصم وعروض حصرية",
+                    "📱 دعم تثبيت الشاشة الرئيسية PWA"
+                  ].map((preset, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => handleAddQuickFeaturePreset(preset)}
+                      className="px-2 py-1 bg-white hover:bg-orange-50 border border-slate-200 text-slate-700 hover:text-orange-700 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Current features list for publishing */}
+                <div className="space-y-1.5 pt-1">
+                  {updateFeaturesList.map((feat, fIdx) => (
+                    <div key={fIdx} className="p-2 bg-white rounded-xl border border-slate-200/90 text-xs text-slate-800 font-bold flex items-center justify-between gap-2 shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-[10px] font-black flex items-center justify-center shrink-0">
+                          {fIdx + 1}
+                        </span>
+                        <span>{feat}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFeature(fIdx)}
+                        className="text-slate-400 hover:text-red-600 font-bold text-xs p-1"
+                        title="حذف هذا البند"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional Admin Notes */}
+              <div>
+                <label className="text-[11px] font-black text-slate-700 block mb-1">
+                  ملاحظة أو رسالة إضافية من الإدارة للمستخدمين (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={newUpdateNotes}
+                  onChange={(e) => setNewUpdateNotes(e.target.value)}
+                  placeholder="مثال: نشكركم على ثقتكم بتطبيق توصيل ونسعى دائماً لتقديم الأفضل لكم."
+                  className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              {/* Publish Action Button */}
+              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handlePublishUpdate}
+                  className="py-3 px-5 bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs sm:text-sm rounded-xl shadow-md shadow-orange-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4 text-white animate-spin-slow" />
+                  <span>🚀 نشر التحديث لجميع المستخدمين فوراً</span>
+                </button>
+
+                <p className="text-[10px] text-slate-400 font-bold">
+                  * سيظهر إشعار وأيقونة التحديث مباشرة لجميع المتصفحين، وستختفي تلقائياً بعد قيام كل مستخدم بالضغط على زر التحديث.
+                </p>
+              </div>
+
+              {updatePublishSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-black text-emerald-700 flex items-center gap-2 animate-fade-in">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>تم نشر التحديث الجديد وإرسال إشعار الأيقونة لجميع المستخدمين والتبويبات فوراً بنجاح! 🎉</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Regions */}
         <div className="pt-4 border-t border-slate-100 space-y-3">
           <label className="text-xs font-black text-slate-700 block">الأحياء والمناطق النشطة للتوصيل في القرية</label>
@@ -1725,6 +2031,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Admin Update Preview Modal */}
+      {showPreviewModal && (
+        <AppUpdateModal
+          update={latestUpdate}
+          onClose={() => setShowPreviewModal(false)}
+          onApplyUpdate={() => setShowPreviewModal(false)}
+          isPreview={true}
+        />
       )}
     </div>
   );

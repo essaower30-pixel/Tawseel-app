@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { User, Store as StoreIcon, Bike, Key, ShieldCheck, Download, Eye, EyeOff, X, ArrowRight, MessageCircle, MessageSquare } from "lucide-react";
+import { User, Store as StoreIcon, Bike, Key, ShieldCheck, Download, Eye, EyeOff, X, ArrowRight, MessageCircle, MessageSquare, Sparkles } from "lucide-react";
 import { Store, UserProfile, DriverMember } from "../types";
 import { initialDrivers, initialStaff } from "../data/adminInitialData";
 import { openWhatsApp } from "../utils/whatsapp";
+import { 
+  getLatestUpdate, 
+  hasPendingUpdate, 
+  acknowledgeUpdate, 
+  subscribeToUpdates, 
+  AppUpdateInfo 
+} from "../utils/updateManager";
+import { AppUpdateModal } from "./AppUpdateModal";
 
 interface AuthModalProps {
   onRegister: (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => void;
@@ -62,6 +70,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [secretClicks, setSecretClicks] = useState(0);
   const [showSecretStaffTab, setShowSecretStaffTab] = useState(false);
   const hideStaffTab = localStorage.getItem("tw_hide_staff_tab") === "true";
+
+  // Check pending updates for notification button in Auth Modal (تختفي بعد التحديث)
+  const [hasNewUpdate, setHasNewUpdate] = useState(() => hasPendingUpdate());
+  const [currentAppUpdate, setCurrentAppUpdate] = useState<AppUpdateInfo>(() => getLatestUpdate());
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+
+  useEffect(() => {
+    const sync = () => {
+      setHasNewUpdate(hasPendingUpdate());
+      setCurrentAppUpdate(getLatestUpdate());
+    };
+    sync();
+    return subscribeToUpdates(sync);
+  }, []);
+
+  const handleApplyUpdateInAuth = () => {
+    acknowledgeUpdate(currentAppUpdate.id);
+    setHasNewUpdate(false);
+    setShowUpdateModal(false);
+  };
 
   useEffect(() => {
     const handlePrompt = () => setHasInstallPrompt(true);
@@ -406,6 +434,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* App Update Notification Icon & Button (الايقونة تختفي بعد التحديث) */}
+            {hasNewUpdate && (
+              <button
+                type="button"
+                onClick={() => setShowUpdateModal(true)}
+                className="py-2 px-2.5 sm:px-3 rounded-xl border border-amber-300 bg-linear-to-r from-amber-100/95 via-orange-100/90 to-amber-50 hover:from-amber-200 hover:to-orange-200 text-amber-950 transition-all cursor-pointer flex items-center gap-1.5 text-xs font-black shadow-xs active:scale-95 animate-pulse"
+                title="يوجد تحديث وميزات جديدة للتطبيق - اضغط للتحديث"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-orange-600 animate-spin-slow" />
+                <span className="hidden sm:inline text-orange-950 font-black">تحديث جديد 🚀</span>
+                <span className="sm:hidden text-[10px] text-orange-950 font-black">تحديث 🚀</span>
+              </button>
+            )}
+
             {activeOrder && (
               <button
                 type="button"
@@ -958,6 +1000,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         </div>
       </main>
+
+      {/* App Update Modal in Auth */}
+      {showUpdateModal && (
+        <AppUpdateModal
+          update={currentAppUpdate}
+          onClose={() => setShowUpdateModal(false)}
+          onApplyUpdate={handleApplyUpdateInAuth}
+        />
+      )}
     </div>
   );
 };
