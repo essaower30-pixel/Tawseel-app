@@ -284,6 +284,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       deliveryFee: 5,
       locationNode: "center",
       ownerPhone: phone,
+      contactPhone: phone,
       ownerPin: pin,
       isApproved: false,
       status: "closed",
@@ -295,7 +296,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     };
 
     onAddStore(newStore);
-    setSuccessMsg(`تم تسجيل طلب إضافة المتجر "${name}" بنجاح!`);
+    setSuccessMsg(`تم استلام طلب تسجيل المتجر "${name}" بنجاح! متجرك قيد اعتماد ومراجعة الإدارة.`);
     setIsSuccess(true);
     setTimeout(() => {
       onRegister({

@@ -324,6 +324,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Registered customers count
   const registeredCount = Math.max(orders.length + registeredCustomers.length, registeredCustomers.length);
 
+  // Count of pending store applications waiting for admin approval
+  const pendingStoresCount = stores.filter(s => s.isApproved === false).length;
+
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
       {/* Header & Tabs Navigation */}
@@ -336,6 +339,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         currentStaff={currentStaff}
         onSelectStaff={handleSelectStaff}
         onLogout={onLogout}
+        pendingStoresCount={pendingStoresCount}
       />
 
       {/* Main Tab Content */}

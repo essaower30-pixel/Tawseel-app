@@ -154,15 +154,22 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-black text-white">{currentStore.name}</h2>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
-                    isOpen
-                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                      : "bg-red-500/20 text-red-400 border-red-500/30"
-                  }`}
-                >
-                  {isOpen ? "المتجر مفتوح لاستقبال الطلبات 🟢" : "المتجر مغلق حالياً 🔴"}
-                </span>
+                {currentStore.isApproved === false ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black border bg-amber-500/20 text-amber-300 border-amber-500/40 flex items-center gap-1">
+                    <span>⏳</span>
+                    <span>بانتظار موافقة وتفعيل الإدارة</span>
+                  </span>
+                ) : (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                      isOpen
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                        : "bg-red-500/20 text-red-400 border-red-500/30"
+                    }`}
+                  >
+                    {isOpen ? "المتجر مفتوح لاستقبال الطلبات 🟢" : "المتجر مغلق حالياً 🔴"}
+                  </span>
+                )}
               </div>
               <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2">
                 <span>هاتف المتجر: <strong className="font-mono text-slate-200">{currentStore.contactPhone || userProfile.phone}</strong></span>
@@ -243,6 +250,47 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Pending Approval Notice for Store Owner */}
+      {currentStore.isApproved === false && (
+        <div className="bg-gradient-to-r from-amber-950/90 via-amber-900/80 to-slate-900 border-2 border-amber-500/60 rounded-3xl p-5 text-white shadow-xl space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl font-black text-amber-400 shrink-0">
+                ⏳
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-black text-amber-300 text-sm sm:text-base">
+                    طلب متجرك قيد المراجعة والاعتماد من قبل الإدارة
+                  </h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/30 text-amber-300 border border-amber-400/40 text-[10px] font-black">
+                    غير ظاهر للزبائن حالياً
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                  أهلاً بك! تم استلام طلب تسجيل متجرك بنجاح. سيقوم فريق الإدارة بمراجعته وتفعيله ليظهر فوراً لجميع أهالي القرية في التطبيق. يمكنك الآن البدء بإضافة منتجاتك وتجهيز قائمتك.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                openWhatsApp({
+                  phone: "0991234567",
+                  message: `مرحباً إدارة تطبيق توصيل، قمت بتسجيل متجري (${currentStore.name}) برقم هاتف (${currentStore.contactPhone || userProfile.phone}) وأرجو التكرم باعتماده وتفعيله ليظهر للزبائن في التطبيق. شكراً لكم!`,
+                  type: "regular"
+                });
+              }}
+              className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30 transition-all cursor-pointer shrink-0 active:scale-95"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>مراسلة الإدارة لتسريع الاعتماد بالواتساب</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs Switcher */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">

@@ -184,10 +184,53 @@ export const initialStores: Store[] = [
     isApproved: true,
     isService: true,
     description: "توصيل خاص للقرى المجاورة والمدينة بسيارة مكيفة"
+  },
+  {
+    id: "store_gypsum_decor",
+    name: "جبس بورد وديكور",
+    category: "crafts",
+    image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=500&auto=format&fit=crop&q=60",
+    rating: 5,
+    deliveryTime: "حسب الاتفاق والمقاسات",
+    deliveryFee: 0,
+    locationNode: "center",
+    featuredProduct: "ديكورات جبس بورد وأسقف مستعارة وقواطع جدارية",
+    contactPhone: "0961141215",
+    ownerPhone: "0961141215",
+    ownerName: "فني ديكور وجبس",
+    ownerPin: "1234",
+    status: "closed",
+    isApproved: false,
+    isService: true,
+    description: "تركيب وتنفيذ أعمال جبس بورد، أسقف معلقة، ديكورات شاشات، قواطع جدارية، وإضاءة ليد بروفايل مخفية عصرية",
+    workingHours: "09:00 ص - 09:00 م",
+    priority: 1
   }
 ];
 
 export const initialProducts: Product[] = [
+  {
+    id: "p_gypsum_1",
+    name: "تنفيذ سقف معلق جبس بورد حديث (متر مربع)",
+    price: 35000,
+    unit: "متر مربع",
+    stock: 99,
+    description: "تركيب شاسيه حديد متين، ألواح جبس مقاومة، ومعجون فواصل معالج جاهز للدهان.",
+    image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=400&auto=format&fit=crop&q=60",
+    category: "crafts",
+    storeId: "store_gypsum_decor"
+  },
+  {
+    id: "p_gypsum_2",
+    name: "ديكور شاشات جبس بورد جداري مع إضاءة مخفية",
+    price: 180000,
+    unit: "تصميم متكامل",
+    stock: 20,
+    description: "تصميم مكتبة شاشة تلفزيون عصرية مع رفوف خشبية وإضاءة ليد دافئة.",
+    image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=400&auto=format&fit=crop&q=60",
+    category: "crafts",
+    storeId: "store_gypsum_decor"
+  },
   {
     id: "p_yasmin_1",
     name: "شاورما دجاج سوبر محمرة",

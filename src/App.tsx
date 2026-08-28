@@ -79,6 +79,15 @@ import {
   AppUpdateInfo 
 } from "./utils/updateManager";
 import { AppUpdateModal } from "./components/AppUpdateModal";
+import {
+  ensureInitialStoresPreserved,
+  fetchServerSync,
+  registerStoreOnServer,
+  approveStoreOnServer,
+  updateStoreOnServer,
+  deleteStoreOnServer,
+  saveOrderOnServer
+} from "./utils/apiSync";
 
 // Category Icon Helper Component
 function CategoryIcon({ name, className }: { name: string; className?: string }) {
@@ -123,7 +132,8 @@ export default function App() {
     const raw = localStorage.getItem("tw_stores");
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        return ensureInitialStoresPreserved(parsed);
       } catch (e) {}
     }
     return initialStores;
@@ -549,6 +559,90 @@ export default function App() {
     }
   }, [allOrders]);
 
+  // Handlers for store registration and management with instant local update + server persistence
+  const handleAddNewStore = async (newStore: Store) => {
+    setStores((prev) => {
+      const filtered = prev.filter((s) => s.id !== newStore.id && (!s.ownerPhone || s.ownerPhone !== newStore.ownerPhone));
+      return [newStore, ...filtered];
+    });
+    addToastNotification({
+      title: "تم إرسال طلب تسجيل المتجر 🏪",
+      message: `طلب تسجيل متجر "${newStore.name}" قيد مراجعة واعتماد الإدارة!`,
+      type: "info"
+    });
+    await registerStoreOnServer(newStore);
+  };
+
+  const handleUpdateStore = async (updatedStore: Store) => {
+    setStores((prev) => prev.map((item) => (item.id === updatedStore.id ? updatedStore : item)));
+    await updateStoreOnServer(updatedStore);
+  };
+
+  const handleDeleteStore = async (storeId: string) => {
+    setStores((prev) => prev.filter((item) => item.id !== storeId));
+    await deleteStoreOnServer(storeId);
+  };
+
+  // Background server sync: syncs stores across browsers/devices
+  useEffect(() => {
+    let isMounted = true;
+
+    const performSync = async () => {
+      const serverData = await fetchServerSync();
+      if (!serverData || !isMounted) return;
+
+      if (serverData.stores && serverData.stores.length > 0) {
+        setStores((currentLocal) => {
+          const currentMap = new Map<string, Store>(currentLocal.map((s) => [s.id, s]));
+          let hasDiff = false;
+
+          for (const sStore of serverData.stores) {
+            const localStore = currentMap.get(sStore.id);
+            if (!localStore || localStore.isApproved !== sStore.isApproved || localStore.status !== sStore.status || localStore.name !== sStore.name) {
+              hasDiff = true;
+              break;
+            }
+          }
+
+          if (hasDiff) {
+            // Check if there's a new pending store to notify admin
+            const newPending = serverData.stores.find(
+              (s) => s.isApproved === false && !currentLocal.some((cl) => cl.id === s.id && cl.isApproved === false)
+            );
+            if (newPending && (isAdminMode || userRole === "admin")) {
+              addToastNotification({
+                title: "🔔 طلب تسجيل متجر جديد",
+                message: `قام متجر "${newPending.name}" بالتسجيل وينتظر موافقة واعتماد الإدارة!`,
+                type: "info"
+              });
+              playOrderAlertSound("chime");
+            }
+            return ensureInitialStoresPreserved(serverData.stores);
+          }
+          return currentLocal;
+        });
+      }
+    };
+
+    performSync();
+    const interval = setInterval(performSync, 4000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        performSync();
+      }
+    };
+    window.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", performSync);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", performSync);
+    };
+  }, [isAdminMode, userRole, addToastNotification]);
+
   const handleUpdateOrderStatus = (orderId: string, status: any) => {
     setAllOrders((prev) =>
       prev.map((o) => {
@@ -859,7 +953,7 @@ export default function App() {
       <AuthModal
         onRegister={handleAuthSuccess}
         stores={stores}
-        onAddStore={(newStore) => setStores((prev) => [...prev, newStore])}
+        onAddStore={handleAddNewStore}
         activeOrder={activeOrder}
         onTrackOrder={() => {
           if (activeOrder) {
@@ -1040,7 +1134,7 @@ export default function App() {
                 orders={allOrders}
                 categories={categories}
                 userProfile={userProfile!}
-                onUpdateStore={(s) => setStores((prev) => prev.map((item) => (item.id === s.id ? s : item)))}
+                onUpdateStore={handleUpdateStore}
                 onAddProduct={(p) => setProducts((prev) => [...prev, p])}
                 onUpdateProduct={(p) => setProducts((prev) => prev.map((item) => (item.id === p.id ? p : item)))}
                 onDeleteProduct={(id) => setProducts((prev) => prev.filter((item) => item.id !== id))}
@@ -1069,9 +1163,9 @@ export default function App() {
                 orders={allOrders}
                 categories={categories}
                 mapNodes={mapNodes}
-                onAddStore={(s) => setStores((prev) => [...prev, s])}
-                onUpdateStore={(s) => setStores((prev) => prev.map((item) => (item.id === s.id ? s : item)))}
-                onDeleteStore={(id) => setStores((prev) => prev.filter((item) => item.id !== id))}
+                onAddStore={handleAddNewStore}
+                onUpdateStore={handleUpdateStore}
+                onDeleteStore={handleDeleteStore}
                 onAddProduct={(p) => setProducts((prev) => [...prev, p])}
                 onUpdateProduct={(p) => setProducts((prev) => prev.map((item) => (item.id === p.id ? p : item)))}
                 onDeleteProduct={(id) => setProducts((prev) => prev.filter((item) => item.id !== id))}
@@ -1705,7 +1799,7 @@ export default function App() {
         <AuthModal
           onRegister={handleAuthSuccess}
           stores={stores}
-          onAddStore={(newStore) => setStores((prev) => [...prev, newStore])}
+          onAddStore={handleAddNewStore}
           activeOrder={activeOrder}
           onTrackOrder={() => {
             setShowAuthModal(false);
