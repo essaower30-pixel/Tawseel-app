@@ -42,8 +42,8 @@ import {
   Bell,
   CheckCircle2
 } from "lucide-react";
-import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile } from "./types";
-import { initialCategories, initialMapNodes, initialProducts, initialStores } from "./data/initialData";
+import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview } from "./types";
+import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
 import { initialDrivers, initialOrders } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
@@ -93,30 +93,7 @@ import {
   updateProductOnServer,
   deleteProductOnServer
 } from "./utils/apiSync";
-
-// Category Icon Helper Component
-function CategoryIcon({ name, className }: { name: string; className?: string }) {
-  switch (name) {
-    case "Utensils":
-      return <Utensils className={className} />;
-    case "ShoppingBag":
-      return <ShoppingBag className={className} />;
-    case "Pill":
-      return <Pill className={className} />;
-    case "Leaf":
-      return <Leaf className={className} />;
-    case "CakeSlice":
-      return <CakeSlice className={className} />;
-    case "Stethoscope":
-      return <Stethoscope className={className} />;
-    case "Wrench":
-      return <Wrench className={className} />;
-    case "Car":
-      return <Car className={className} />;
-    default:
-      return <StoreIcon className={className} />;
-  }
-}
+import { CategoryIcon } from "./components/CategoryIcon";
 
 export const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/";
 
@@ -161,7 +138,26 @@ export default function App() {
 
   const [mapNodes, setMapNodes] = useState<MapNode[]>(() => {
     const raw = localStorage.getItem("tw_map_nodes");
-    return raw ? JSON.parse(raw) : initialMapNodes;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Normalize nodes to guarantee clear Arabic titles
+          return parsed.map((n: MapNode) => {
+            const match = initialMapNodes.find((im) => im.id === n.id);
+            const arabicName = n.arabicName || (match ? match.arabicName : n.name);
+            return {
+              ...n,
+              name: arabicName,
+              arabicName: arabicName
+            };
+          });
+        }
+      } catch (e) {
+        console.error("Failed to parse map nodes", e);
+      }
+    }
+    return initialMapNodes;
   });
 
   // User & Role State
@@ -226,7 +222,9 @@ export default function App() {
     }
   });
 
-  const [selectedLandmark, setSelectedLandmark] = useState<string>("center");
+  const [selectedLandmark, setSelectedLandmark] = useState<string>(() => {
+    return "دوار الساعة (وسط البلد)";
+  });
   const [emergencyRush, setEmergencyRush] = useState<boolean>(() => {
     return localStorage.getItem("tw_emergency_rush") === "true";
   });
@@ -239,6 +237,144 @@ export default function App() {
   const [hasNotifPermission, setHasNotifPermission] = useState<boolean>(() => 
     typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
   );
+
+  const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
+    const newToast: ToastItem = {
+      ...toast,
+      id: "toast-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+      createdAt: Date.now(),
+    };
+    setToasts((prev) => [newToast, ...prev.slice(0, 3)]); // Keep up to 4 toasts
+    
+    // Auto dismiss after 10 seconds
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
+    }, 10000);
+  }, []);
+
+  const handleDismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  // Store Broadcasts State (تنبيهات الإدارة الجماعية لأصحاب المتاجر)
+  const [storeBroadcasts, setStoreBroadcasts] = useState<StoreBroadcast[]>(() => {
+    const raw = localStorage.getItem("tw_store_broadcasts");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return initialStoreBroadcasts;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("tw_store_broadcasts", JSON.stringify(storeBroadcasts));
+  }, [storeBroadcasts]);
+
+  const handleSendBroadcast = (broadcast: StoreBroadcast) => {
+    setStoreBroadcasts((prev) => [broadcast, ...prev]);
+    addToastNotification({
+      title: "تم بث التنبيه الجماعي للمتاجر 📢",
+      message: `تم إرسال: "${broadcast.title}" بنجاح`,
+      type: "success"
+    });
+  };
+
+  const handleDeleteBroadcast = (id: string) => {
+    setStoreBroadcasts((prev) => prev.filter((b) => b.id !== id));
+    addToastNotification({
+      title: "تم حذف التعميم",
+      message: "تمت إزالة التنبيه من سجل المتاجر",
+      type: "info"
+    });
+  };
+
+  const handleResendBroadcast = (broadcast: StoreBroadcast) => {
+    const updated: StoreBroadcast = {
+      ...broadcast,
+      id: `bc_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      readBy: []
+    };
+    setStoreBroadcasts((prev) => [updated, ...prev]);
+    addToastNotification({
+      title: "تمت إعادة بث التنبيه 🔄",
+      message: `تم إرسال إشعار فوري جديد للمتاجر المستهدفة`,
+      type: "success"
+    });
+  };
+
+  const handleAcknowledgeBroadcast = (broadcastId: string) => {
+    const targetStoreId = currentStoreId || userProfile?.storeId;
+    if (!targetStoreId) return;
+
+    setStoreBroadcasts((prev) =>
+      prev.map((bc) => {
+        if (bc.id === broadcastId) {
+          const currentRead = bc.readBy || [];
+          if (!currentRead.includes(targetStoreId)) {
+            return { ...bc, readBy: [...currentRead, targetStoreId] };
+          }
+        }
+        return bc;
+      })
+    );
+    addToastNotification({
+      title: "تم تأكيد استلام التعميم ✓",
+      message: "تم حفظ تأكيد القراءة لدى إدارة التطبيق",
+      type: "success"
+    });
+  };
+
+  // Store Reviews & Ratings State (نظام تقييم المتاجر وآراء الزبائن)
+  const [reviews, setReviews] = useState<StoreReview[]>(() => {
+    const raw = localStorage.getItem("tw_store_reviews");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return initialStoreReviews;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("tw_store_reviews", JSON.stringify(reviews));
+  }, [reviews]);
+
+  const handleAddReview = (newRev: Omit<StoreReview, "id" | "createdAt">) => {
+    const review: StoreReview = {
+      ...newRev,
+      id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      createdAt: new Date().toISOString()
+    };
+
+    setReviews((prev) => [review, ...prev]);
+
+    // Dynamically calculate and update the store's average rating and count
+    setStores((prevStores) => {
+      return prevStores.map((st) => {
+        if (st.id === review.storeId) {
+          const storeReviews = [...reviews.filter((r) => r.storeId === st.id), review];
+          const sum = storeReviews.reduce((acc, curr) => acc + curr.rating, 0);
+          const newAvg = Number((sum / storeReviews.length).toFixed(1));
+          return {
+            ...st,
+            rating: newAvg,
+            ratingCount: storeReviews.length
+          };
+        }
+        return st;
+      });
+    });
+
+    addToastNotification({
+      title: "شكراً لتقييمك! ⭐",
+      message: `تم إضافة تقييمك لمتجر (${review.storeName}) بنجاح.`,
+      type: "success"
+    });
+  };
 
   // App Update & Feature Releases State (إشعار التحديث الجديد للمستخدمين)
   const [hasNewUpdate, setHasNewUpdate] = useState<boolean>(() => hasPendingUpdate());
@@ -280,24 +416,6 @@ export default function App() {
       type: "info"
     });
   };
-
-  const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
-    const newToast: ToastItem = {
-      ...toast,
-      id: "toast-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-      createdAt: Date.now(),
-    };
-    setToasts((prev) => [newToast, ...prev.slice(0, 3)]); // Keep up to 4 toasts
-    
-    // Auto dismiss after 10 seconds
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
-    }, 10000);
-  }, []);
-
-  const handleDismissToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
 
   const handleToggleSound = () => {
     const next = !soundEnabled;
@@ -1353,11 +1471,13 @@ export default function App() {
                 orders={allOrders}
                 categories={categories}
                 userProfile={userProfile!}
+                broadcasts={storeBroadcasts}
                 onUpdateStore={handleUpdateStore}
                 onAddProduct={handleAddNewProduct}
                 onUpdateProduct={handleUpdateProduct}
                 onDeleteProduct={handleDeleteProduct}
                 onUpdateOrderStatus={handleUpdateOrderStatus}
+                onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
                 onLogout={handleLogout}
                 onBackToCustomerView={() => {
                   setUserRole("customer");
@@ -1382,6 +1502,7 @@ export default function App() {
                 orders={allOrders}
                 categories={categories}
                 mapNodes={mapNodes}
+                broadcasts={storeBroadcasts}
                 onAddStore={handleAddNewStore}
                 onUpdateStore={handleUpdateStore}
                 onDeleteStore={handleDeleteStore}
@@ -1390,10 +1511,14 @@ export default function App() {
                 onDeleteProduct={handleDeleteProduct}
                 onAddCategory={(cat) => setCategories((prev) => [...prev, cat])}
                 onDeleteCategory={(catId) => setCategories((prev) => prev.filter((c) => c.id !== catId))}
+                onReorderCategories={(newCats) => setCategories(newCats)}
                 onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
                 onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
                 onUpdateOrderStatus={handleUpdateOrderStatus}
                 onAssignDriver={handleAssignDriverToOrder}
+                onSendBroadcast={handleSendBroadcast}
+                onDeleteBroadcast={handleDeleteBroadcast}
+                onResendBroadcast={handleResendBroadcast}
                 onLogout={handleLogout}
               />
             </motion.div>
@@ -1476,6 +1601,14 @@ export default function App() {
                 products={products}
                 onSubmitCustomOrder={handleCustomOrder}
                 customerUser={userProfile}
+                landmarks={mapNodes.map((n) => n.arabicName || n.name)}
+                currentLandmark={selectedLandmark}
+                reviews={reviews}
+                onAddReview={handleAddReview}
+                userOrders={allOrders.filter((o) => {
+                  if (!userProfile) return true;
+                  return o.customerPhone === userProfile.phone || o.customerName === userProfile.name;
+                })}
               />
             </motion.div>
           ) : (
@@ -2019,9 +2152,12 @@ export default function App() {
       {/* Customer Orders Archive Modal */}
       {showCustomerArchiveModal && (
         <CustomerOrdersArchiveModal
+          isOpen={showCustomerArchiveModal}
           orders={allOrders}
-          currentCustomerPhone={userProfile?.phone}
-          currentCustomerName={userProfile?.name}
+          customerPhone={userProfile?.phone}
+          customerName={userProfile?.name}
+          reviews={reviews}
+          onAddReview={handleAddReview}
           onClose={() => setShowCustomerArchiveModal(false)}
           onSelectOrderToTrack={(order) => {
             setActiveOrder(order);
@@ -2218,7 +2354,7 @@ export default function App() {
         onClose={() => setShowHomeCustomOrderModal(false)}
         stores={stores}
         userProfile={userProfile}
-        landmarks={mapNodes.map((n) => n.name).length > 0 ? mapNodes.map((n) => n.name) : ["وسط البلد", "الحي الغربي", "الحي الشرقي", "قرب المسجد الكبير", "طريق المدرسة", "مفرق المزارع"]}
+        landmarks={mapNodes.map((n) => n.arabicName || n.name)}
         currentLandmark={selectedLandmark}
         onSubmit={handleCustomOrder}
       />

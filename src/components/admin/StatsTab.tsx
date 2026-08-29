@@ -19,8 +19,9 @@ import {
   ExternalLink,
   Calendar
 } from "lucide-react";
-import { Craftsman, DriverMember, Order, Product, StaffMember, Store } from "../../types";
+import { Craftsman, DriverMember, Order, Product, StaffMember, Store, Category } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { VisualChartsSection } from "./VisualChartsSection";
 
 interface StatsTabProps {
   stores: Store[];
@@ -32,6 +33,7 @@ interface StatsTabProps {
   registeredCustomersCount: number;
   onNavigateToTab: (tabId: any) => void;
   currency: string;
+  categories?: Category[];
 }
 
 export const StatsTab: React.FC<StatsTabProps> = ({
@@ -43,7 +45,8 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   craftsmenList,
   registeredCustomersCount,
   onNavigateToTab,
-  currency
+  currency,
+  categories = []
 }) => {
   const [filterPeriod, setFilterPeriod] = useState<"today" | "week" | "month" | "all">("all");
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
@@ -358,86 +361,13 @@ export const StatsTab: React.FC<StatsTabProps> = ({
         </div>
       </div>
 
-      {/* Grid: Sales Chart & Top Stores */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales Trend Chart */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div>
-              <h3 className="font-black text-sm sm:text-base text-slate-800">تحليل مبيعات المحلات على مدار الأيام المنصرمة</h3>
-              <p className="text-xs text-slate-400">مخطط بياني فوري لحركة المبيعات الإجمالية</p>
-            </div>
-            <span className="px-3 py-1 bg-orange-50 text-orange-600 font-black text-xs rounded-xl border border-orange-200">
-              أداء مميز 📈
-            </span>
-          </div>
-
-          {/* Simple Clean SVG Chart */}
-          <div className="pt-4">
-            <div className="h-44 flex items-end justify-between gap-2 sm:gap-4 px-2">
-              {salesTrend.map((val, idx) => {
-                const heightPercent = Math.max(15, (val / maxTrend) * 100);
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                    <span className="text-[10px] font-bold text-slate-400 group-hover:text-orange-600 transition-colors">
-                      {(val / 1000).toFixed(0)}k
-                    </span>
-                    <div className="w-full bg-slate-100 rounded-xl overflow-hidden h-full max-h-32 flex items-end">
-                      <div 
-                        style={{ height: `${heightPercent}%` }} 
-                        className="w-full bg-gradient-to-t from-orange-500 to-amber-400 rounded-t-lg transition-all duration-500 group-hover:opacity-90"
-                      />
-                    </div>
-                    <span className="text-[11px] font-black text-slate-600">{daysLabels[idx]}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Top Stores List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 text-white shadow-md flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-              <h3 className="font-black text-sm text-white flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-amber-400" />
-                <span>المحلات الأكثر طلباً ومبيعاً</span>
-              </h3>
-            </div>
-
-            {topStores.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-xs space-y-2">
-                <p>لا توجد مبيعات مكتملة مسجلة في هذه الفترة بعد.</p>
-                <p className="text-[10px] text-slate-500">تحتسب الإحصائيات الفورية مباشرة من صفقات التسليم الناجحة التي أتمها المندوب باليد.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topStores.map((st, idx) => (
-                  <div key={idx} className="bg-slate-800/70 border border-slate-700/60 p-3 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center font-black text-xs">
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <h4 className="font-black text-xs text-white">{st.name}</h4>
-                        <span className="text-[10px] text-slate-400">{st.count} طلب مكتمل</span>
-                      </div>
-                    </div>
-                    <div className="text-left font-black text-xs text-orange-400">
-                      {st.sales.toLocaleString()} {currency}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="pt-4 border-t border-slate-800/80 mt-4 text-[10px] text-slate-400 text-center">
-            تحديث فوري وتلقائي مع كل عملية تسليم مكتملة
-          </div>
-        </div>
-      </div>
+      {/* Visual Recharts Analytics Section: Daily Sales and Orders per Store */}
+      <VisualChartsSection
+        orders={filteredOrders}
+        stores={stores}
+        categories={categories}
+        currency={currency}
+      />
 
       {/* WhatsApp Share Report Modal */}
       {showWhatsappModal && (

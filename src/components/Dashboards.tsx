@@ -13,7 +13,8 @@ import {
   RegisteredCustomer,
   StaffMember, 
   Store, 
-  UserProfile 
+  UserProfile,
+  StoreBroadcast 
 } from "../types";
 import { 
   initialStaff, 
@@ -45,6 +46,7 @@ interface DashboardProps {
   orders: Order[];
   categories?: Category[];
   mapNodes?: MapNode[];
+  broadcasts?: StoreBroadcast[];
   onAddStore: (store: Store) => void;
   onUpdateStore: (store: Store) => void;
   onDeleteStore: (storeId: string) => void;
@@ -56,8 +58,12 @@ interface DashboardProps {
   onLogout: () => void;
   onAddCategory?: (category: Category) => void;
   onDeleteCategory?: (categoryId: string) => void;
+  onReorderCategories?: (categories: Category[]) => void;
   onAddMapNode?: (node: MapNode) => void;
   onDeleteMapNode?: (nodeId: string) => void;
+  onSendBroadcast?: (broadcast: StoreBroadcast) => void;
+  onDeleteBroadcast?: (id: string) => void;
+  onResendBroadcast?: (broadcast: StoreBroadcast) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -68,6 +74,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   orders,
   categories = [],
   mapNodes = [],
+  broadcasts = [],
   onAddStore,
   onUpdateStore,
   onDeleteStore,
@@ -79,8 +86,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onLogout,
   onAddCategory,
   onDeleteCategory,
+  onReorderCategories,
   onAddMapNode,
-  onDeleteMapNode
+  onDeleteMapNode,
+  onSendBroadcast = () => {},
+  onDeleteBroadcast = () => {},
+  onResendBroadcast = () => {},
 }) => {
   // Persistent Emergency Rush Mode
   const [isEmergencyRush, setIsEmergencyRush] = useState<boolean>(() => {
@@ -363,6 +374,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 registeredCustomersCount={registeredCount}
                 onNavigateToTab={setActiveTab}
                 currency={appSettings.currency || "ل.س"}
+                categories={categories}
               />
             )}
 
@@ -394,11 +406,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 stores={stores}
                 categories={categories}
                 products={products}
+                broadcasts={broadcasts}
                 onAddStore={onAddStore}
                 onUpdateStore={onUpdateStore}
                 onDeleteStore={onDeleteStore}
                 onAddCategory={onAddCategory || (() => {})}
                 onDeleteCategory={onDeleteCategory || (() => {})}
+                onReorderCategories={onReorderCategories || (() => {})}
+                onSendBroadcast={onSendBroadcast}
+                onDeleteBroadcast={onDeleteBroadcast}
+                onResendBroadcast={onResendBroadcast}
                 currency={appSettings.currency || "ل.س"}
               />
             )}

@@ -26,23 +26,32 @@ import {
   CheckCircle2,
   AlertCircle,
   ShieldCheck,
-  CheckCheck
+  CheckCheck,
+  Megaphone,
+  Radio
 } from "lucide-react";
-import { Category, Product, Store } from "../../types";
+import { Category, Product, Store, StoreBroadcast } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
 import { ImageUploader } from "../ImageUploader";
 import { approveStoreOnServer } from "../../utils/apiSync";
+import { CategoryManagerModal } from "./CategoryManagerModal";
+import { StoreBroadcastModal } from "./StoreBroadcastModal";
 
 interface StoresTabProps {
   stores: Store[];
   categories: Category[];
   products: Product[];
+  broadcasts?: StoreBroadcast[];
   onAddStore: (store: Store) => void;
   onUpdateStore: (store: Store) => void;
   onDeleteStore: (storeId: string) => void;
   onAddCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
+  onReorderCategories?: (categories: Category[]) => void;
+  onSendBroadcast?: (broadcast: StoreBroadcast) => void;
+  onDeleteBroadcast?: (id: string) => void;
+  onResendBroadcast?: (broadcast: StoreBroadcast) => void;
   currency: string;
 }
 
@@ -50,13 +59,19 @@ export const StoresTab: React.FC<StoresTabProps> = ({
   stores,
   categories,
   products,
+  broadcasts = [],
   onAddStore,
   onUpdateStore,
   onDeleteStore,
   onAddCategory,
   onDeleteCategory,
+  onReorderCategories = () => {},
+  onSendBroadcast = () => {},
+  onDeleteBroadcast = () => {},
+  onResendBroadcast = () => {},
   currency
 }) => {
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState("all");
   const [approvalFilter, setApprovalFilter] = useState<"all" | "approved" | "pending">("all");
@@ -274,17 +289,34 @@ export const StoresTab: React.FC<StoresTabProps> = ({
           <div className="flex items-center flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setShowCatModal(true)}
-              className="py-2.5 px-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-2xl transition-all flex items-center gap-1.5 cursor-pointer border border-slate-200"
+              onClick={() => setShowBroadcastModal(true)}
+              className="py-2.5 px-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 border border-orange-400"
             >
-              <Tag className="w-4 h-4 text-slate-500" />
-              <span>التصنيفات ({categories.length})</span>
+              <Megaphone className="w-4 h-4 text-white animate-bounce" />
+              <span>تنبيه جماعي للمتاجر 📢 (Broadcast)</span>
+              {broadcasts.length > 0 && (
+                <span className="text-[10px] bg-white/30 text-white font-black px-1.5 py-0.2 rounded-full">
+                  {broadcasts.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCatModal(true)}
+              className="py-2.5 px-3.5 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 text-orange-950 font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer border border-orange-200 shadow-2xs active:scale-95"
+            >
+              <Tag className="w-4 h-4 text-orange-600" />
+              <span>ترتيب وإدارة التصنيفات ({categories.length}) 🖐️</span>
+              <span className="text-[10px] bg-orange-200 text-orange-900 font-extrabold px-1.5 py-0.5 rounded-md">
+                سحب وإفلات
+              </span>
             </button>
 
             <button
               type="button"
               onClick={() => openAddModal(true)}
-              className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              className="py-2.5 px-4 bg-slate-900 hover:bg-black text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>تسجيل متجر نيابة عن صاحبه ➕</span>
@@ -974,75 +1006,28 @@ export const StoresTab: React.FC<StoresTabProps> = ({
         </div>
       )}
 
-      {/* Categories Management Modal */}
-      {showCatModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right" dir="rtl">
-            <div className="flex items-center justify-between border-b pb-3">
-              <h3 className="font-black text-slate-800 flex items-center gap-2">
-                <Tag className="w-5 h-5 text-orange-500" />
-                <span>إدارة تصنيفات المتاجر والخدمات</span>
-              </h3>
-              <button 
-                onClick={() => setShowCatModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Categories Reordering & Management Modal (Drag and Drop) */}
+      <CategoryManagerModal
+        isOpen={showCatModal}
+        onClose={() => setShowCatModal(false)}
+        categories={categories}
+        stores={stores}
+        onReorderCategories={onReorderCategories}
+        onAddCategory={onAddCategory}
+        onDeleteCategory={onDeleteCategory}
+      />
 
-            {/* Add Category Form */}
-            <form onSubmit={handleAddCategorySubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">اسم التصنيف الجديد:</label>
-                <input
-                  type="text"
-                  required
-                  value={newCatLabel}
-                  onChange={(e) => setNewCatLabel(e.target.value)}
-                  placeholder="مثال: مخابز وأفران"
-                  className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-hidden focus:border-orange-500"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
-              >
-                إضافة التصنيف ➕
-              </button>
-            </form>
-
-            {/* Categories List */}
-            <div className="space-y-2 pt-2 border-t max-h-48 overflow-y-auto">
-              <h4 className="font-black text-xs text-slate-700">التصنيفات الحالية ({categories.length}):</h4>
-              {categories.map(cat => {
-                const count = stores.filter(s => s.category === cat.id).length;
-                return (
-                  <div key={cat.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl border text-xs">
-                    <span className="font-bold text-slate-800">{cat.label} ({count} متجر)</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (count > 0) {
-                          alert(`لا يمكن حذف التصنيف لوجود ${count} متجر مرتبط به.`);
-                          return;
-                        }
-                        if (confirm(`حذف تصنيف "${cat.label}"؟`)) {
-                          onDeleteCategory(cat.id);
-                        }
-                      }}
-                      className="p-1 text-red-500 hover:text-red-700"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Store Broadcasts Management Modal */}
+      <StoreBroadcastModal
+        isOpen={showBroadcastModal}
+        onClose={() => setShowBroadcastModal(false)}
+        broadcasts={broadcasts}
+        stores={stores}
+        categories={categories}
+        onSendBroadcast={onSendBroadcast}
+        onDeleteBroadcast={onDeleteBroadcast}
+        onResendBroadcast={onResendBroadcast}
+      />
     </div>
   );
 };

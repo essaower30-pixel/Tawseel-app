@@ -1,4 +1,4 @@
-import { Category, MapNode, Product, Store } from "../types";
+import { Category, MapNode, Product, Store, StoreBroadcast, StoreReview } from "../types";
 
 export const initialCategories: Category[] = [
   { id: "restaurants", label: "مطاعم وجبات", icon: "Utensils" },
@@ -12,22 +12,22 @@ export const initialCategories: Category[] = [
 ];
 
 export const initialMapNodes: MapNode[] = [
-  { id: "center", name: "Center Circle", x: 50, y: 50, type: "intersection", arabicName: "دوار الساعة (وسط البلد)" },
-  { id: "north_junction", name: "North Junction", x: 50, y: 20, type: "intersection", arabicName: "تقاطع الشمال" },
-  { id: "south_junction", name: "South Junction", x: 50, y: 80, type: "intersection", arabicName: "تقاطع الجنوب" },
-  { id: "east_junction", name: "East Junction", x: 80, y: 50, type: "intersection", arabicName: "مفرق الشرق" },
-  { id: "west_junction", name: "West Junction", x: 20, y: 50, type: "intersection", arabicName: "مستودع الغرب" },
-  { id: "store_yasmin", name: "Al-Yasmin Restaurant", x: 35, y: 30, type: "store", arabicName: "مطعم الياسمين الدمشقي" },
-  { id: "store_baraka", name: "Al-Baraka Supermarket", x: 65, y: 35, type: "store", arabicName: "سوبرماركت البركة للغذاء" },
-  { id: "store_shifa", name: "Al-Shifa Pharmacy", x: 25, y: 65, type: "store", arabicName: "صيدلية الشفاء المركزية" },
-  { id: "store_elite", name: "Elite Fruits & Veg", x: 75, y: 65, type: "store", arabicName: "خضروات وفواكه النخبة" },
-  { id: "store_baghdad", name: "Baghdad Sweets", x: 45, y: 45, type: "store", arabicName: "حلويات بغداد الشرقية" },
-  { id: "store_pizza", name: "Village Pizza", x: 55, y: 25, type: "store", arabicName: "مطعم بيتزا الضيعة" },
-  { id: "landmark_mosque", name: "Grand Mosque", x: 15, y: 15, type: "landmark", arabicName: "مسجد الروضة الكبير" },
-  { id: "landmark_school", name: "High School", x: 85, y: 15, type: "landmark", arabicName: "مدرسة المتفوقين الثانوية" },
-  { id: "landmark_clinic", name: "Health Clinic", x: 15, y: 85, type: "landmark", arabicName: "مستوصف القرية الصحي" },
-  { id: "landmark_municipality", name: "Town Hall", x: 85, y: 85, type: "landmark", arabicName: "ساحة البلدية والديوان" },
-  { id: "landmark_jasmine_complex", name: "Jasmine Complex", x: 48, y: 70, type: "landmark", arabicName: "مجمع الياسمين السكني" }
+  { id: "center", name: "دوار الساعة (وسط البلد)", x: 50, y: 50, type: "intersection", arabicName: "دوار الساعة (وسط البلد)" },
+  { id: "north_junction", name: "تقاطع الشمال", x: 50, y: 20, type: "intersection", arabicName: "تقاطع الشمال" },
+  { id: "south_junction", name: "تقاطع الجنوب", x: 50, y: 80, type: "intersection", arabicName: "تقاطع الجنوب" },
+  { id: "east_junction", name: "مفرق الشرق", x: 80, y: 50, type: "intersection", arabicName: "مفرق الشرق" },
+  { id: "west_junction", name: "مستودع الغرب", x: 20, y: 50, type: "intersection", arabicName: "مستودع الغرب" },
+  { id: "store_yasmin", name: "مطعم الياسمين الدمشقي", x: 35, y: 30, type: "store", arabicName: "مطعم الياسمين الدمشقي" },
+  { id: "store_baraka", name: "سوبرماركت البركة للغذاء", x: 65, y: 35, type: "store", arabicName: "سوبرماركت البركة للغذاء" },
+  { id: "store_shifa", name: "صيدلية الشفاء المركزية", x: 25, y: 65, type: "store", arabicName: "صيدلية الشفاء المركزية" },
+  { id: "store_elite", name: "خضروات وفواكه النخبة", x: 75, y: 65, type: "store", arabicName: "خضروات وفواكه النخبة" },
+  { id: "store_baghdad", name: "حلويات بغداد الشرقية", x: 45, y: 45, type: "store", arabicName: "حلويات بغداد الشرقية" },
+  { id: "store_pizza", name: "مطعم بيتزا الضيعة", x: 55, y: 25, type: "store", arabicName: "مطعم بيتزا الضيعة" },
+  { id: "landmark_mosque", name: "مسجد الروضة الكبير", x: 15, y: 15, type: "landmark", arabicName: "مسجد الروضة الكبير" },
+  { id: "landmark_school", name: "مدرسة المتفوقين الثانوية", x: 85, y: 15, type: "landmark", arabicName: "مدرسة المتفوقين الثانوية" },
+  { id: "landmark_clinic", name: "مستوصف القرية الصحي", x: 15, y: 85, type: "landmark", arabicName: "مستوصف القرية الصحي" },
+  { id: "landmark_municipality", name: "ساحة البلدية والديوان", x: 85, y: 85, type: "landmark", arabicName: "ساحة البلدية والديوان" },
+  { id: "landmark_jasmine_complex", name: "مجمع الياسمين السكني", x: 48, y: 70, type: "landmark", arabicName: "مجمع الياسمين السكني" }
 ];
 
 export const initialStores: Store[] = [
@@ -456,3 +456,148 @@ export const initialProducts: Product[] = [
     offerLabel: "ضيافة الأعياد"
   }
 ];
+
+export const initialStoreBroadcasts: StoreBroadcast[] = [
+  {
+    id: "broadcast_1",
+    title: "حملة تنشيط المبيعات الأسبوعية وخصومات 15% للزبائن 🎉",
+    message: "تحية طيبة لشركائنا أصحاب المتاجر، يرجى تجهيز العروض وتحديث الأصناف المشمولة بالعرض لزيادة حجم الطلبات عبر التطبيق. ستتحمل الإدارة جزءاً من تكاليف الترويج.",
+    type: "discount",
+    priority: "important",
+    targetType: "all",
+    senderName: "إدارة تطبيق القرية",
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+    readBy: ["store_yasmin"]
+  },
+  {
+    id: "broadcast_2",
+    title: "تنبيه بخصوص سرعة تجهيز الطلبات خلال ساعات المساء ⏱️",
+    message: "نظراً لكثافة طلبات العشاء، يرجى النقر على زر 'بدء التجهيز' فور وصول الإشعار لتنسيق وصول المناديب في الوقت المثالي وتفادي تأخر استلام الوجبات.",
+    type: "update",
+    priority: "normal",
+    targetType: "category",
+    targetIds: ["restaurants"],
+    senderName: "قسم المتابعة والعمليات",
+    createdAt: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+    readBy: ["store_yasmin", "store_pizza"]
+  }
+];
+
+export const initialStoreReviews: StoreReview[] = [
+  {
+    id: "rev_1",
+    storeId: "store_yasmin",
+    storeName: "مطعم الياسمين الدمشقي",
+    orderId: "ord_101",
+    customerName: "أحمد مراد",
+    customerPhone: "0944123456",
+    rating: 5,
+    comment: "ما شاء الله الشاورما والبروستد فاخرين جداً، التتبيلة شامية أصلية والوجبة وصلت ساخنة ومقرمشة بأقل من نصف ساعة!",
+    tags: ["طعام ساخن ولذيذ 🍲", "توصيل سريع ⚡", "تغليف محكم ونظيف 📦"],
+    createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+    reply: "ألف صحة وهنا يا رب يا غالي، نسعد دائماً بخدمتكم وتوفير أفضل جودة تليق بكم 🌹",
+    replyAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_2",
+    storeId: "store_yasmin",
+    storeName: "مطعم الياسمين الدمشقي",
+    orderId: "ord_102",
+    customerName: "أم محمد الشامي",
+    customerPhone: "0955678901",
+    rating: 5,
+    comment: "النظافة والتغليف ممتازين جداً والكابتن كان محترم وسريع. بارك الله فيكم وفي رزقكم.",
+    tags: ["تغليف محكم ونظيف 📦", "تعامل راقي ومحترم 🤝", "مطابق للطلب تماماً ✓"],
+    createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_3",
+    storeId: "store_yasmin",
+    storeName: "مطعم الياسمين الدمشقي",
+    orderId: "ord_103",
+    customerName: "رامي عواد",
+    customerPhone: "0933456789",
+    rating: 4,
+    comment: "الأكل طيب كتير بس يا ريت المرة الجاية تكتروا الثومية والمخلل شوي بالوجبة. يعطيكن العافية.",
+    tags: ["طعام ساخن ولذيذ 🍲", "جودة عالية ونظافة 💎"],
+    createdAt: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
+    reply: "تكرم عيونك أخ رامي، طلبك أوامر وفي طلبك القادم سيتم تدليلكم بالصوصات والمقبلات إن شاء الله!",
+    replyAt: new Date(Date.now() - 60 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_4",
+    storeId: "store_baraka",
+    storeName: "سوبرماركت البركة للغذاء",
+    orderId: "ord_104",
+    customerName: "محمود الحلبي",
+    customerPhone: "0944998877",
+    rating: 5,
+    comment: "أفضل سوبرماركت بالضيعة! الأغراض والتموين كاملة بدون أي نقص ومغلفة بأكياس مرتبة وتاريخ صلاحية جديد.",
+    tags: ["مطابق للطلب تماماً ✓", "أسعار ممتازة 🏷️", "توصيل سريع ⚡"],
+    createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
+    reply: "شكراً لثقتكم الغالية بنا يا هلا فيكم دائماً 🌟",
+    replyAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_5",
+    storeId: "store_baraka",
+    storeName: "سوبرماركت البركة للغذاء",
+    orderId: "ord_105",
+    customerName: "سارة النجار",
+    customerPhone: "0966554433",
+    rating: 5,
+    comment: "توفير وسرعة خيالية، اعتمدت سوبرماركت البركة لكل مشتريات البيت.",
+    tags: ["أسعار ممتازة 🏷️", "توصيل سريع ⚡"],
+    createdAt: new Date(Date.now() - 96 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_6",
+    storeId: "store_pizza",
+    storeName: "مطعم بيتزا الضيعة",
+    orderId: "ord_106",
+    customerName: "عمر كنعان",
+    customerPhone: "0988776655",
+    rating: 5,
+    comment: "البيتزا نابوليتانا الحطب خرافية، الجبنة بتمط والعجينة خفيفة ولذيذة جداً. تجربة 10/10.",
+    tags: ["طعام ساخن ولذيذ 🍲", "جودة عالية ونظافة 💎"],
+    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_7",
+    storeId: "store_pizza",
+    storeName: "مطعم بيتزا الضيعة",
+    orderId: "ord_107",
+    customerName: "خالد بيطار",
+    customerPhone: "0933221100",
+    rating: 4,
+    comment: "بيتزا شهية جداً ومشروبات باردة وصلت بوقت قياسي.",
+    tags: ["توصيل سريع ⚡", "طعام ساخن ولذيذ 🍲"],
+    createdAt: new Date(Date.now() - 80 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_8",
+    storeId: "store_shifa",
+    storeName: "صيدلية الشفاء المركزية",
+    orderId: "ord_108",
+    customerName: "د. هاني الرفاعي",
+    customerPhone: "0955112233",
+    rating: 5,
+    comment: "خدمة قراءة وتجهيز الراشيتة عبر التطبيق فكرة ممتازة ووفرت علينا وقت كتير. الصيدلاني متعاون جداً.",
+    tags: ["خدمة ممتازة وتعامل راقي 🤝", "مطابق للطلب تماماً ✓"],
+    createdAt: new Date(Date.now() - 30 * 3600 * 1000).toISOString()
+  },
+  {
+    id: "rev_9",
+    storeId: "store_baghdad",
+    storeName: "حلويات بغداد الشرقية",
+    orderId: "ord_109",
+    customerName: "نور الهدى",
+    customerPhone: "0944001122",
+    rating: 5,
+    comment: "البقلاوة والكنافة شي فاخر ع الآخر، السمن البلدي والفستق نخب أول والقطر موزون بالملي.",
+    tags: ["جودة عالية ونظافة 💎", "طعام ساخن ولذيذ 🍲"],
+    createdAt: new Date(Date.now() - 40 * 3600 * 1000).toISOString()
+  }
+];
+
+

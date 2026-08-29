@@ -98,6 +98,15 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
     }
   }, [userProfile]);
 
+  // Sync landmark with active landmark / dynamic landmarks list
+  useEffect(() => {
+    if (currentLandmark && landmarks.includes(currentLandmark)) {
+      setLandmark(currentLandmark);
+    } else if (landmarks && landmarks.length > 0) {
+      setLandmark(landmarks[0]);
+    }
+  }, [currentLandmark, landmarks, isOpen]);
+
   const selectedStore = stores.find((s) => s.id === selectedStoreId) || stores[0];
 
   // Filtered stores for picker

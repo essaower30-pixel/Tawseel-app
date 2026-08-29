@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Pill, Stethoscope, Camera, Image as ImageIcon, CheckCircle2, AlertCircle, RefreshCw, Trash2, MapPin, Sparkles, Send, Phone, MessageSquare } from "lucide-react";
 import { Store, UserProfile } from "../types";
@@ -71,6 +71,25 @@ export const PrescriptionModal: React.FC<PrescriptionModalProps> = ({
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync user profile when available
+  useEffect(() => {
+    if (userProfile?.name && !customerName) {
+      setCustomerName(userProfile.name);
+    }
+    if (userProfile?.phone && !customerPhone) {
+      setCustomerPhone(userProfile.phone);
+    }
+  }, [userProfile]);
+
+  // Sync landmark with active landmark / dynamic landmarks list
+  useEffect(() => {
+    if (currentLandmark && landmarks.includes(currentLandmark)) {
+      setLandmark(currentLandmark);
+    } else if (landmarks && landmarks.length > 0) {
+      setLandmark(landmarks[0]);
+    }
+  }, [currentLandmark, landmarks, isOpen]);
 
   // Filter stores according to active tab
   const filteredStores = medicalStores.filter((s) => {

@@ -70,6 +70,11 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
       return;
     }
 
+    const resolvedLandmark = 
+      mapNodes.find(n => n.id === selectedLandmark || n.arabicName === selectedLandmark || n.name === selectedLandmark)?.arabicName || 
+      mapNodes.find(n => n.id === selectedLandmark || n.arabicName === selectedLandmark || n.name === selectedLandmark)?.name || 
+      selectedLandmark;
+
     onCheckout({
       storeId: currentStoreId,
       storeName: currentStore ? currentStore.name : "متجر محلي",
@@ -81,7 +86,7 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
       total,
       customerName,
       customerPhone,
-      addressLandmark: selectedLandmark,
+      addressLandmark: resolvedLandmark,
       addressDetails,
       notes,
       paymentMethod
@@ -231,13 +236,16 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                 <select
                   value={selectedLandmark}
                   onChange={(e) => onSelectLandmark(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none text-slate-800"
                 >
-                  {mapNodes.map((node) => (
-                    <option key={node.id} value={node.id}>
-                      {node.arabicName}
-                    </option>
-                  ))}
+                  {mapNodes.map((node) => {
+                    const label = node.arabicName || node.name;
+                    return (
+                      <option key={node.id} value={label}>
+                        {label}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

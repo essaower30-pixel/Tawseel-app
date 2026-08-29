@@ -32,6 +32,7 @@ export interface Store {
   category: string;
   image: string;
   rating: number;
+  ratingCount?: number;
   deliveryTime: string;
   deliveryFee: number;
   locationNode: string;
@@ -233,3 +234,39 @@ export interface AppSettings {
   adminPassword?: string;
   adminPin?: string;
 }
+
+export type BroadcastType = "discount" | "update" | "alert" | "timing" | "system";
+export type BroadcastPriority = "normal" | "important" | "urgent";
+
+export interface StoreBroadcast {
+  id: string;
+  title: string;
+  message: string;
+  type: BroadcastType;
+  priority: BroadcastPriority;
+  targetType: "all" | "category" | "specific";
+  targetIds?: string[]; // category ids or store ids
+  senderName?: string;
+  createdAt: string;
+  expiresAt?: string;
+  readBy?: string[]; // Array of store IDs that opened/read this broadcast
+  actionDiscountCode?: string;
+  actionUrl?: string;
+}
+
+export interface StoreReview {
+  id: string;
+  storeId: string;
+  storeName?: string;
+  orderId: string;
+  customerName: string;
+  customerPhone?: string;
+  rating: number; // 1 to 5
+  comment: string;
+  tags?: string[];
+  createdAt: string;
+  reply?: string;
+  replyAt?: string;
+}
+
+

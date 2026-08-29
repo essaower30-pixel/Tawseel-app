@@ -12,9 +12,11 @@ import {
   ChevronLeft,
   ShoppingBag,
   ExternalLink,
-  Phone
+  Phone,
+  Star
 } from "lucide-react";
-import { Order, CartItem } from "../types";
+import { Order, CartItem, StoreReview } from "../types";
+import { StoreReviewModal } from "./StoreReviewModal";
 
 interface CustomerOrdersArchiveModalProps {
   isOpen: boolean;
@@ -25,6 +27,8 @@ interface CustomerOrdersArchiveModalProps {
   onSelectOrderToTrack?: (order: Order) => void;
   onReorder?: (items: CartItem[]) => void;
   currency?: string;
+  reviews?: StoreReview[];
+  onAddReview?: (review: Omit<StoreReview, "id" | "createdAt">) => void;
 }
 
 export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProps> = ({
@@ -35,9 +39,12 @@ export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProp
   customerName,
   onSelectOrderToTrack,
   onReorder,
-  currency = "ل.س"
+  currency = "ل.س",
+  reviews = [],
+  onAddReview
 }) => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [reviewOrderTarget, setReviewOrderTarget] = useState<Order | null>(null);
 
   if (!isOpen) return null;
 
@@ -163,36 +170,66 @@ export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProp
                     </div>
                   </div>
 
-                  {/* Actions (Reorder / Track Order) */}
-                  <div className="flex items-center justify-end gap-2 pt-1">
-                    {order.status !== "delivered" && order.status !== "cancelled" && onSelectOrderToTrack && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onSelectOrderToTrack(order);
-                          onClose();
-                        }}
-                        className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>تتبع الطلب الحي 🛵</span>
-                      </button>
+                  {/* Actions (Reorder / Track Order / Rate Order) */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    {/* Rate Order for Delivered Orders */}
+                    {order.status === "delivered" && (
+                      <div>
+                        {(() => {
+                          const existingReview = reviews.find((r) => r.orderId === order.id);
+                          if (existingReview) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-xl">
+                                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                                <span>تم التقييم ({existingReview.rating}★)</span>
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => setReviewOrderTarget(order)}
+                              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                              title="قيّم جودة الطعام وتجربة التوصيل لهذا الطلب"
+                            >
+                              <Star className="w-3.5 h-3.5 text-amber-200 fill-amber-200" />
+                              <span>تقييم المتجر ⭐</span>
+                            </button>
+                          );
+                        })()}
+                      </div>
                     )}
 
-                    {onReorder && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onReorder(order.items);
-                          onClose();
-                        }}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
-                        title="إضافة منتجات هذا الطلب للسلة وإعادة الطلب فوراً"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 text-orange-400" />
-                        <span>إعادة الطلب 🔄</span>
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 mr-auto">
+                      {order.status !== "delivered" && order.status !== "cancelled" && onSelectOrderToTrack && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelectOrderToTrack(order);
+                            onClose();
+                          }}
+                          className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>تتبع الطلب الحي 🛵</span>
+                        </button>
+                      )}
+
+                      {onReorder && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onReorder(order.items);
+                            onClose();
+                          }}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                          title="إضافة منتجات هذا الطلب للسلة وإعادة الطلب فوراً"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5 text-orange-400" />
+                          <span>إعادة الطلب 🔄</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -211,6 +248,25 @@ export const CustomerOrdersArchiveModal: React.FC<CustomerOrdersArchiveModalProp
           </button>
         </div>
       </div>
+
+      {/* Store Review Modal */}
+      {reviewOrderTarget && (
+        <StoreReviewModal
+          isOpen={!!reviewOrderTarget}
+          onClose={() => setReviewOrderTarget(null)}
+          storeName={reviewOrderTarget.storeName}
+          storeId={reviewOrderTarget.storeId}
+          orderId={reviewOrderTarget.id}
+          customerName={customerName || reviewOrderTarget.customerName || "زبون المنصة"}
+          customerPhone={customerPhone || reviewOrderTarget.customerPhone}
+          onSubmit={(reviewData) => {
+            if (onAddReview) {
+              onAddReview(reviewData);
+            }
+            setReviewOrderTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 };

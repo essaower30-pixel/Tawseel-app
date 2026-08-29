@@ -30,10 +30,11 @@ import {
   ShoppingBag,
   X
 } from "lucide-react";
-import { Order, Product, Store, UserProfile, Category } from "../types";
+import { Order, Product, Store, UserProfile, Category, StoreBroadcast } from "../types";
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
+import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
 
 interface StoreOwnerPortalProps {
   storeId: string;
@@ -42,11 +43,13 @@ interface StoreOwnerPortalProps {
   orders: Order[];
   categories: Category[];
   userProfile: UserProfile;
+  broadcasts?: StoreBroadcast[];
   onUpdateStore: (store: Store) => void;
   onAddProduct: (product: Product) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
   onUpdateOrderStatus: (orderId: string, status: any) => void;
+  onAcknowledgeBroadcast?: (broadcastId: string) => void;
   onLogout: () => void;
   onBackToCustomerView?: () => void;
   currency?: string;
@@ -59,11 +62,13 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   orders,
   categories,
   userProfile,
+  broadcasts = [],
   onUpdateStore,
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
   onUpdateOrderStatus,
+  onAcknowledgeBroadcast,
   onLogout,
   onBackToCustomerView,
   currency = "ل.س"
@@ -256,6 +261,13 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Broadcast Announcements & Admin Directives */}
+      <StoreBroadcastViewer
+        currentStore={currentStore}
+        broadcasts={broadcasts}
+        onAcknowledgeBroadcast={onAcknowledgeBroadcast || (() => {})}
+      />
 
       {/* Pending Approval Notice for Store Owner */}
       {currentStore.isApproved === false && (
