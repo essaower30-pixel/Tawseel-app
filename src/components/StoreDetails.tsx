@@ -1,11 +1,18 @@
 import React, { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, Sparkles, Send, MessageSquare, Pill, Stethoscope, ShoppingBag, Edit3, SlidersHorizontal, RotateCcw, Search, Tag, ArrowUpDown, ThumbsUp, Award, Heart, MessageCircle } from "lucide-react";
+import { 
+  ArrowRight, ShoppingCart, Plus, Minus, Star, Clock, Check, X, Shield, Phone, 
+  Sparkles, Send, MessageSquare, Pill, Stethoscope, ShoppingBag, Edit3, 
+  SlidersHorizontal, RotateCcw, Search, Tag, ArrowUpDown, ThumbsUp, Award, 
+  Heart, MessageCircle, Copy, PhoneCall, CheckCircle2, Car, Wrench, ShieldCheck,
+  MapPin, CheckCircle
+} from "lucide-react";
 import { CartItem, Order, Product, Store, StoreAddition, StoreReview, StoreSize, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
 import { PrescriptionModal } from "./PrescriptionModal";
 import { CustomStoreOrderModal } from "./CustomStoreOrderModal";
 import { StoreReviewModal } from "./StoreReviewModal";
+import { openWhatsApp, formatWhatsAppPhone } from "../utils/whatsapp";
 
 interface StoreDetailsProps {
   store: Store;
@@ -59,12 +66,6 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   // Main Tabs: "products" (menu) vs "reviews" (ratings & feedback)
   const [activeMainTab, setActiveMainTab] = useState<"products" | "reviews">("products");
   const [reviewStarFilter, setReviewStarFilter] = useState<"all" | "5" | "4" | "with_comments">("all");
-
-  const [showServiceModal, setShowServiceModal] = useState(false);
-  const [serviceName, setServiceName] = useState(customerUser?.name || "");
-  const [servicePhone, setServicePhone] = useState(customerUser?.phone || "");
-  const [serviceNotes, setServiceNotes] = useState("");
-  const [serviceSchedule, setServiceSchedule] = useState("الآن (عاجل)");
 
   // Reviews list for this store
   const storeReviewsList = useMemo(() => {
@@ -214,26 +215,19 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   const isPharmacy = store.category === "pharmacies" || store.id === "store_shifa" || store.name.includes("صيدل");
   const isDoctor = store.category === "doctors" || store.name.includes("طبيب") || store.name.includes("دكتور") || store.name.includes("عيادة");
-  const isServiceStore = ["crafts", "drivers"].includes(store.category) || (store.isService && !isPharmacy && !isDoctor);
+  const isDriver = store.category === "drivers" || store.category === "taxi" || store.id.includes("taxi") || store.id.includes("driver");
+  const isCraftsman = store.category === "crafts" || store.category === "services" || store.id.includes("blacksmith") || store.id.includes("painter") || store.id.includes("plumber") || store.id.includes("carpenter") || store.id.includes("electrician") || store.id.includes("gypsum") || (store.isService && !isPharmacy && !isDoctor && !isDriver);
+  const isDriverOrCraft = isDriver || isCraftsman;
 
-  const handleServiceSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!serviceNotes.trim()) {
-      alert("الرجاء توضيح تفاصيل الخدمة المطلوبة.");
-      return;
+  const contactPhone = store.contactPhone || store.ownerPhone || "0966778899";
+  const [copiedPhone, setCopiedPhone] = useState(false);
+
+  const handleCopyPhone = (num: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(num);
     }
-    if (onSubmitCustomOrder) {
-      onSubmitCustomOrder({
-        storeId: store.id,
-        storeName: store.name,
-        customerName: serviceName,
-        customerPhone: servicePhone,
-        serviceNotes,
-        serviceSchedule,
-        isServiceOrder: true
-      });
-    }
-    setShowServiceModal(false);
+    setCopiedPhone(true);
+    setTimeout(() => setCopiedPhone(false), 2200);
   };
 
   return (
@@ -269,13 +263,27 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         />
         <div className="relative z-10 space-y-3">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full text-[11px] font-black">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>متجر محلي موثوق ومفعل</span>
+            {isDriver ? (
+              <>
+                <Car className="w-3.5 h-3.5 text-amber-400" />
+                <span>خدمة سائق وتوصيل خاص موثوق</span>
+              </>
+            ) : isCraftsman ? (
+              <>
+                <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                <span>خدمات مهنية وحرفية وصيانة</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>متجر محلي موثوق ومفعل</span>
+              </>
+            )}
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-black">{store.name}</h2>
           <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
-            {store.description || "أفضل وأجود المنتجات المحلية مع توصيل سريع حتى باب منزلك."}
+            {store.description || (isDriver ? "خدمة توصيل ركاب ومشاوير ونقل مقاضي بسيارة خاصة مكيفة داخل وخارج القرية." : "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع.")}
           </p>
 
           <div className="flex flex-wrap items-center gap-3 text-xs pt-2">
@@ -294,17 +302,32 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
             <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>{store.deliveryTime}</span>
+              <span>{store.deliveryTime || (isDriver ? "طلب فوري" : "تواصل مباشر")}</span>
             </div>
-            <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-              <span className="text-orange-400 font-bold">أجور التوصيل: {store.deliveryFee} ل.س</span>
-            </div>
-            {store.contactPhone && (
+
+            {!isDriverOrCraft && (
+              <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+                <span className="text-orange-400 font-bold">أجور التوصيل: {store.deliveryFee} ل.س</span>
+              </div>
+            )}
+
+            {store.workingHours && (
+              <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300">
+                <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                <span>الدوام: {store.workingHours}</span>
+              </div>
+            )}
+
+            {contactPhone && (
               <div className="flex items-center gap-2">
                 <ContactActions
-                  phone={store.contactPhone}
+                  phone={contactPhone}
                   name={store.name}
-                  defaultMessage={`مرحباً متجر (${store.name})، أود الاستفسار عن منتجاتكم وطلبات التوصيل.`}
+                  defaultMessage={
+                    isDriver
+                      ? `مرحباً كابتن (${store.name})، أود الاستفسار عن حجز مشوار وتوصيل ركاب.`
+                      : `مرحباً أستاذ (${store.name})، أود الاستفسار عن تنفيذ أعمال صيانة وخدمة.`
+                  }
                   variant="pills"
                 />
               </div>
@@ -313,7 +336,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         </div>
       </div>
 
-      {/* Main View Selector Tabs (Menu vs Reviews) */}
+      {/* Main View Selector Tabs (Menu/Contact vs Reviews) */}
       <div className="flex items-center p-1.5 bg-slate-200/70 backdrop-blur-xs rounded-2xl border border-slate-200 gap-1.5 select-none">
         <button
           type="button"
@@ -324,8 +347,17 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               : "text-slate-600 hover:text-slate-900 hover:bg-white/40"
           }`}
         >
-          <ShoppingBag className="w-4 h-4" />
-          <span>الأصناف والمنتجات ({allStoreProducts.length})</span>
+          {isDriverOrCraft ? (
+            <>
+              <PhoneCall className="w-4 h-4" />
+              <span>بطاقة ومعلومات التواصل المباشر</span>
+            </>
+          ) : (
+            <>
+              <ShoppingBag className="w-4 h-4" />
+              <span>الأصناف والمنتجات ({allStoreProducts.length})</span>
+            </>
+          )}
         </button>
 
         <button
@@ -345,90 +377,271 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         </button>
       </div>
 
-      {/* Main Tab 1: Products & Menu */}
+      {/* Main Tab 1: Products or Driver/Craftsman Profile */}
       {activeMainTab === "products" && (
         <>
-          {/* Special Quick Action Buttons for Pharmacy or Doctors or Services */}
-          {isPharmacy && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
-              <div>
-                <h4 className="font-black text-emerald-900 text-sm">💊 خدمة طلب واستشارة الوصفات والراشيتات الطبية</h4>
-                <p className="text-emerald-700 text-xs font-semibold mt-0.5">
-                  يمكنك تصوير الراشيتة بالكاميرا فوراً أو استيرادها من الاستديو ليقوم الصيدلاني بتجهيزها وصرفها لك.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPrescriptionModal(true)}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
-              >
-                <Pill className="w-4 h-4" />
-                <span>طلب أدوية وراشيتة طبية 📋</span>
-              </button>
-            </div>
-          )}
+          {isDriverOrCraft ? (
+            /* Dedicated Driver / Craftsman Direct Contact Profile Card */
+            <div className="space-y-5 text-right">
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+                
+                {/* Profile Header */}
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 pb-6 border-b border-slate-100">
+                  <div className="relative shrink-0">
+                    <img
+                      src={store.image}
+                      alt={store.name}
+                      className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl object-cover border-2 border-orange-500/20 shadow-md"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute -bottom-1.5 -left-1.5 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow border-2 border-white flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                      متاح الآن
+                    </span>
+                  </div>
 
-          {isDoctor && (
-            <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
-              <div>
-                <h4 className="font-black text-cyan-950 text-sm">🩺 استشارة طبية وطلب فحص / راشيتة أدوية</h4>
-                <p className="text-cyan-800 text-xs font-semibold mt-0.5">
-                  يمكنك إرفاق صورة الراشيتة الطبية (كاميرا أو استديو) واستشارة الطبيب مباشرة وتحديد الموعد.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPrescriptionModal(true)}
-                className="w-full sm:w-auto bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
-              >
-                <Stethoscope className="w-4 h-4" />
-                <span>إرسال راشيتة / استشارة للطبيب 📋</span>
-              </button>
-            </div>
-          )}
+                  <div className="flex-1 text-center sm:text-right space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200/70 rounded-full text-xs font-black">
+                      {isDriver ? <Car className="w-3.5 h-3.5 text-orange-600" /> : <Wrench className="w-3.5 h-3.5 text-orange-600" />}
+                      <span>{isDriver ? "سائق توصيل وتكاسي خاص" : "صاحب مهنة وحرفي محلي موثوق"}</span>
+                    </div>
 
-          {/* CUSTOM STORE ORDER BANNER (For all stores) */}
-          <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-sm">
-                🛍️
-              </div>
-              <div>
-                <h4 className="font-black text-slate-900 text-xs sm:text-sm">
-                  لم تجد ما تبحث عنه في القائمة؟ طلب مخصص من ({store.name})
-                </h4>
-                <p className="text-slate-600 text-[11px] font-semibold mt-0.5">
-                  اكتب طلبك الخاص أو صوّر ورقة المقاضي / المنتج بالكاميرا وسيحضرها لك المتجر فوراً!
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowCustomOrderModal(true)}
-              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-md shadow-orange-600/20 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>طلب خاص من هذا المتجر ✍️</span>
-            </button>
-          </div>
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                      {store.name}
+                    </h3>
 
-          {isServiceStore && (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
-              <div>
-                <h4 className="font-black text-blue-900 text-sm">🛠️ حجز خدمة أو طلب استشارة وموعد</h4>
-                <p className="text-blue-700 text-xs font-semibold mt-0.5">
-                  تواصل مباشرة مع صاحب المهنة أو حدد موعداً وسيقوم بالرد وتلبية طلبك.
-                </p>
+                    <p className="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-2xl font-medium">
+                      {store.description || (isDriver ? "توصيل ركاب ومشاوير خاصة ونقل مقاضي بسيارة حديثة ومكيفة داخل وخارج القرية." : "تنفيذ كافة أعمال الصيانة والمهن الحرفية بأعلى جودة ودقة بالمواعيد.")}
+                    </p>
+
+                    {store.featuredProduct && (
+                      <div className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 px-3 py-1 rounded-xl text-xs font-bold border border-slate-200">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <span>الخدمة المميزة: <b>{store.featuredProduct}</b></span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Direct Phone Highlight Box */}
+                <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl sm:rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <span className="text-orange-400 text-xs font-extrabold flex items-center gap-1.5">
+                        <Phone className="w-3.5 h-3.5" />
+                        رقم الموبايل للتواصل المباشر:
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black tracking-wider text-white font-mono" dir="ltr">
+                        {contactPhone}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPhone(contactPhone)}
+                      className={`inline-flex items-center justify-center gap-2 text-xs sm:text-sm font-black py-3 px-5 rounded-xl border transition-all cursor-pointer active:scale-95 shadow-sm ${
+                        copiedPhone
+                          ? "bg-emerald-500 text-white border-emerald-400"
+                          : "bg-slate-800 hover:bg-slate-700 text-slate-100 border-slate-700 hover:border-slate-600"
+                      }`}
+                    >
+                      {copiedPhone ? (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>تم نسخ الرقم بنجاح!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 text-orange-400" />
+                          <span>نسخ رقم الهاتف</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* The 3 Direct Action Buttons: Phone Call, WhatsApp Regular, WhatsApp Business */}
+                  <div className="pt-2 border-t border-slate-700/80">
+                    <p className="text-xs font-black text-slate-300 mb-3">
+                      اختر طريقة التواصل المباشرة والسريعة:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* 1. Normal Call (اتصال عادي) */}
+                      <a
+                        href={`tel:${formatWhatsAppPhone(contactPhone)}`}
+                        className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 transition-all cursor-pointer active:scale-95 text-center group"
+                      >
+                        <PhoneCall className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span>اتصال عادي مباشر 📞</span>
+                      </a>
+
+                      {/* 2. WhatsApp Regular (الواتس العادي) */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openWhatsApp({
+                            phone: contactPhone,
+                            message: isDriver
+                              ? `مرحباً كابتن (${store.name})، أود طلب وحجز مشوار خاص.`
+                              : `مرحباً أستاذ (${store.name})، أود الاستفسار عن تنفيذ خدمة وأعمال صيانة.`,
+                            type: "regular",
+                          })
+                        }
+                        className="bg-[#25D366] hover:bg-[#20ba56] active:bg-[#1caa4f] text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 hover:shadow-emerald-600/40 transition-all cursor-pointer active:scale-95 text-center group"
+                      >
+                        <MessageSquare className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span>واتساب العادي 💬</span>
+                      </button>
+
+                      {/* 3. WhatsApp Business (واتس الأعمال) */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openWhatsApp({
+                            phone: contactPhone,
+                            message: isDriver
+                              ? `مرحباً كابتن (${store.name})، أود طلب وحجز مشوار خاص.`
+                              : `مرحباً أستاذ (${store.name})، أود الاستفسار عن تنفيذ خدمة وأعمال صيانة.`,
+                            type: "business",
+                          })
+                        }
+                        className="bg-[#075E54] hover:bg-[#054a43] active:bg-[#043d37] text-white font-black text-xs sm:text-sm py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-teal-900/30 hover:shadow-teal-900/40 transition-all cursor-pointer active:scale-95 text-center group border border-teal-600/30"
+                      >
+                        <MessageCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        <span>واتساب أعمال 💼</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Service Features & Information Card */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-2 text-slate-800 font-extrabold text-xs">
+                      <ShieldCheck className="w-4 h-4 text-orange-500" />
+                      <span>{isDriver ? "نطاق التوصيل والمشاوير" : "مجالات الخدمة والعمل"}</span>
+                    </div>
+                    <p className="text-slate-600 text-xs font-medium leading-relaxed">
+                      {isDriver
+                        ? "تغطية شاملة لكافة أحياء القرية والمزارع والمناطق والمدن المجاورة مع الالتزام بالمواعيد."
+                        : "تنفيذ الأعمال بأدوات حديثة وخبرة متقنة مع ضمان الجودة ورضا العميل."}
+                    </p>
+                  </div>
+
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-1.5">
+                    <div className="flex items-center gap-2 text-slate-800 font-extrabold text-xs">
+                      <Clock className="w-4 h-4 text-orange-500" />
+                      <span>أوقات العمل والجاهزية</span>
+                    </div>
+                    <p className="text-slate-600 text-xs font-medium leading-relaxed">
+                      {store.workingHours
+                        ? `الدوام المعتاد: ${store.workingHours}`
+                        : "متاح للتواصل المباشر والاتفاق على التوقيت المناسب على مدار اليوم."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Customer Reviews & Feedback Card */}
+                <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 text-right">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-lg shrink-0 shadow-xs">
+                      ⭐
+                    </div>
+                    <div>
+                      <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                        تقييم {isDriver ? "السائق" : "المهني"}: {ratingStats.average} من 5 نجوم
+                      </h4>
+                      <p className="text-slate-600 text-[11px] font-semibold mt-0.5">
+                        بناءً على {ratingStats.totalCount} تقييم من أهالي وزبائن القرية.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setActiveMainTab("reviews")}
+                      className="flex-1 sm:flex-initial bg-white hover:bg-slate-100 text-slate-800 font-black text-xs py-2.5 px-4 rounded-xl border border-slate-200 shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap text-center"
+                    >
+                      عرض كافة الآراء ⭐
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsReviewModalOpen(true)}
+                      className="flex-1 sm:flex-initial bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs py-2.5 px-4 rounded-xl shadow-xs transition-all cursor-pointer active:scale-95 whitespace-nowrap text-center"
+                    >
+                      أضف تقييمك ✍️
+                    </button>
+                  </div>
+                </div>
+
               </div>
-              <button
-                type="button"
-                onClick={() => setShowServiceModal(true)}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap"
-              >
-                طلب الخدمة الآن 🚀
-              </button>
             </div>
-          )}
+          ) : (
+            /* Regular Stores Content: Prescriptions + Custom Order Banner + Search/Filters + Products Grid */
+            <>
+              {/* Special Quick Action Buttons for Pharmacy or Doctors */}
+              {isPharmacy && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
+                  <div>
+                    <h4 className="font-black text-emerald-900 text-sm">💊 خدمة طلب واستشارة الوصفات والراشيتات الطبية</h4>
+                    <p className="text-emerald-700 text-xs font-semibold mt-0.5">
+                      يمكنك تصوير الراشيتة بالكاميرا فوراً أو استيرادها من الاستديو ليقوم الصيدلاني بتجهيزها وصرفها لك.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrescriptionModal(true)}
+                    className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+                  >
+                    <Pill className="w-4 h-4" />
+                    <span>طلب أدوية وراشيتة طبية 📋</span>
+                  </button>
+                </div>
+              )}
+
+              {isDoctor && (
+                <div className="bg-cyan-50 border border-cyan-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right">
+                  <div>
+                    <h4 className="font-black text-cyan-950 text-sm">🩺 استشارة طبية وطلب فحص / راشيتة أدوية</h4>
+                    <p className="text-cyan-800 text-xs font-semibold mt-0.5">
+                      يمكنك إرفاق صورة الراشيتة الطبية (كاميرا أو استديو) واستشارة الطبيب مباشرة وتحديد الموعد.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrescriptionModal(true)}
+                    className="w-full sm:w-auto bg-cyan-700 hover:bg-cyan-800 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5"
+                  >
+                    <Stethoscope className="w-4 h-4" />
+                    <span>إرسال راشيتة / استشارة للطبيب 📋</span>
+                  </button>
+                </div>
+              )}
+
+              {/* CUSTOM STORE ORDER BANNER (For standard stores) */}
+              <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-sm">
+                    🛍️
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                      لم تجد ما تبحث عنه في القائمة؟ طلب مخصص من ({store.name})
+                    </h4>
+                    <p className="text-slate-600 text-[11px] font-semibold mt-0.5">
+                      اكتب طلبك الخاص أو صوّر ورقة المقاضي / المنتج بالكاميرا وسيحضرها لك المتجر فوراً!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomOrderModal(true)}
+                  className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-md shadow-orange-600/20 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>طلب خاص من هذا المتجر ✍️</span>
+                </button>
+              </div>
 
       {/* Search & Price Filter Controls */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs space-y-3">
@@ -806,6 +1019,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           })
         )}
       </div>
+            </>
+          )}
         </>
       )}
 
@@ -1232,92 +1447,6 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           }
         }}
       />
-
-      {/* Service Modal */}
-      <AnimatePresence>
-        {showServiceModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 text-right"
-            >
-              <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="font-black text-slate-800 text-base">🛠️ حجز خدمة أو موعد</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowServiceModal(false)}
-                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <form onSubmit={handleServiceSubmit} className="space-y-3 text-xs">
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">اسمك الكريم:</label>
-                  <input
-                    type="text"
-                    required
-                    value={serviceName}
-                    onChange={(e) => setServiceName(e.target.value)}
-                    placeholder="الاسم الكامل"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">رقم الموبايل:</label>
-                  <input
-                    type="tel"
-                    required
-                    value={servicePhone}
-                    onChange={(e) => setServicePhone(e.target.value)}
-                    placeholder="09xxxxxxxx"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none text-left"
-                    dir="ltr"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">الموعد المفضل:</label>
-                  <select
-                    value={serviceSchedule}
-                    onChange={(e) => setServiceSchedule(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
-                  >
-                    <option value="الآن (عاجل)">الآن (عاجل في أسرع وقت)</option>
-                    <option value="خلال اليوم">خلال اليوم</option>
-                    <option value="غداً صباحاً">غداً صباحاً</option>
-                    <option value="غداً مساءً">غداً مساءً</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-extrabold text-slate-700 block mb-1">تفاصيل العمل أو الخدمة:</label>
-                  <textarea
-                    rows={3}
-                    required
-                    value={serviceNotes}
-                    onChange={(e) => setServiceNotes(e.target.value)}
-                    placeholder="اشرح العمل المطلوب والمكان بالتفصيل..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-xs py-3 rounded-xl shadow-md transition-all cursor-pointer"
-                >
-                  تأكيد حجز الخدمة 🚀
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Store Review Modal */}
       <StoreReviewModal
