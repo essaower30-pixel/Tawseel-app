@@ -18,12 +18,18 @@ export interface Product {
   image: string;
   category: string;
   storeId: string;
+  storeName?: string;
   isOffer?: boolean;
   originalPrice?: number;
   offerLabel?: string;
   sizes?: StoreSize[];
   additions?: StoreAddition[];
   isHidden?: boolean;
+  isApproved?: boolean;
+  approvalStatus?: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
+  createdAt?: string;
+  createdBy?: string;
 }
 
 export interface Store {

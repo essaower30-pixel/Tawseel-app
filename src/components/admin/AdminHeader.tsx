@@ -57,6 +57,7 @@ interface AdminHeaderProps {
   onSelectStaff: (staff: StaffMember) => void;
   onLogout: () => void;
   pendingStoresCount?: number;
+  pendingProductsCount?: number;
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -68,7 +69,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   currentStaff,
   onSelectStaff,
   onLogout,
-  pendingStoresCount = 0
+  pendingStoresCount = 0,
+  pendingProductsCount = 0
 }) => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authInput, setAuthInput] = useState("");
@@ -308,8 +310,14 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
               <span>{tab.label}</span>
               {tab.id === "stores" && pendingStoresCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
-                  <span>{pendingStoresCount} جديد</span>
+                  <span>{pendingStoresCount} متجر جديد</span>
                   <span>🔔</span>
+                </span>
+              )}
+              {tab.id === "products" && pendingProductsCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black animate-pulse shadow-xs flex items-center gap-1">
+                  <span>{pendingProductsCount} منتج بانتظار الاعتماد</span>
+                  <span>⏳</span>
                 </span>
               )}
             </button>

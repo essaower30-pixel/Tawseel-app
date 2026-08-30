@@ -28,13 +28,20 @@ import {
   Camera,
   ZoomIn,
   ShoppingBag,
-  X
+  Tag,
+  AlertCircle,
+  Check,
+  X,
+  Layers,
+  Sparkles,
+  Info
 } from "lucide-react";
-import { Order, Product, Store, UserProfile, Category, StoreBroadcast } from "../types";
+import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize, StoreAddition } from "../types";
 import { ContactActions } from "./ContactActions";
 import { openWhatsApp } from "../utils/whatsapp";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
 import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
+import { ImageUploader } from "./ImageUploader";
 
 interface StoreOwnerPortalProps {
   storeId: string;
@@ -87,10 +94,36 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   };
 
   const [activeTab, setActiveTab] = useState<"orders" | "products" | "archive">("orders");
+  const [productFilter, setProductFilter] = useState<"all" | "approved" | "pending" | "offers">("all");
   const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+  // Product Modal State
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Product Form Fields
+  const [productName, setProductName] = useState("");
+  const [productPrice, setProductPrice] = useState("");
+  const [productUnit, setProductUnit] = useState("قطعة");
+  const [productStock, setProductStock] = useState("50");
+  const [productCategory, setProductCategory] = useState(currentStore.category || "restaurants");
+  const [productDescription, setProductDescription] = useState("");
+  const [productImage, setProductImage] = useState("");
+  const [isOffer, setIsOffer] = useState(false);
+  const [originalPrice, setOriginalPrice] = useState("");
+  const [offerLabel, setOfferLabel] = useState("عرض خاص 🔥");
+
+  // Sizes & Additions for Product
+  const [sizes, setSizes] = useState<StoreSize[]>([]);
+  const [sizeName, setSizeName] = useState("");
+  const [sizePrice, setSizePrice] = useState("");
+
+  const [additions, setAdditions] = useState<StoreAddition[]>([]);
+  const [additionName, setAdditionName] = useState("");
+  const [additionPrice, setAdditionPrice] = useState("");
 
   const handleToggleSound = () => {
     const next = !soundAlerts;
@@ -151,7 +184,149 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   };
 
   // Filter products for this store
-  const storeProducts = products.filter((p) => p.storeId === currentStore.id);
+  const storeProducts = useMemo(() => {
+    return products.filter((p) => p.storeId === currentStore.id);
+  }, [products, currentStore.id]);
+
+  const pendingStoreProducts = useMemo(() => {
+    return storeProducts.filter((p) => p.isApproved === false || p.approvalStatus === "pending");
+  }, [storeProducts]);
+
+  const approvedStoreProducts = useMemo(() => {
+    return storeProducts.filter((p) => p.isApproved !== false && p.approvalStatus !== "pending");
+  }, [storeProducts]);
+
+  const offersStoreProducts = useMemo(() => {
+    return storeProducts.filter((p) => p.isOffer);
+  }, [storeProducts]);
+
+  const displayedStoreProducts = useMemo(() => {
+    return storeProducts.filter((p) => {
+      if (productFilter === "approved") {
+        return p.isApproved !== false && p.approvalStatus !== "pending";
+      }
+      if (productFilter === "pending") {
+        return p.isApproved === false || p.approvalStatus === "pending";
+      }
+      if (productFilter === "offers") {
+        return Boolean(p.isOffer);
+      }
+      return true;
+    });
+  }, [storeProducts, productFilter]);
+
+  // Product Add / Edit Handlers
+  const handleOpenAddProduct = () => {
+    setEditingProduct(null);
+    setProductName("");
+    setProductPrice("");
+    setProductUnit("قطعة");
+    setProductStock("50");
+    setProductCategory(currentStore.category || "restaurants");
+    setProductDescription("");
+    setProductImage("https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60");
+    setIsOffer(false);
+    setOriginalPrice("");
+    setOfferLabel("عرض خاص 🔥");
+    setSizes([]);
+    setAdditions([]);
+    setShowProductModal(true);
+  };
+
+  const handleOpenEditProduct = (prod: Product) => {
+    setEditingProduct(prod);
+    setProductName(prod.name);
+    setProductPrice(prod.price.toString());
+    setProductUnit(prod.unit || "قطعة");
+    setProductStock(prod.stock !== undefined ? prod.stock.toString() : "50");
+    setProductCategory(prod.category || currentStore.category || "restaurants");
+    setProductDescription(prod.description || "");
+    setProductImage(prod.image);
+    setIsOffer(Boolean(prod.isOffer));
+    setOriginalPrice(prod.originalPrice ? prod.originalPrice.toString() : "");
+    setOfferLabel(prod.offerLabel || "عرض خاص 🔥");
+    setSizes(prod.sizes ? [...prod.sizes] : []);
+    setAdditions(prod.additions ? [...prod.additions] : []);
+    setShowProductModal(true);
+  };
+
+  const handleAddSize = () => {
+    if (!sizeName.trim()) return;
+    setSizes([...sizes, { name: sizeName.trim(), price: Number(sizePrice) || 0 }]);
+    setSizeName("");
+    setSizePrice("");
+  };
+
+  const handleRemoveSize = (index: number) => {
+    setSizes(sizes.filter((_, i) => i !== index));
+  };
+
+  const handleAddAddition = () => {
+    if (!additionName.trim()) return;
+    setAdditions([...additions, { name: additionName.trim(), price: Number(additionPrice) || 0 }]);
+    setAdditionName("");
+    setAdditionPrice("");
+  };
+
+  const handleRemoveAddition = (index: number) => {
+    setAdditions(additions.filter((_, i) => i !== index));
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    const priceNum = parseFloat(productPrice);
+    if (!productName.trim() || isNaN(priceNum)) return;
+
+    const stockNum = productStock.trim() !== "" && !isNaN(Number(productStock)) ? Number(productStock) : undefined;
+
+    if (editingProduct) {
+      // Keep existing approval status or reset to pending if major changes
+      const updatedProduct: Product = {
+        ...editingProduct,
+        name: productName.trim(),
+        price: priceNum,
+        unit: productUnit.trim() || "قطعة",
+        stock: stockNum,
+        category: productCategory,
+        description: productDescription,
+        image: productImage || editingProduct.image,
+        isOffer,
+        originalPrice: isOffer && originalPrice ? parseFloat(originalPrice) : undefined,
+        offerLabel: isOffer ? offerLabel : undefined,
+        sizes: sizes.length > 0 ? sizes : undefined,
+        additions: additions.length > 0 ? additions : undefined,
+        storeId: currentStore.id,
+        storeName: currentStore.name
+      };
+      onUpdateProduct(updatedProduct);
+    } else {
+      // New product created by store owner -> isApproved: false (pending admin review)
+      const newProduct: Product = {
+        id: "prod_" + Date.now(),
+        name: productName.trim(),
+        price: priceNum,
+        unit: productUnit.trim() || "قطعة",
+        stock: stockNum,
+        category: productCategory,
+        description: productDescription,
+        image: productImage || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
+        isOffer,
+        originalPrice: isOffer && originalPrice ? parseFloat(originalPrice) : undefined,
+        offerLabel: isOffer ? offerLabel : undefined,
+        sizes: sizes.length > 0 ? sizes : undefined,
+        additions: additions.length > 0 ? additions : undefined,
+        storeId: currentStore.id,
+        storeName: currentStore.name,
+        isApproved: false, // Sent for admin approval
+        approvalStatus: "pending",
+        createdAt: new Date().toISOString(),
+        createdBy: userProfile.phone || userProfile.name || "store_owner"
+      };
+      onAddProduct(newProduct);
+    }
+
+    setShowProductModal(false);
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-12" dir="rtl">
@@ -256,8 +431,10 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           </div>
 
           <div className="bg-slate-800/80 p-3 rounded-2xl border border-slate-700 col-span-2 sm:col-span-1">
-            <span className="text-slate-400 text-xs font-bold block">عدد الأصناف في المنيو</span>
-            <span className="text-xl font-black text-emerald-400">{storeProducts.length} صنف</span>
+            <span className="text-slate-400 text-xs font-bold block">أصناف متجري (معتمدة / معلقة)</span>
+            <span className="text-xl font-black text-emerald-400">
+              {approvedStoreProducts.length} معتمد / {pendingStoreProducts.length} بانتظار الاعتماد
+            </span>
           </div>
         </div>
       </div>
@@ -287,7 +464,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                  أهلاً بك! تم استلام طلب تسجيل متجرك بنجاح. سيقوم فريق الإدارة بمراجعته وتفعيله ليظهر فوراً لجميع أهالي القرية في التطبيق. يمكنك الآن البدء بإضافة منتجاتك وتجهيز قائمتك.
+                  أهلاً بك! تم استلام طلب تسجيل متجرك بنجاح. سيقوم فريق الإدارة بمراجعته وتفعيله ليظهر فوراً لجميع أهالي القرية في التطبيق. يمكنك الآن البدء بإضافة منتجاتك وعروضك لتكون جاهزة فور اعتماد المتجر.
                 </p>
               </div>
             </div>
@@ -348,7 +525,12 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
           }`}
         >
           <Utensils className="w-4 h-4" />
-          <span>قائمة الأصناف والأسعار ({storeProducts.length})</span>
+          <span>إدارة منتجات وعروض المتجر ({storeProducts.length})</span>
+          {pendingStoreProducts.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
+              {pendingStoreProducts.length} معلق
+            </span>
+          )}
         </button>
       </div>
 
@@ -499,74 +681,15 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                                   alt="راشيتة"
                                   className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                                 />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                                  🔍 اضغط للتكبير وقراءة الوصفة
-                                </div>
                               </div>
                             )}
                           </div>
                         )}
-
-                        {/* Custom Store Order (Unlisted Items / Handwritten List / Attached Photo) */}
-                        {(order.isCustomStoreOrder || (order.customOrderText && !order.prescriptionNotes) || order.customOrderImage) && (
-                          <div className="mt-2 pt-2 border-t border-orange-200 bg-orange-50/70 p-2.5 rounded-xl space-y-2 text-xs">
-                            <div className="flex items-center justify-between">
-                              <span className="font-black text-orange-950 flex items-center gap-1">
-                                <ShoppingBag className="w-3.5 h-3.5 text-orange-600" />
-                                <span>طلب خاص / منتجات خارجية</span>
-                              </span>
-                              {order.customOrderImage && (
-                                <button
-                                  type="button"
-                                  onClick={() => setZoomedImage(order.customOrderImage || null)}
-                                  className="text-[10px] font-black bg-orange-600 text-white px-2 py-0.5 rounded-md hover:bg-orange-700 cursor-pointer flex items-center gap-1"
-                                >
-                                  <ZoomIn className="w-3 h-3" />
-                                  <span>تكبير الصورة</span>
-                                </button>
-                              )}
-                            </div>
-
-                            {order.customOrderText && (
-                              <div className="bg-white p-2 rounded-lg border border-orange-200 text-slate-800 text-[11px] font-semibold whitespace-pre-line leading-relaxed">
-                                {order.customOrderText}
-                              </div>
-                            )}
-
-                            {order.estimatedBudget && (
-                              <div className="text-[11px] font-black text-slate-700 bg-white/80 p-1.5 rounded-lg border border-orange-100 flex items-center justify-between">
-                                <span>الميزانية المقترحة من الزبون:</span>
-                                <span className="font-mono text-emerald-700 font-bold">{order.estimatedBudget.toLocaleString()} {currency}</span>
-                              </div>
-                            )}
-
-                            {order.customOrderImage && (
-                              <div 
-                                onClick={() => setZoomedImage(order.customOrderImage || null)}
-                                className="relative rounded-lg overflow-hidden border border-orange-300 bg-slate-900 h-28 cursor-pointer group"
-                              >
-                                <img
-                                  src={order.customOrderImage}
-                                  alt="صورة الطلب الخاص"
-                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                                />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
-                                  🔍 اضغط للتكبير (ورقة الطلبات أو صورة المنتج)
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="pt-2 border-t flex justify-between font-black text-slate-900">
-                          <span>قيمة المنتجات:</span>
-                          <span className="text-orange-600">{order.subtotal.toLocaleString()} {currency}</span>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100">
+                    {/* Store Action Button for Order Processing */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                       {order.status === "pending" && (
                         <button
                           type="button"
@@ -743,34 +866,544 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
         </div>
       )}
 
-      {/* Products Tab */}
+      {/* Products & Offers Management Tab */}
       {activeTab === "products" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {storeProducts.map((prod) => (
-              <div
-                key={prod.id}
-                className="bg-white rounded-3xl border border-slate-200 p-4 shadow-xs space-y-3 flex flex-col justify-between"
+        <div className="space-y-5">
+          {/* Header Bar with Product Creation Button */}
+          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <Utensils className="w-5 h-5 text-orange-500" />
+                <span>قائمة منتجات وأسعار وعروض متجرك</span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                يمكنك إضافة منتجاتك وتحديث أسعارها وكميات المخزون وتفعيل العروض الخاصة. تخضع المنتجات الجديدة لموافقة الإدارة قبل العرض.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleOpenAddProduct}
+              className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة صنف أو منتج جديد 🍽️</span>
+            </button>
+          </div>
+
+          {/* Product Filter Sub-tabs */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <button
+              type="button"
+              onClick={() => setProductFilter("all")}
+              className={`py-2 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer whitespace-nowrap ${
+                productFilter === "all"
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              كافة الأصناف ({storeProducts.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setProductFilter("approved")}
+              className={`py-2 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                productFilter === "approved"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>معتمدة ومعروضة للزبائن ({approvedStoreProducts.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setProductFilter("pending")}
+              className={`py-2 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                productFilter === "pending"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : pendingStoreProducts.length > 0
+                  ? "bg-amber-50 text-amber-800 border-2 border-amber-400 font-black animate-pulse"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>بانتظار موافقة الإدارة ({pendingStoreProducts.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setProductFilter("offers")}
+              className={`py-2 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                productFilter === "offers"
+                  ? "bg-red-600 text-white shadow-xs"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>العروض والتخفيضات ({offersStoreProducts.length})</span>
+            </button>
+          </div>
+
+          {/* Notice for Store Owner on approval policy */}
+          {pendingStoreProducts.length > 0 && (
+            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex items-center gap-3 text-xs text-amber-900">
+              <Info className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <span className="font-black block">لديك ({pendingStoreProducts.length}) أصناف قيد مراجعة واعتماد الإدارة:</span>
+                <span className="text-amber-800">
+                  بمجرد مراجعتها من قبل المدير والموافقة عليها، ستظهر مباشرة لجميع أهالي القرية في قائمة متجرك.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Products List Grid */}
+          {displayedStoreProducts.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-3">
+              <Utensils className="w-12 h-12 text-slate-300 mx-auto" />
+              <h4 className="font-black text-sm text-slate-700">لا توجد منتجات مسجلة في هذا القسم</h4>
+              <p className="text-xs text-slate-400">انقر على زر "إضافة صنف أو منتج جديد" لبدء تجهيز قائمتك وعروضك.</p>
+              <button
+                type="button"
+                onClick={handleOpenAddProduct}
+                className="py-2.5 px-5 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all inline-flex items-center gap-2 cursor-pointer"
               >
-                <div className="space-y-2">
-                  <img
-                    src={prod.image}
-                    alt={prod.name}
-                    className="w-full h-32 object-cover rounded-2xl"
+                <Plus className="w-4 h-4" />
+                <span>إضافة أول صنف الآن 🍽️</span>
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {displayedStoreProducts.map((prod) => {
+                const isPending = prod.isApproved === false || prod.approvalStatus === "pending";
+                const isRejected = prod.approvalStatus === "rejected";
+
+                return (
+                  <div
+                    key={prod.id}
+                    className={`bg-white rounded-3xl border p-4 shadow-xs space-y-3 flex flex-col justify-between transition-all ${
+                      isPending
+                        ? "border-amber-300 bg-amber-50/15"
+                        : isRejected
+                        ? "border-red-300 bg-red-50/15 opacity-75"
+                        : "border-slate-200 hover:border-orange-300"
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="relative rounded-2xl overflow-hidden aspect-video bg-slate-100">
+                        <img
+                          src={prod.image}
+                          alt={prod.name}
+                          className="w-full h-full object-cover"
+                        />
+
+                        {/* Approval and Offer Status Badges */}
+                        {isPending ? (
+                          <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1 animate-pulse">
+                            <Clock className="w-3 h-3" />
+                            <span>بانتظار موافقة الإدارة ⏳</span>
+                          </span>
+                        ) : isRejected ? (
+                          <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md">
+                            مرفوض ✕
+                          </span>
+                        ) : prod.isOffer ? (
+                          <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                            <Tag className="w-3 h-3" />
+                            <span>{prod.offerLabel || "عرض خاص 🔥"}</span>
+                          </span>
+                        ) : (
+                          <span className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
+                            <Check className="w-3 h-3" />
+                            <span>معتمد وظاهر للزبائن ✓</span>
+                          </span>
+                        )}
+
+                        {/* Stock badge */}
+                        {prod.stock !== undefined && (
+                          <span className="absolute bottom-2 left-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
+                            المتوفر: {prod.stock} {prod.unit || "قطعة"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-black text-slate-900 text-sm">{prod.name}</h4>
+                        <div className="text-left shrink-0">
+                          <span className="font-black text-sm text-orange-600 font-mono">
+                            {prod.price.toLocaleString()} {currency}
+                          </span>
+                          {prod.isOffer && prod.originalPrice && (
+                            <span className="block text-[10px] text-slate-400 line-through font-mono">
+                              {prod.originalPrice.toLocaleString()} {currency}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-400 line-clamp-2">{prod.description || "لا يوجد وصف"}</p>
+
+                      {/* Rejection message if rejected */}
+                      {isRejected && prod.rejectionReason && (
+                        <div className="p-2 bg-red-50 rounded-xl border border-red-200 text-[11px] text-red-700 font-bold">
+                          سبب الرفض: {prod.rejectionReason}
+                        </div>
+                      )}
+
+                      {/* Sizes and Additions preview badges */}
+                      {(prod.sizes || prod.additions || prod.unit) && (
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-bold text-slate-500 pt-1">
+                          {prod.unit && (
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border text-slate-700">
+                              الوحدة: {prod.unit}
+                            </span>
+                          )}
+                          {prod.sizes && (
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border">
+                              {prod.sizes.length} أحجام
+                            </span>
+                          )}
+                          {prod.additions && (
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border">
+                              {prod.additions.length} إضافات
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Action Buttons */}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditProduct(prod)}
+                          className="py-1.5 px-2.5 bg-orange-50 hover:bg-orange-100 text-orange-600 font-black text-xs rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>تعديل</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`هل أنت متأكد من حذف صنف "${prod.name}" من متجرك؟`)) {
+                              onDeleteProduct(prod.id);
+                            }
+                          }}
+                          className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all cursor-pointer"
+                          title="حذف الصنف"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Quick stock status pill */}
+                      <span className={`text-[10px] px-2 py-0.5 rounded-lg font-bold ${
+                        (prod.stock !== undefined && prod.stock <= 0)
+                          ? "bg-red-100 text-red-700"
+                          : "bg-emerald-50 text-emerald-700"
+                      }`}>
+                        {(prod.stock !== undefined && prod.stock <= 0) ? "نفذ المخزون" : "متوفر للطلب"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add / Edit Product Modal for Store Owner */}
+      {showProductModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
+          <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-xl w-full border border-slate-200 shadow-2xl space-y-4 text-right my-auto" dir="rtl">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-black text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                <Utensils className="w-5 h-5 text-orange-500" />
+                <span>{editingProduct ? "تعديل صنف المتجر والأسعار 🍽️" : "إضافة صنف أو منتج جديد للمتجر 🍽️"}</span>
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setShowProductModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Notice to store owner */}
+            {!editingProduct && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 text-xs text-amber-900 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong>ملاحظة هامة:</strong> عند حفظ هذا المنتج الجديد، سيتم إرساله مباشرة إلى إدارة التطبيق لمراجعته والموافقة عليه قبل ظهوره للزبائن في قائمة المتجر.
+                </p>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProduct} className="space-y-3.5 text-xs text-slate-700">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">اسم الصنف أو المنتج: *</label>
+                  <input
+                    type="text"
+                    required
+                    value={productName}
+                    onChange={(e) => setProductName(e.target.value)}
+                    placeholder="مثال: شاورما عربي دبل، كولا، جبنة بلدية..."
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                   />
-                  <h4 className="font-black text-slate-900 text-sm">{prod.name}</h4>
-                  <p className="text-xs text-slate-400 line-clamp-2">{prod.description}</p>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="font-black text-sm text-orange-600 font-mono">
-                    {prod.price.toLocaleString()} {currency}
-                  </span>
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-lg font-bold">
-                    متاح
-                  </span>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">السعر ({currency}): *</label>
+                  <input
+                    type="number"
+                    required
+                    value={productPrice}
+                    onChange={(e) => setProductPrice(e.target.value)}
+                    placeholder="25000"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  />
                 </div>
               </div>
-            ))}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">الوحدة:</label>
+                  <select
+                    value={productUnit}
+                    onChange={(e) => setProductUnit(e.target.value)}
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500 text-xs"
+                  >
+                    <option value="قطعة">قطعة</option>
+                    <option value="وجبة">وجبة</option>
+                    <option value="كيلو">كيلو</option>
+                    <option value="علبة">علبة</option>
+                    <option value="طبق">طبق</option>
+                    <option value="لتر">لتر</option>
+                    <option value="كيس">كيس</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">عدد المنتجات / المخزون:</label>
+                  <input
+                    type="number"
+                    value={productStock}
+                    onChange={(e) => setProductStock(e.target.value)}
+                    placeholder="الكمية المتوفرة (50)"
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">التصنيف:</label>
+                  <select
+                    value={productCategory}
+                    onChange={(e) => setProductCategory(e.target.value)}
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500 text-xs"
+                  >
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Product Image Uploader */}
+              <ImageUploader
+                value={productImage}
+                onChange={(val) => setProductImage(val)}
+                label="صورة الوجبة أو المنتج"
+                helperText="التقط صورة للمنتج بالكاميرا أو استورد صورته من المعرض أو اختر نموذجاً"
+                aspectRatio="wide"
+                presets={[
+                  { label: "شاورما عربي", emoji: "🌯", url: "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=500&auto=format&fit=crop&q=60" },
+                  { label: "برغر وبطاطا", emoji: "🍔", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&auto=format&fit=crop&q=60" },
+                  { label: "بيتزا إيطالية", emoji: "🍕", url: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&auto=format&fit=crop&q=60" },
+                  { label: "فروج مشوي", emoji: "🍗", url: "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=500&auto=format&fit=crop&q=60" },
+                  { label: "مشروبات وعصير", emoji: "🥤", url: "https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=60" },
+                  { label: "منتجات بقالية", emoji: "🧀", url: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60" }
+                ]}
+              />
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-700">الوصف والمكونات:</label>
+                <textarea
+                  rows={2}
+                  value={productDescription}
+                  onChange={(e) => setProductDescription(e.target.value)}
+                  placeholder="اكتب وصفاً أو تفاصيل الصنف والمكونات لزبائنك..."
+                  className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              {/* Special Offer / Discount Toggle */}
+              <div className="bg-orange-50/50 p-3.5 rounded-2xl border border-orange-200 space-y-2.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isOffer}
+                    onChange={(e) => setIsOffer(e.target.checked)}
+                    className="w-4 h-4 text-orange-500 rounded"
+                  />
+                  <span className="font-black text-orange-950">تفعيل كعرض خاص أو تخفيض مميز 🏷️</span>
+                </label>
+
+                {isOffer && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        السعر الأصلي قبل الخصم ({currency}):
+                      </label>
+                      <input
+                        type="number"
+                        value={originalPrice}
+                        onChange={(e) => setOriginalPrice(e.target.value)}
+                        placeholder="مثال: 30000"
+                        className="w-full py-2 px-3 bg-white border border-slate-300 rounded-xl font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        شارة العرض:
+                      </label>
+                      <input
+                        type="text"
+                        value={offerLabel}
+                        onChange={(e) => setOfferLabel(e.target.value)}
+                        placeholder="خصم 20%، وجبة مع مشروب..."
+                        className="w-full py-2 px-3 bg-white border border-slate-300 rounded-xl font-bold"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sizes (الأحجام والمقاسات) */}
+              <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
+                <h4 className="font-black text-slate-800">الأحجام والمقاسات (اختياري):</h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={sizeName}
+                    onChange={(e) => setSizeName(e.target.value)}
+                    placeholder="اسم الحجم (صغير، عائلي..)"
+                    className="flex-1 py-1.5 px-3 bg-white border rounded-xl"
+                  />
+                  <input
+                    type="number"
+                    value={sizePrice}
+                    onChange={(e) => setSizePrice(e.target.value)}
+                    placeholder="فارق السعر (+ل.س)"
+                    className="w-28 py-1.5 px-3 bg-white border rounded-xl"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddSize}
+                    className="px-3 py-1.5 bg-slate-800 text-white rounded-xl font-black cursor-pointer"
+                  >
+                    إضافة
+                  </button>
+                </div>
+
+                {sizes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {sizes.map((sz, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-xl text-[11px] font-bold"
+                      >
+                        <span>
+                          {sz.name} (+{sz.price} {currency})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSize(i)}
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Additions (الإضافات والخيارات) */}
+              <div className="bg-slate-50 p-3 rounded-2xl border space-y-2">
+                <h4 className="font-black text-slate-800">الإضافات والخيارات الإضافية (اختياري):</h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={additionName}
+                    onChange={(e) => setAdditionName(e.target.value)}
+                    placeholder="اسم الإضافة (جبنة إضافية..)"
+                    className="flex-1 py-1.5 px-3 bg-white border rounded-xl"
+                  />
+                  <input
+                    type="number"
+                    value={additionPrice}
+                    onChange={(e) => setAdditionPrice(e.target.value)}
+                    placeholder="السعر (+ل.س)"
+                    className="w-28 py-1.5 px-3 bg-white border rounded-xl"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddAddition}
+                    className="px-3 py-1.5 bg-slate-800 text-white rounded-xl font-black cursor-pointer"
+                  >
+                    إضافة
+                  </button>
+                </div>
+
+                {additions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {additions.map((ad, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-xl text-[11px] font-bold"
+                      >
+                        <span>
+                          {ad.name} (+{ad.price} {currency})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAddition(i)}
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 pt-3 border-t">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  {editingProduct ? "حفظ تعديلات الصنف ✓" : "إرسال الصنف للمراجعة والاعتماد 📤"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowProductModal(false)}
+                  className="py-3 px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

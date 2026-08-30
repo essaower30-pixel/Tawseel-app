@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   Plus, 
   Edit, 
@@ -12,6 +12,12 @@ import {
   Layers, 
   X, 
   Check, 
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  Package,
+  Store as StoreIcon,
+  Sparkles,
   Image as ImageIcon 
 } from "lucide-react";
 import { Category, Product, Store, StoreAddition, StoreSize } from "../../types";
@@ -38,12 +44,15 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "offers">("all");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Form State
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [unit, setUnit] = useState("قطعة");
+  const [stock, setStock] = useState("");
   const [storeId, setStoreId] = useState(stores[0]?.id || "");
   const [category, setCategory] = useState("restaurants");
   const [description, setDescription] = useState("");
@@ -52,6 +61,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
   const [originalPrice, setOriginalPrice] = useState("");
   const [offerLabel, setOfferLabel] = useState("عرض خاص");
   const [isHidden, setIsHidden] = useState(false);
+  const [isApproved, setIsApproved] = useState(true);
 
   // Sizes & Additions
   const [sizes, setSizes] = useState<StoreSize[]>([]);
@@ -62,10 +72,25 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
   const [additionName, setAdditionName] = useState("");
   const [additionPrice, setAdditionPrice] = useState("");
 
+  // Pending vs Approved Counts
+  const pendingProducts = useMemo(() => {
+    return products.filter((p) => p.isApproved === false || p.approvalStatus === "pending");
+  }, [products]);
+
+  const approvedProducts = useMemo(() => {
+    return products.filter((p) => p.isApproved !== false && p.approvalStatus !== "pending");
+  }, [products]);
+
+  const offerProducts = useMemo(() => {
+    return products.filter((p) => p.isOffer);
+  }, [products]);
+
   const openAddModal = () => {
     setEditingProduct(null);
     setName("");
     setPrice("");
+    setUnit("قطعة");
+    setStock("50");
     setStoreId(stores[0]?.id || "");
     setCategory(categories[0]?.id || "restaurants");
     setDescription("");
@@ -74,6 +99,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     setOriginalPrice("");
     setOfferLabel("عرض خاص");
     setIsHidden(false);
+    setIsApproved(true);
     setSizes([]);
     setAdditions([]);
     setShowModal(true);
@@ -83,6 +109,8 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     setEditingProduct(prod);
     setName(prod.name);
     setPrice(prod.price.toString());
+    setUnit(prod.unit || "قطعة");
+    setStock(prod.stock !== undefined ? prod.stock.toString() : "");
     setStoreId(prod.storeId);
     setCategory(prod.category);
     setDescription(prod.description || "");
@@ -91,9 +119,30 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     setOriginalPrice(prod.originalPrice ? prod.originalPrice.toString() : "");
     setOfferLabel(prod.offerLabel || "عرض خاص");
     setIsHidden(Boolean(prod.isHidden));
+    setIsApproved(prod.isApproved !== false);
     setSizes(prod.sizes ? [...prod.sizes] : []);
     setAdditions(prod.additions ? [...prod.additions] : []);
     setShowModal(true);
+  };
+
+  const handleApproveProduct = (prod: Product) => {
+    onUpdateProduct({
+      ...prod,
+      isApproved: true,
+      approvalStatus: "approved"
+    });
+  };
+
+  const handleRejectProduct = (prod: Product) => {
+    const reason = window.prompt("سبب رفض هذا المنتج (اختياري للتاجر):", "السعر أو الصورة غير مطابقة للشروط");
+    if (reason !== null) {
+      onUpdateProduct({
+        ...prod,
+        isApproved: false,
+        approvalStatus: "rejected",
+        rejectionReason: reason || "تم رفض العرض من قبل الإدارة"
+      });
+    }
   };
 
   const handleAddSize = () => {
@@ -123,11 +172,17 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     const priceNum = parseFloat(price);
     if (!name.trim() || isNaN(priceNum)) return;
 
+    const matchedStore = stores.find((s) => s.id === storeId);
+    const stockNum = stock.trim() !== "" && !isNaN(Number(stock)) ? Number(stock) : undefined;
+
     const prodData: Product = {
       id: editingProduct ? editingProduct.id : "prod_" + Date.now(),
       name: name.trim(),
       price: priceNum,
+      unit: unit.trim() || "قطعة",
+      stock: stockNum,
       storeId,
+      storeName: matchedStore?.name || "متجر عام",
       category,
       description,
       image: image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
@@ -135,8 +190,11 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
       originalPrice: isOffer && originalPrice ? parseFloat(originalPrice) : undefined,
       offerLabel: isOffer ? offerLabel : undefined,
       isHidden,
+      isApproved,
+      approvalStatus: isApproved ? "approved" : "pending",
       sizes: sizes.length > 0 ? sizes : undefined,
-      additions: additions.length > 0 ? additions : undefined
+      additions: additions.length > 0 ? additions : undefined,
+      createdAt: editingProduct?.createdAt || new Date().toISOString()
     };
 
     if (editingProduct) {
@@ -148,15 +206,128 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     setShowModal(false);
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesStore = selectedStoreId === "all" || p.storeId === selectedStoreId;
-    return matchesSearch && matchesStore;
-  });
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      // 1. Status Filter
+      if (statusFilter === "pending") {
+        if (p.isApproved !== false && p.approvalStatus !== "pending") return false;
+      } else if (statusFilter === "approved") {
+        if (p.isApproved === false || p.approvalStatus === "pending") return false;
+      } else if (statusFilter === "offers") {
+        if (!p.isOffer) return false;
+      }
+
+      // 2. Store Filter
+      if (selectedStoreId !== "all" && p.storeId !== selectedStoreId) {
+        return false;
+      }
+
+      // 3. Search Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchedName = p.name.toLowerCase().includes(q);
+        const matchedDesc = (p.description || "").toLowerCase().includes(q);
+        const matchedStore = (p.storeName || "").toLowerCase().includes(q);
+        if (!matchedName && !matchedDesc && !matchedStore) return false;
+      }
+
+      return true;
+    });
+  }, [products, statusFilter, selectedStoreId, searchQuery]);
 
   return (
     <div className="space-y-6 text-right font-sans" dir="rtl">
+      {/* Pending Approval Banner Alert if any pending products exist */}
+      {pendingProducts.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-400 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-2xl shadow-md shrink-0 animate-bounce">
+              ⏳
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-slate-900 text-sm sm:text-base">
+                  يوجد ({pendingProducts.length}) منتجات بانتظار موافقة واعتماد الإدارة
+                </h3>
+                <span className="bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full">
+                  تتطلب مراجعة
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                قام أصحاب المتاجر بإضافة منتجات وعروض جديدة. يمكنك مراجعتها واعتماد ما يستحق العرض للزبائن فوراً.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setStatusFilter("pending")}
+            className="py-2.5 px-4 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0"
+          >
+            <span>عرض المنتجات المعلقة الآن 🔍</span>
+          </button>
+        </div>
+      )}
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("all")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            statusFilter === "all"
+              ? "bg-slate-900 text-white shadow-md"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <span>جميع الأصناف ({products.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter("pending")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            statusFilter === "pending"
+              ? "bg-amber-500 text-white shadow-md"
+              : pendingProducts.length > 0
+              ? "bg-amber-50 text-amber-800 border-2 border-amber-400 font-black animate-pulse"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>بانتظار الاعتماد والموافقة ({pendingProducts.length})</span>
+          {pendingProducts.length > 0 && (
+            <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter("approved")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            statusFilter === "approved"
+              ? "bg-emerald-600 text-white shadow-md"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          <span>المنتجات المعتمدة والمعروضة ({approvedProducts.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter("offers")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            statusFilter === "offers"
+              ? "bg-red-600 text-white shadow-md"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <Tag className="w-4 h-4" />
+          <span>العروض والتخفيضات ({offerProducts.length})</span>
+        </button>
+      </div>
+
       {/* Top Controls: Search, Store Filter, Add Product Button */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center flex-wrap gap-2.5 flex-1">
@@ -167,7 +338,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث في الأصناف والوجبات..."
+              placeholder="ابحث بالاسم، المتجر، أو الوصف..."
               className="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
             />
           </div>
@@ -179,8 +350,10 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
             className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-hidden"
           >
             <option value="all">كافة المتاجر ({products.length} صنف)</option>
-            {stores.map(st => (
-              <option key={st.id} value={st.id}>{st.name}</option>
+            {stores.map((st) => (
+              <option key={st.id} value={st.id}>
+                {st.name}
+              </option>
             ))}
           </select>
         </div>
@@ -188,119 +361,207 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
         <button
           type="button"
           onClick={openAddModal}
-          className="py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+          className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
         >
           <Plus className="w-4 h-4" />
-          <span>إضافة صنف / منتج جديد 🍽️</span>
+          <span>إضافة صنف / منتج كإدارة 🍽️</span>
         </button>
       </div>
 
       {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredProducts.map(prod => {
-          const store = stores.find(s => s.id === prod.storeId);
+      {filteredProducts.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center space-y-2">
+          <Utensils className="w-12 h-12 text-slate-300 mx-auto" />
+          <h4 className="font-black text-sm text-slate-700">لا توجد منتجات مطابقة لهذا الفلتر</h4>
+          <p className="text-xs text-slate-400">جرب اختيار تصنيف آخر أو مسح عبارة البحث.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredProducts.map((prod) => {
+            const store = stores.find((s) => s.id === prod.storeId);
+            const isPending = prod.isApproved === false || prod.approvalStatus === "pending";
+            const isRejected = prod.approvalStatus === "rejected";
 
-          return (
-            <div 
-              key={prod.id} 
-              className={`bg-white rounded-3xl border transition-all p-3.5 shadow-xs flex flex-col justify-between space-y-3 ${
-                prod.isHidden ? "opacity-60 bg-slate-50 border-slate-300" : "border-slate-200 hover:border-orange-300"
-              }`}
-            >
-              <div>
-                <div className="relative rounded-2xl overflow-hidden mb-2.5 aspect-video bg-slate-100">
-                  <img 
-                    src={prod.image} 
-                    alt={prod.name} 
-                    className="w-full h-full object-cover" 
-                  />
-                  {prod.isOffer && (
-                    <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">
-                      {prod.offerLabel || "عرض خاص"}
+            return (
+              <div
+                key={prod.id}
+                className={`bg-white rounded-3xl border transition-all p-3.5 shadow-xs flex flex-col justify-between space-y-3 ${
+                  isPending
+                    ? "border-2 border-amber-400 bg-amber-50/20 shadow-md ring-2 ring-amber-400/20"
+                    : isRejected
+                    ? "border-red-300 bg-red-50/20 opacity-75"
+                    : prod.isHidden
+                    ? "opacity-60 bg-slate-50 border-slate-300"
+                    : "border-slate-200 hover:border-orange-300"
+                }`}
+              >
+                <div>
+                  <div className="relative rounded-2xl overflow-hidden mb-2.5 aspect-video bg-slate-100">
+                    <img
+                      src={prod.image}
+                      alt={prod.name}
+                      className="w-full h-full object-cover"
+                    />
+
+                    {/* Pending review badge */}
+                    {isPending ? (
+                      <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1 animate-pulse">
+                        <span>⏳</span>
+                        <span>بانتظار موافقة الإدارة</span>
+                      </span>
+                    ) : isRejected ? (
+                      <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">
+                        مرفوض من الإدارة ✕
+                      </span>
+                    ) : prod.isOffer ? (
+                      <span className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">
+                        {prod.offerLabel || "عرض خاص"}
+                      </span>
+                    ) : (
+                      <span className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">
+                        معتمد ومعروض ✓
+                      </span>
+                    )}
+
+                    <span className="absolute bottom-2 right-2 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
+                      <StoreIcon className="w-3 h-3 text-orange-400" />
+                      <span>{prod.storeName || store?.name || "متجر عام"}</span>
                     </span>
+
+                    {/* Stock badge */}
+                    {prod.stock !== undefined && (
+                      <span className="absolute bottom-2 left-2 bg-white/90 text-slate-800 text-[10px] font-black px-2 py-0.5 rounded-lg border border-slate-200">
+                        المخزون: {prod.stock} {prod.unit || "قطعة"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-start justify-between gap-1">
+                    <h4 className="font-black text-xs sm:text-sm text-slate-900 line-clamp-1">
+                      {prod.name}
+                    </h4>
+                    <div className="text-left font-black text-xs text-orange-600 shrink-0">
+                      {prod.price.toLocaleString()} {currency}
+                      {prod.isOffer && prod.originalPrice && (
+                        <span className="block text-[10px] text-slate-400 line-through font-normal">
+                          {prod.originalPrice.toLocaleString()} {currency}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                    {prod.description || "لا يوجد وصف للصنف"}
+                  </p>
+
+                  {/* Pending Approval notice */}
+                  {isPending && (
+                    <div className="mt-2 p-2 bg-amber-100/70 border border-amber-300 rounded-xl text-[11px] text-amber-900 font-bold space-y-1">
+                      <div className="flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span>أضافه صاحب المتجر وبانتظار موافقتك للعرض</span>
+                      </div>
+                    </div>
                   )}
-                  <span className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-lg">
-                    {store?.name || "متجر عام"}
-                  </span>
+
+                  {/* Sizes and Additions preview badges */}
+                  {(prod.sizes || prod.additions || prod.unit) && (
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap text-[10px] font-bold text-slate-500">
+                      {prod.unit && (
+                        <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border text-slate-700">
+                          الوحدة: {prod.unit}
+                        </span>
+                      )}
+                      {prod.sizes && (
+                        <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border">
+                          {prod.sizes.length} أحجام
+                        </span>
+                      )}
+                      {prod.additions && (
+                        <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border">
+                          {prod.additions.length} إضافات
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex items-start justify-between gap-1">
-                  <h4 className="font-black text-xs sm:text-sm text-slate-900 line-clamp-1">{prod.name}</h4>
-                  <div className="text-left font-black text-xs text-orange-600 shrink-0">
-                    {prod.price.toLocaleString()} {currency}
-                    {prod.isOffer && prod.originalPrice && (
-                      <span className="block text-[10px] text-slate-400 line-through font-normal">
-                        {prod.originalPrice.toLocaleString()} {currency}
-                      </span>
-                    )}
+                {/* Actions & Approval buttons */}
+                <div className="pt-2 border-t border-slate-100 space-y-2">
+                  {/* Approval Actions for Pending Products */}
+                  {isPending ? (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApproveProduct(prod)}
+                        className="py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        title="موافقة واعتماد هذا الصنف ليظهر فوراً للزبائن"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>اعتماد وموافقة ✅</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRejectProduct(prod)}
+                        className="py-1.5 px-2 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                        title="رفض عرض هذا المنتج"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>رفض ❌</span>
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center justify-between gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onUpdateProduct({
+                          ...prod,
+                          isHidden: !prod.isHidden
+                        });
+                      }}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all ${
+                        prod.isHidden
+                          ? "bg-slate-200 text-slate-700"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                      title={prod.isHidden ? "إظهار الصنف للزبائن" : "إخفاء الصنف"}
+                    >
+                      {prod.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(prod)}
+                        className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-xl transition-all cursor-pointer"
+                        title="تعديل الصنف"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`هل أنت متأكد من حذف صنف "${prod.name}" نهائياً؟`)) {
+                            onDeleteProduct(prod.id);
+                          }
+                        }}
+                        className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all cursor-pointer"
+                        title="حذف الصنف"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{prod.description || "لا يوجد وصف"}</p>
-
-                {/* Sizes and Additions preview badges */}
-                {(prod.sizes || prod.additions) && (
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap text-[10px] font-bold text-slate-500">
-                    {prod.sizes && (
-                      <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border">
-                        {prod.sizes.length} أحجام
-                      </span>
-                    )}
-                    {prod.additions && (
-                      <span className="bg-slate-100 px-1.5 py-0.5 rounded-md border">
-                        {prod.additions.length} إضافات
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
-
-              {/* Actions */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onUpdateProduct({
-                      ...prod,
-                      isHidden: !prod.isHidden
-                    });
-                  }}
-                  className={`p-2 rounded-xl text-xs font-bold transition-all ${
-                    prod.isHidden ? "bg-slate-200 text-slate-700" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                  title={prod.isHidden ? "إظهار الصنف للزبائن" : "إخفاء الصنف"}
-                >
-                  {prod.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
-
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => openEditModal(prod)}
-                    className="p-2 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-xl transition-all cursor-pointer"
-                    title="تعديل الصنف"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(`هل أنت متأكد من حذف صنف "${prod.name}"؟`)) {
-                        onDeleteProduct(prod.id);
-                      }
-                    }}
-                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-all cursor-pointer"
-                    title="حذف الصنف"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add / Edit Product Modal */}
       {showModal && (
@@ -311,9 +572,9 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                 <Utensils className="w-5 h-5 text-orange-500" />
                 <span>{editingProduct ? "تعديل الصنف والخيارات 🍽️" : "إضافة صنف جديد 🍽️"}</span>
               </h3>
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -346,7 +607,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold mb-1 text-slate-700">المتجر التابع له: *</label>
                   <select
@@ -354,8 +615,10 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                     onChange={(e) => setStoreId(e.target.value)}
                     className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                   >
-                    {stores.map(st => (
-                      <option key={st.id} value={st.id}>{st.name}</option>
+                    {stores.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -367,14 +630,70 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                   >
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
                     ))}
                   </select>
                 </div>
+
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700">الوحدة / الكمية المتوفرة:</label>
+                  <div className="flex gap-1">
+                    <select
+                      value={unit}
+                      onChange={(e) => setUnit(e.target.value)}
+                      className="py-2.5 px-2 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden w-20 text-[11px]"
+                    >
+                      <option value="قطعة">قطعة</option>
+                      <option value="وجبة">وجبة</option>
+                      <option value="كيلو">كيلو</option>
+                      <option value="علبة">علبة</option>
+                      <option value="طبق">طبق</option>
+                      <option value="لتر">لتر</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={stock}
+                      onChange={(e) => setStock(e.target.value)}
+                      placeholder="الكمية (50)"
+                      className="w-full py-2.5 px-2 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden text-[11px]"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Product Image Uploader (Studio & Camera, No URL) */}
+              {/* Approval status selector in Admin Modal */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-800 block text-xs">حالة الاعتماد والموافقة الإدارية:</span>
+                  <span className="text-[11px] text-slate-500">هل يظهر هذا الصنف مباشرة لزبائن التطبيق؟</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsApproved(!isApproved)}
+                  className={`py-1.5 px-3 rounded-xl font-black text-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isApproved
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-amber-100 text-amber-800 border border-amber-300"
+                  }`}
+                >
+                  {isApproved ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>معتمد ومعروض ✅</span>
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>بانتظار الاعتماد ⏳</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Product Image Uploader */}
               <ImageUploader
                 value={image}
                 onChange={(val) => setImage(val)}
@@ -417,7 +736,9 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                 {isOffer && (
                   <div className="grid grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">السعر الأصلي قبل الخصم:</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        السعر الأصلي قبل الخصم:
+                      </label>
                       <input
                         type="number"
                         value={originalPrice}
@@ -427,7 +748,9 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">شارة العرض:</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        شارة العرض:
+                      </label>
                       <input
                         type="text"
                         value={offerLabel}
@@ -461,7 +784,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                   <button
                     type="button"
                     onClick={handleAddSize}
-                    className="px-3 py-1.5 bg-slate-800 text-white rounded-xl font-black"
+                    className="px-3 py-1.5 bg-slate-800 text-white rounded-xl font-black cursor-pointer"
                   >
                     إضافة
                   </button>
@@ -470,9 +793,20 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                 {sizes.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {sizes.map((sz, i) => (
-                      <span key={i} className="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-xl text-[11px] font-bold">
-                        <span>{sz.name} (+{sz.price} {currency})</span>
-                        <button type="button" onClick={() => handleRemoveSize(i)} className="text-red-500 hover:text-red-700">✕</button>
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-xl text-[11px] font-bold"
+                      >
+                        <span>
+                          {sz.name} (+{sz.price} {currency})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSize(i)}
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          ✕
+                        </button>
                       </span>
                     ))}
                   </div>
@@ -500,7 +834,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                   <button
                     type="button"
                     onClick={handleAddAddition}
-                    className="px-3 py-1.5 bg-slate-800 text-white rounded-xl font-black"
+                    className="px-3 py-1.5 bg-slate-800 text-white rounded-xl font-black cursor-pointer"
                   >
                     إضافة
                   </button>
@@ -509,9 +843,20 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                 {additions.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {additions.map((ad, i) => (
-                      <span key={i} className="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-xl text-[11px] font-bold">
-                        <span>{ad.name} (+{ad.price} {currency})</span>
-                        <button type="button" onClick={() => handleRemoveAddition(i)} className="text-red-500 hover:text-red-700">✕</button>
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-1.5 bg-white border px-2.5 py-1 rounded-xl text-[11px] font-bold"
+                      >
+                        <span>
+                          {ad.name} (+{ad.price} {currency})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAddition(i)}
+                          className="text-red-500 hover:text-red-700 cursor-pointer"
+                        >
+                          ✕
+                        </button>
                       </span>
                     ))}
                   </div>

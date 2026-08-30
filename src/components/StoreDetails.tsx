@@ -119,7 +119,14 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   }, [userOrders, store.id, store.name, storeReviewsList]);
 
   const allStoreProducts = useMemo(() => {
-    return products.filter((p) => p.storeId === store.id && !p.isHidden);
+    return products.filter(
+      (p) =>
+        p.storeId === store.id &&
+        !p.isHidden &&
+        p.isApproved !== false &&
+        p.approvalStatus !== "pending" &&
+        p.approvalStatus !== "rejected"
+    );
   }, [products, store.id]);
 
   const minStorePrice = useMemo(() => {

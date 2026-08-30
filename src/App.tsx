@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ShoppingBag,
@@ -310,22 +310,42 @@ export default function App() {
     typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
   );
 
+  // Notification deduplication tracking refs to prevent re-alerting or looping
+  const notifiedPendingStoresRef = useRef<Set<string>>(new Set(["store-gypsum-board"]));
+  const notifiedOrdersRef = useRef<Set<string>>(new Set(initialOrders.map((o) => o.id)));
+  const isInitialLoadDoneRef = useRef<boolean>(false);
+
   const addToastNotification = useCallback((toast: Omit<ToastItem, "id" | "createdAt">) => {
-    const newToast: ToastItem = {
-      ...toast,
-      id: "toast-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
-      createdAt: Date.now(),
-    };
-    setToasts((prev) => [newToast, ...prev.slice(0, 3)]); // Keep up to 4 toasts
-    
-    // Auto dismiss after 10 seconds
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== newToast.id));
-    }, 10000);
+    setToasts((prev) => {
+      // Prevent duplicate notification stacking if one with same title & message already exists
+      const isAlreadyShowing = prev.some(
+        (t) => t.title === toast.title && t.message === toast.message
+      );
+      if (isAlreadyShowing) {
+        return prev;
+      }
+      const newToast: ToastItem = {
+        ...toast,
+        id: "toast-" + Date.now() + "-" + Math.random().toString(36).substring(2, 7),
+        createdAt: Date.now(),
+      };
+      
+      // Auto dismiss after 6 seconds
+      setTimeout(() => {
+        setToasts((curr) => curr.filter((t) => t.id !== newToast.id));
+      }, 6000);
+
+      // Keep maximum 2 toasts on screen simultaneously to prevent layout clutter
+      return [newToast, ...prev.slice(0, 1)];
+    });
   }, []);
 
   const handleDismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const handleDismissAllToasts = useCallback(() => {
+    setToasts([]);
   }, []);
 
   // Store Broadcasts State (تنبيهات الإدارة الجماعية لأصحاب المتاجر)
@@ -803,6 +823,19 @@ export default function App() {
   // Product management handlers
   const handleAddNewProduct = async (product: Product) => {
     setProducts((prev) => [...prev, product]);
+    if (product.isApproved === false || product.approvalStatus === "pending") {
+      addToastNotification({
+        title: "تم إرسال الصنف للاعتماد ⏳",
+        message: `تم رفع الصنف "${product.name}" بنجاح وهو بانتظار مراجعة واعتماد الإدارة ليظهر للزبائن.`,
+        type: "info"
+      });
+    } else {
+      addToastNotification({
+        title: "تمت إضافة الصنف بنجاح 🍽️",
+        message: `الصنف "${product.name}" متاح ومعروض الآن للزبائن.`,
+        type: "info"
+      });
+    }
     await Promise.allSettled([
       saveProductToFirestore(product),
       saveProductOnServer(product)
@@ -811,6 +844,19 @@ export default function App() {
 
   const handleUpdateProduct = async (product: Product) => {
     setProducts((prev) => prev.map((item) => (item.id === product.id ? product : item)));
+    if (product.approvalStatus === "approved" && product.isApproved === true) {
+      addToastNotification({
+        title: "تم اعتماد الصنف بنجاح ✅",
+        message: `تمت الموافقة على عرض "${product.name}" وأصبح مرئياً لجميع الزبائن.`,
+        type: "info"
+      });
+    } else if (product.approvalStatus === "rejected") {
+      addToastNotification({
+        title: "تم رفض الصنف ❌",
+        message: `تم رفض صنف "${product.name}" (${product.rejectionReason || "يرجى تعديل البيانات"}).`,
+        type: "alert"
+      });
+    }
     await Promise.allSettled([
       saveProductToFirestore(product),
       updateProductOnServer(product)
@@ -833,6 +879,13 @@ export default function App() {
     // 2. Real-time orders listener
     const unsubOrders = subscribeToOrders((cloudOrders) => {
       if (!cloudOrders || cloudOrders.length === 0) return;
+
+      // On first load, mark all existing orders as notified so no alert storm occurs
+      if (!isInitialLoadDoneRef.current) {
+        cloudOrders.forEach((o) => notifiedOrdersRef.current.add(o.id));
+        isInitialLoadDoneRef.current = true;
+      }
+
       setAllOrders((prev) => {
         const prevMap = new Map(prev.map((o) => [o.id, o]));
         let hasChanges = false;
@@ -842,7 +895,10 @@ export default function App() {
           const existing = prevMap.get(co.id);
           if (!existing) {
             hasChanges = true;
-            newOrders.push(co);
+            if (!notifiedOrdersRef.current.has(co.id)) {
+              newOrders.push(co);
+              notifiedOrdersRef.current.add(co.id);
+            }
           } else if (
             existing.status !== co.status ||
             existing.driverId !== co.driverId ||
@@ -865,8 +921,7 @@ export default function App() {
             if (userRole === "store_owner") {
               const isMyStoreOrder =
                 newOrd.storeId === currentStoreId ||
-                (userProfile?.name && newOrd.storeName?.includes(userProfile.name)) ||
-                stores.some((s) => s.id === newOrd.storeId && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone));
+                (userProfile?.name && newOrd.storeName?.includes(userProfile.name));
 
               if (isMyStoreOrder) {
                 playOrderAlertSound("ringtone");
@@ -898,33 +953,6 @@ export default function App() {
           });
         }
 
-        // Sync active customer tracking order
-        if (activeOrder) {
-          const freshActive = cloudOrders.find((o) => o.id === activeOrder.id);
-          if (
-            freshActive &&
-            (freshActive.status !== activeOrder.status ||
-              freshActive.driverName !== activeOrder.driverName ||
-              freshActive.driverPhone !== activeOrder.driverPhone)
-          ) {
-            setActiveOrder(freshActive);
-            playOrderAlertSound("chime");
-            const statusLabels: Record<string, string> = {
-              accepted: "تم قبول الطلب وجارٍ التجهيز",
-              preparing: "الطلب قيد التجهيز الآن",
-              picked_up: "الكابتن استلم الطلب وهو في الطريق إليك 🛵",
-              delivered: "تم توصيل الطلب بنجاح ✅",
-              cancelled: "تم إلغاء الطلب ❌"
-            };
-            addToastNotification({
-              order: freshActive,
-              title: "تحديث حالة طلبك 🛵",
-              message: `طلب #${freshActive.id}: ${statusLabels[freshActive.status] || freshActive.status}`,
-              type: "status_change"
-            });
-          }
-        }
-
         return cloudOrders;
       });
     });
@@ -932,6 +960,22 @@ export default function App() {
     // 3. Real-time stores listener
     const unsubStores = subscribeToStores((cloudStores) => {
       if (!cloudStores || cloudStores.length === 0) return;
+      
+      // Check if there is a newly registered store waiting for approval
+      cloudStores.forEach((st) => {
+        if (st.isApproved === false && !notifiedPendingStoresRef.current.has(st.id)) {
+          notifiedPendingStoresRef.current.add(st.id);
+          if (isAdminMode || userRole === "admin") {
+            addToastNotification({
+              title: "🔔 طلب تسجيل متجر جديد",
+              message: `قام متجر "${st.name}" بالتسجيل وينتظر موافقة واعتماد الإدارة!`,
+              type: "info"
+            });
+            playOrderAlertSound("chime");
+          }
+        }
+      });
+
       setStores((prev) => {
         const merged = ensureInitialStoresPreserved(cloudStores);
         if (merged.length !== prev.length || JSON.stringify(merged) !== JSON.stringify(prev)) {
@@ -973,7 +1017,7 @@ export default function App() {
       unsubReviews();
       unsubBroadcasts();
     };
-  }, [isAdminMode, isDriverMode, userRole, userProfile, currentStoreId, activeOrder, stores, addToastNotification]);
+  }, [isAdminMode, isDriverMode, userRole, userProfile?.phone, userProfile?.name, currentStoreId, addToastNotification]);
 
   // Background server sync: continuous sync across all devices, portals, and browsers
   useEffect(() => {
@@ -1001,15 +1045,18 @@ export default function App() {
           if (hasDiff || currentLocal.length !== serverData.stores.length) {
             // Check if there's a new pending store waiting for Admin approval
             const newPending = serverData.stores.find(
-              (s) => s.isApproved === false && !currentLocal.some((cl) => cl.id === s.id && cl.isApproved === false)
+              (s) => s.isApproved === false && !notifiedPendingStoresRef.current.has(s.id)
             );
-            if (newPending && (isAdminMode || userRole === "admin")) {
-              addToastNotification({
-                title: "🔔 طلب تسجيل متجر جديد",
-                message: `قام متجر "${newPending.name}" بالتسجيل وينتظر موافقة واعتماد الإدارة!`,
-                type: "info"
-              });
-              playOrderAlertSound("chime");
+            if (newPending) {
+              notifiedPendingStoresRef.current.add(newPending.id);
+              if (isAdminMode || userRole === "admin") {
+                addToastNotification({
+                  title: "🔔 طلب تسجيل متجر جديد",
+                  message: `قام متجر "${newPending.name}" بالتسجيل وينتظر موافقة واعتماد الإدارة!`,
+                  type: "info"
+                });
+                playOrderAlertSound("chime");
+              }
             }
 
             // Check if Store Owner's store was just approved by Admin!
@@ -1053,7 +1100,10 @@ export default function App() {
             const localOrder = currentMap.get(sOrder.id);
             if (!localOrder) {
               hasDiff = true;
-              newlyArrivedOrders.push(sOrder);
+              if (!notifiedOrdersRef.current.has(sOrder.id)) {
+                newlyArrivedOrders.push(sOrder);
+                notifiedOrdersRef.current.add(sOrder.id);
+              }
             } else if (
               localOrder.status !== sOrder.status || 
               localOrder.driverId !== sOrder.driverId || 
@@ -1072,8 +1122,7 @@ export default function App() {
                   const uPhone = cleanPhone(userProfile?.phone);
                   const isMyStoreOrder = 
                     newOrd.storeId === currentStoreId || 
-                    (userProfile?.name && newOrd.storeName?.includes(userProfile.name)) ||
-                    stores.some(s => s.id === newOrd.storeId && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone));
+                    (userProfile?.name && newOrd.storeName?.includes(userProfile.name));
 
                   if (isMyStoreOrder) {
                     playOrderAlertSound("ringtone");
@@ -1111,33 +1160,6 @@ export default function App() {
               });
             }
 
-            // Sync Customer's active tracking order
-            if (activeOrder) {
-              const freshActive = serverData.orders.find((o) => o.id === activeOrder.id);
-              if (
-                freshActive && 
-                (freshActive.status !== activeOrder.status ||
-                 freshActive.driverName !== activeOrder.driverName ||
-                 freshActive.driverPhone !== activeOrder.driverPhone)
-              ) {
-                setActiveOrder(freshActive);
-                playOrderAlertSound("chime");
-                const statusLabels: Record<string, string> = {
-                  accepted: "تم قبول الطلب وجارٍ التجهيز",
-                  preparing: "الطلب قيد التجهيز الآن",
-                  picked_up: "الكابتن استلم الطلب وهو في الطريق إليك 🛵",
-                  delivered: "تم توصيل الطلب بنجاح ✅",
-                  cancelled: "تم إلغاء الطلب ❌"
-                };
-                addToastNotification({
-                  order: freshActive,
-                  title: "تحديث حالة طلبك 🛵",
-                  message: `طلب #${freshActive.id}: ${statusLabels[freshActive.status] || freshActive.status}`,
-                  type: "status_change"
-                });
-              }
-            }
-
             return serverData.orders;
           }
           return currentLocal;
@@ -1156,7 +1178,7 @@ export default function App() {
     };
 
     performSync();
-    const interval = setInterval(performSync, 2500);
+    const interval = setInterval(performSync, 5000);
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
@@ -1172,7 +1194,7 @@ export default function App() {
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", performSync);
     };
-  }, [isAdminMode, isDriverMode, userRole, userProfile, currentStoreId, activeOrder, stores, addToastNotification]);
+  }, [isAdminMode, isDriverMode, userRole, userProfile?.phone, userProfile?.name, currentStoreId, addToastNotification]);
 
   const handleUpdateOrderStatus = async (orderId: string, status: any) => {
     setAllOrders((prev) =>
@@ -2627,6 +2649,7 @@ export default function App() {
       <ToastNotification
         toasts={toasts}
         onDismiss={handleDismissToast}
+        onDismissAll={handleDismissAllToasts}
         onViewOrder={handleViewToastOrder}
         currentRole={userRole}
       />

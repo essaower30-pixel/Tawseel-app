@@ -35,6 +35,7 @@ export interface ToastItem {
 interface ToastNotificationProps {
   toasts: ToastItem[];
   onDismiss: (id: string) => void;
+  onDismissAll?: () => void;
   onViewOrder: (order: Order) => void;
   currentRole: string;
 }
@@ -42,6 +43,7 @@ interface ToastNotificationProps {
 export const ToastNotification: React.FC<ToastNotificationProps> = ({
   toasts,
   onDismiss,
+  onDismissAll,
   onViewOrder,
   currentRole,
 }) => {
@@ -166,8 +168,14 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                   {toast.type === "info" || toast.order.id === "tw-live" ? (
                     <button
                       type="button"
-                      onClick={() => onDismiss(toast.id)}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5"
+                      onClick={() => {
+                        if (onDismissAll) {
+                          onDismissAll();
+                        } else {
+                          onDismiss(toast.id);
+                        }
+                      }}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>حسناً، التطبيق قيد العمل بنجاح ✓</span>
                     </button>

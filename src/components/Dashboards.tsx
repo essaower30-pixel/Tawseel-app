@@ -338,6 +338,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Count of pending store applications waiting for admin approval
   const pendingStoresCount = stores.filter(s => s.isApproved === false).length;
 
+  // Count of pending product additions from merchants waiting for admin approval
+  const pendingProductsCount = products.filter(
+    (p) => p.isApproved === false || p.approvalStatus === "pending"
+  ).length;
+
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
       {/* Header & Tabs Navigation */}
@@ -351,6 +356,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         onSelectStaff={handleSelectStaff}
         onLogout={onLogout}
         pendingStoresCount={pendingStoresCount}
+        pendingProductsCount={pendingProductsCount}
       />
 
       {/* Main Tab Content */}
