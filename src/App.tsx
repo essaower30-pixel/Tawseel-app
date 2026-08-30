@@ -93,6 +93,24 @@ import {
   updateProductOnServer,
   deleteProductOnServer
 } from "./utils/apiSync";
+import {
+  seedInitialFirestoreData,
+  subscribeToOrders,
+  subscribeToStores,
+  subscribeToProducts,
+  subscribeToDrivers,
+  subscribeToReviews,
+  subscribeToBroadcasts,
+  saveOrderToFirestore,
+  updateOrderStatusInFirestore,
+  saveStoreToFirestore,
+  deleteStoreFromFirestore,
+  saveProductToFirestore,
+  deleteProductFromFirestore,
+  saveDriverToFirestore,
+  saveReviewToFirestore,
+  saveBroadcastToFirestore
+} from "./services/firebaseService";
 import { CategoryIcon } from "./components/CategoryIcon";
 
 export const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/";
@@ -328,6 +346,7 @@ export default function App() {
 
   const handleSendBroadcast = (broadcast: StoreBroadcast) => {
     setStoreBroadcasts((prev) => [broadcast, ...prev]);
+    saveBroadcastToFirestore(broadcast);
     addToastNotification({
       title: "تم بث التنبيه الجماعي للمتاجر 📢",
       message: `تم إرسال: "${broadcast.title}" بنجاح`,
@@ -352,6 +371,7 @@ export default function App() {
       readBy: []
     };
     setStoreBroadcasts((prev) => [updated, ...prev]);
+    saveBroadcastToFirestore(updated);
     addToastNotification({
       title: "تمت إعادة بث التنبيه 🔄",
       message: `تم إرسال إشعار فوري جديد للمتاجر المستهدفة`,
@@ -368,7 +388,9 @@ export default function App() {
         if (bc.id === broadcastId) {
           const currentRead = bc.readBy || [];
           if (!currentRead.includes(targetStoreId)) {
-            return { ...bc, readBy: [...currentRead, targetStoreId] };
+            const updated = { ...bc, readBy: [...currentRead, targetStoreId] };
+            saveBroadcastToFirestore(updated);
+            return updated;
           }
         }
         return bc;
@@ -405,6 +427,7 @@ export default function App() {
     };
 
     setReviews((prev) => [review, ...prev]);
+    saveReviewToFirestore(review);
 
     // Dynamically calculate and update the store's average rating and count
     setStores((prevStores) => {
@@ -413,11 +436,13 @@ export default function App() {
           const storeReviews = [...reviews.filter((r) => r.storeId === st.id), review];
           const sum = storeReviews.reduce((acc, curr) => acc + curr.rating, 0);
           const newAvg = Number((sum / storeReviews.length).toFixed(1));
-          return {
+          const updatedStore = {
             ...st,
             rating: newAvg,
             ratingCount: storeReviews.length
           };
+          saveStoreToFirestore(updatedStore);
+          return updatedStore;
         }
         return st;
       });
@@ -742,7 +767,7 @@ export default function App() {
     }
   }, [allOrders]);
 
-  // Handlers for store registration and management with instant local update + server persistence
+  // Handlers for store registration and management with instant local update + Firebase & server persistence
   const handleAddNewStore = async (newStore: Store) => {
     setStores((prev) => {
       const filtered = prev.filter((s) => s.id !== newStore.id && (!s.ownerPhone || s.ownerPhone !== newStore.ownerPhone));
@@ -753,34 +778,202 @@ export default function App() {
       message: `طلب تسجيل متجر "${newStore.name}" قيد مراجعة واعتماد الإدارة!`,
       type: "info"
     });
-    await registerStoreOnServer(newStore);
+    await Promise.allSettled([
+      saveStoreToFirestore(newStore),
+      registerStoreOnServer(newStore)
+    ]);
   };
 
   const handleUpdateStore = async (updatedStore: Store) => {
     setStores((prev) => prev.map((item) => (item.id === updatedStore.id ? updatedStore : item)));
-    await updateStoreOnServer(updatedStore);
+    await Promise.allSettled([
+      saveStoreToFirestore(updatedStore),
+      updateStoreOnServer(updatedStore)
+    ]);
   };
 
   const handleDeleteStore = async (storeId: string) => {
     setStores((prev) => prev.filter((item) => item.id !== storeId));
-    await deleteStoreOnServer(storeId);
+    await Promise.allSettled([
+      deleteStoreFromFirestore(storeId),
+      deleteStoreOnServer(storeId)
+    ]);
   };
 
   // Product management handlers
   const handleAddNewProduct = async (product: Product) => {
     setProducts((prev) => [...prev, product]);
-    await saveProductOnServer(product);
+    await Promise.allSettled([
+      saveProductToFirestore(product),
+      saveProductOnServer(product)
+    ]);
   };
 
   const handleUpdateProduct = async (product: Product) => {
     setProducts((prev) => prev.map((item) => (item.id === product.id ? product : item)));
-    await updateProductOnServer(product);
+    await Promise.allSettled([
+      saveProductToFirestore(product),
+      updateProductOnServer(product)
+    ]);
   };
 
   const handleDeleteProduct = async (productId: string) => {
     setProducts((prev) => prev.filter((item) => item.id !== productId));
-    await deleteProductOnServer(productId);
+    await Promise.allSettled([
+      deleteProductFromFirestore(productId),
+      deleteProductOnServer(productId)
+    ]);
   };
+
+  // Firebase Firestore Real-Time Subscriptions (Synchronize Orders, Stores, Products, Drivers, Reviews across all users)
+  useEffect(() => {
+    // 1. Seed initial sample data to Firestore if not already present
+    seedInitialFirestoreData().catch((err) => console.warn("Firestore seed notice:", err));
+
+    // 2. Real-time orders listener
+    const unsubOrders = subscribeToOrders((cloudOrders) => {
+      if (!cloudOrders || cloudOrders.length === 0) return;
+      setAllOrders((prev) => {
+        const prevMap = new Map(prev.map((o) => [o.id, o]));
+        let hasChanges = false;
+        const newOrders: Order[] = [];
+
+        for (const co of cloudOrders) {
+          const existing = prevMap.get(co.id);
+          if (!existing) {
+            hasChanges = true;
+            newOrders.push(co);
+          } else if (
+            existing.status !== co.status ||
+            existing.driverId !== co.driverId ||
+            existing.driverName !== co.driverName
+          ) {
+            hasChanges = true;
+          }
+        }
+
+        if (!hasChanges && prev.length === cloudOrders.length) {
+          return prev;
+        }
+
+        // Process newly incoming orders notifications
+        if (newOrders.length > 0) {
+          newOrders.forEach((newOrd) => {
+            const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+            const uPhone = cleanPhone(userProfile?.phone);
+
+            if (userRole === "store_owner") {
+              const isMyStoreOrder =
+                newOrd.storeId === currentStoreId ||
+                (userProfile?.name && newOrd.storeName?.includes(userProfile.name)) ||
+                stores.some((s) => s.id === newOrd.storeId && (cleanPhone(s.ownerPhone) === uPhone || cleanPhone(s.contactPhone) === uPhone));
+
+              if (isMyStoreOrder) {
+                playOrderAlertSound("ringtone");
+                triggerOrderVibration();
+                addToastNotification({
+                  order: newOrd,
+                  title: "🏪 طلب جديد وارد لمتجرك! 🛍️",
+                  message: `طلب جديد #${newOrd.id} بقيمة ${newOrd.total.toLocaleString()} ل.س من الزبون ${newOrd.customerName}`,
+                  type: "new_order"
+                });
+              }
+            } else if (isAdminMode || userRole === "admin") {
+              playOrderAlertSound("ringtone");
+              addToastNotification({
+                order: newOrd,
+                title: "🔔 طلب جديد وارد للإدارة! 🛍️",
+                message: `طلب #${newOrd.id} إلى (${newOrd.storeName}) من الزبون ${newOrd.customerName}`,
+                type: "new_order"
+              });
+            } else if (isDriverMode || userRole === "driver") {
+              playOrderAlertSound("chime");
+              addToastNotification({
+                order: newOrd,
+                title: "🛵 طلب توصيل جديد متاح للكابتن!",
+                message: `طلب #${newOrd.id} جاهز للتوصيل من (${newOrd.storeName})`,
+                type: "new_order"
+              });
+            }
+          });
+        }
+
+        // Sync active customer tracking order
+        if (activeOrder) {
+          const freshActive = cloudOrders.find((o) => o.id === activeOrder.id);
+          if (
+            freshActive &&
+            (freshActive.status !== activeOrder.status ||
+              freshActive.driverName !== activeOrder.driverName ||
+              freshActive.driverPhone !== activeOrder.driverPhone)
+          ) {
+            setActiveOrder(freshActive);
+            playOrderAlertSound("chime");
+            const statusLabels: Record<string, string> = {
+              accepted: "تم قبول الطلب وجارٍ التجهيز",
+              preparing: "الطلب قيد التجهيز الآن",
+              picked_up: "الكابتن استلم الطلب وهو في الطريق إليك 🛵",
+              delivered: "تم توصيل الطلب بنجاح ✅",
+              cancelled: "تم إلغاء الطلب ❌"
+            };
+            addToastNotification({
+              order: freshActive,
+              title: "تحديث حالة طلبك 🛵",
+              message: `طلب #${freshActive.id}: ${statusLabels[freshActive.status] || freshActive.status}`,
+              type: "status_change"
+            });
+          }
+        }
+
+        return cloudOrders;
+      });
+    });
+
+    // 3. Real-time stores listener
+    const unsubStores = subscribeToStores((cloudStores) => {
+      if (!cloudStores || cloudStores.length === 0) return;
+      setStores((prev) => {
+        const merged = ensureInitialStoresPreserved(cloudStores);
+        if (merged.length !== prev.length || JSON.stringify(merged) !== JSON.stringify(prev)) {
+          return merged;
+        }
+        return prev;
+      });
+    });
+
+    // 4. Real-time products listener
+    const unsubProducts = subscribeToProducts((cloudProducts) => {
+      if (!cloudProducts || cloudProducts.length === 0) return;
+      setProducts(cloudProducts);
+    });
+
+    // 5. Real-time drivers listener
+    const unsubDrivers = subscribeToDrivers((cloudDrivers) => {
+      if (!cloudDrivers || cloudDrivers.length === 0) return;
+      setDriversList(cloudDrivers);
+    });
+
+    // 6. Real-time reviews listener
+    const unsubReviews = subscribeToReviews((cloudReviews) => {
+      if (!cloudReviews || cloudReviews.length === 0) return;
+      setReviews(cloudReviews);
+    });
+
+    // 7. Real-time broadcasts listener
+    const unsubBroadcasts = subscribeToBroadcasts((cloudBroadcasts) => {
+      if (!cloudBroadcasts || cloudBroadcasts.length === 0) return;
+      setStoreBroadcasts(cloudBroadcasts);
+    });
+
+    return () => {
+      unsubOrders();
+      unsubStores();
+      unsubProducts();
+      unsubDrivers();
+      unsubReviews();
+      unsubBroadcasts();
+    };
+  }, [isAdminMode, isDriverMode, userRole, userProfile, currentStoreId, activeOrder, stores, addToastNotification]);
 
   // Background server sync: continuous sync across all devices, portals, and browsers
   useEffect(() => {
@@ -1009,7 +1202,10 @@ export default function App() {
         return o;
       })
     );
-    await updateOrderOnServer(orderId, { status });
+    await Promise.allSettled([
+      updateOrderStatusInFirestore(orderId, { status }),
+      updateOrderOnServer(orderId, { status })
+    ]);
   };
 
   const handleAssignDriverToOrder = async (orderId: string, driver: DriverMember | null) => {
@@ -1051,7 +1247,10 @@ export default function App() {
         return o;
       })
     );
-    await updateOrderOnServer(orderId, driverUpdates);
+    await Promise.allSettled([
+      updateOrderStatusInFirestore(orderId, driverUpdates),
+      updateOrderOnServer(orderId, driverUpdates)
+    ]);
   };
 
   useEffect(() => {
@@ -1161,8 +1360,11 @@ export default function App() {
     setCartItems([]);
     setIsViewingCart(false);
 
-    // Save order to server storage for multi-device sync
-    await saveOrderOnServer(newOrder);
+    // Save order to Firebase Firestore & server storage for multi-device sync
+    await Promise.allSettled([
+      saveOrderToFirestore(newOrder),
+      saveOrderOnServer(newOrder)
+    ]);
 
     // Play ringing alert sound & dispatch real-time notifications to Admin & Store
     playOrderAlertSound("ringtone");
@@ -1200,8 +1402,11 @@ export default function App() {
     setActiveOrder(newOrder);
     setAllOrders((prev) => [newOrder, ...prev.filter((o) => o.id !== newOrder.id)]);
 
-    // Save custom order to server storage
-    await saveOrderOnServer(newOrder);
+    // Save custom order to Firebase Firestore & server storage
+    await Promise.allSettled([
+      saveOrderToFirestore(newOrder),
+      saveOrderOnServer(newOrder)
+    ]);
 
     // Play ringing alert sound & dispatch real-time notifications
     playOrderAlertSound("ringtone");
