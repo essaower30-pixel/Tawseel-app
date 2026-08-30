@@ -24,11 +24,11 @@ import {
 
 export interface ToastItem {
   id: string;
-  order: Order;
+  order?: Order;
   title: string;
   message: string;
   targetRole?: "admin" | "store_owner" | "driver" | "customer" | "all";
-  type: "new_order" | "status_change" | "driver_assigned" | "info";
+  type: "new_order" | "status_change" | "driver_assigned" | "info" | "success" | "warning";
   createdAt: number;
 }
 

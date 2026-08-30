@@ -1617,7 +1617,7 @@ export default function App() {
                 onBack={() => setActiveOrder(null)}
                 mapNodes={mapNodes}
                 stores={stores}
-                onCancelOrder={handleUpdateOrderStatus}
+                onCancelOrder={(orderId) => handleUpdateOrderStatus(orderId, "cancelled")}
               />
             </motion.div>
           ) : isViewingCart ? (

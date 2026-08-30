@@ -25,7 +25,8 @@ interface StoreReviewModalProps {
   customerName?: string;
   customerPhone?: string;
   existingReview?: StoreReview;
-  onSubmitReview: (review: Omit<StoreReview, "id" | "createdAt">) => void;
+  onSubmitReview?: (review: Omit<StoreReview, "id" | "createdAt">) => void;
+  onSubmit?: (review: any) => void;
 }
 
 const RATING_DESCRIPTIONS: Record<number, { text: string; emoji: string; color: string; bg: string }> = {
@@ -56,7 +57,8 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
   customerName = "زبون معتمد",
   customerPhone,
   existingReview,
-  onSubmitReview
+  onSubmitReview,
+  onSubmit
 }) => {
   const [rating, setRating] = useState<number>(existingReview?.rating || 5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
@@ -80,7 +82,7 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
     e.preventDefault();
     if (rating < 1) return;
 
-    onSubmitReview({
+    const payload = {
       storeId,
       storeName,
       orderId,
@@ -89,7 +91,13 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
       rating,
       comment: comment.trim(),
       tags: selectedTags
-    });
+    };
+
+    if (onSubmitReview) {
+      onSubmitReview(payload);
+    } else if (onSubmit) {
+      onSubmit(payload);
+    }
 
     setIsSubmitted(true);
     setTimeout(() => {

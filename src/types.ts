@@ -51,6 +51,7 @@ export interface Store {
   maxRegularProducts?: number;
   maxOfferProducts?: number;
   isService?: boolean;
+  neighborhood?: string;
 }
 
 export interface Category {
