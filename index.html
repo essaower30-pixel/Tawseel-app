@@ -47,7 +47,12 @@
           const swScope = window.location.pathname.startsWith('/Tawseel-app') 
             ? '/Tawseel-app/' 
             : './';
-          navigator.serviceWorker.register(swPath, { scope: swScope }).catch((err) => {
+          navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
+            reg.update();
+            setInterval(() => {
+              reg.update();
+            }, 60000);
+          }).catch((err) => {
             console.warn('SW registration:', err);
           });
         });

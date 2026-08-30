@@ -446,29 +446,31 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleApplyUpdate = () => {
+  const handleApplyUpdate = async () => {
     acknowledgeUpdate(currentAppUpdate.id);
     setHasNewUpdate(false);
     setShowUpdateModal(false);
-    addToastNotification({
-      order: {
-        id: "tw-update-" + Date.now().toString().slice(-4),
-        storeId: "system",
-        storeName: "تحديث التطبيق",
-        items: [],
-        subtotal: 0,
-        deliveryFee: 0,
-        total: 0,
-        status: "completed",
-        createdAt: new Date().toISOString(),
-        customerName: userProfile?.name || "المستخدم",
-        customerPhone: userProfile?.phone || "",
-        addressLandmark: "النظام"
-      },
-      title: "تم تحديث التطبيق بنجاح! 🚀",
-      message: `تم تفعيل الإصدار ${currentAppUpdate.version} وتثبيت الميزات الجديدة واختفت أيقونة التحديث بنجاح. نتمنى لك تجربة مميزة!`,
-      type: "info"
-    });
+    if (typeof window !== "undefined") {
+      if ("caches" in window) {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        } catch (e) {
+          console.warn("Cache delete:", e);
+        }
+      }
+      if ("serviceWorker" in navigator) {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.unregister();
+          }
+        } catch (e) {
+          console.warn("SW unregister:", e);
+        }
+      }
+      window.location.reload();
+    }
   };
 
   const handleToggleSound = () => {
