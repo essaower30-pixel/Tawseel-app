@@ -99,13 +99,17 @@ export const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/
 
 export default function App() {
   // Global State with LocalStorage Persistence
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    return localStorage.getItem("tw_selected_category") || "all";
+  });
+
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     const raw = localStorage.getItem("tw_cart_items");
     return raw ? JSON.parse(raw) : [];
   });
-  const [isViewingCart, setIsViewingCart] = useState(false);
+  const [isViewingCart, setIsViewingCart] = useState<boolean>(() => {
+    return localStorage.getItem("tw_viewing_cart") === "true";
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
@@ -119,6 +123,21 @@ export default function App() {
       } catch (e) {}
     }
     return initialStores;
+  });
+
+  const [selectedStore, setSelectedStore] = useState<Store | null>(() => {
+    try {
+      const storedStoreId = localStorage.getItem("tw_selected_store_id");
+      if (storedStoreId) {
+        const rawStores = localStorage.getItem("tw_stores");
+        const parsedStores: Store[] = rawStores ? JSON.parse(rawStores) : initialStores;
+        const found = parsedStores.find((s) => s.id === storedStoreId);
+        if (found) return found;
+      }
+    } catch (e) {
+      console.warn("Failed to load initial selectedStore", e);
+    }
+    return null;
   });
 
   const [products, setProducts] = useState<Product[]>(() => {
@@ -228,6 +247,41 @@ export default function App() {
   const [emergencyRush, setEmergencyRush] = useState<boolean>(() => {
     return localStorage.getItem("tw_emergency_rush") === "true";
   });
+
+  // Keep navigation & active view state in sync with localStorage across page refreshes
+  useEffect(() => {
+    if (selectedCategory) {
+      localStorage.setItem("tw_selected_category", selectedCategory);
+    }
+  }, [selectedCategory]);
+
+  useEffect(() => {
+    if (selectedStore) {
+      localStorage.setItem("tw_selected_store_id", selectedStore.id);
+    } else {
+      localStorage.removeItem("tw_selected_store_id");
+    }
+  }, [selectedStore]);
+
+  useEffect(() => {
+    localStorage.setItem("tw_viewing_cart", String(isViewingCart));
+  }, [isViewingCart]);
+
+  useEffect(() => {
+    localStorage.setItem("tw_viewing_admin", String(isAdminMode));
+  }, [isAdminMode]);
+
+  useEffect(() => {
+    localStorage.setItem("tw_viewing_driver", String(isDriverMode));
+  }, [isDriverMode]);
+
+  useEffect(() => {
+    if (currentStoreId) {
+      localStorage.setItem("tw_current_store_id", currentStoreId);
+    } else {
+      localStorage.removeItem("tw_current_store_id");
+    }
+  }, [currentStoreId]);
 
   // Sound & Toast Notifications State
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -491,6 +545,8 @@ export default function App() {
         exitDriver: () => setIsDriverMode(false),
         currentStoreOwnerId: currentStoreId,
         exitStoreOwner: () => setCurrentStoreId(null),
+        selectedCategory,
+        resetCategory: () => setSelectedCategory("all"),
       }, (msg) => {
         addToastNotification({
           order: { id: "tw-live", storeId: "", storeName: "توصيل القرية", items: [], subtotal: 0, deliveryFee: 0, total: 0, status: "pending", createdAt: new Date().toISOString(), customerName: "", customerPhone: "", addressLandmark: "" },
@@ -511,6 +567,7 @@ export default function App() {
     activeOrder,
     isViewingCart,
     selectedStore,
+    selectedCategory,
     isAdminMode,
     isDriverMode,
     currentStoreId,

@@ -19,6 +19,8 @@ export interface BackHandlerState {
   exitDriver: () => void;
   currentStoreOwnerId: string | null;
   exitStoreOwner: () => void;
+  selectedCategory?: string;
+  resetCategory?: () => void;
 }
 
 let lastBackPressTime = 0;
@@ -93,6 +95,13 @@ export function handleAppBackButton(
   // 6. If in Store Owner mode, exit back
   if (state.currentStoreOwnerId) {
     state.exitStoreOwner();
+    window.history.pushState({ twApp: true, depth: 2 }, "");
+    return true;
+  }
+
+  // 6b. If on a filtered category (e.g. crafts or restaurants), go back to "all" stores
+  if (state.selectedCategory && state.selectedCategory !== "all" && state.resetCategory) {
+    state.resetCategory();
     window.history.pushState({ twApp: true, depth: 2 }, "");
     return true;
   }
