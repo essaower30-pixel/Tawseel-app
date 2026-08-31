@@ -175,8 +175,24 @@ export default function App() {
 
   const [categories, setCategories] = useState<Category[]>(() => {
     const raw = localStorage.getItem("tw_categories");
-    return raw ? JSON.parse(raw) : initialCategories;
+    if (raw) {
+      try {
+        const parsed: Category[] = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasOffers = parsed.some((c) => c.id === "offers");
+          if (!hasOffers) {
+            return [{ id: "offers", label: "العروض الحالية", icon: "Flame" }, ...parsed];
+          }
+          return parsed;
+        }
+      } catch (e) {}
+    }
+    return initialCategories;
   });
+
+  useEffect(() => {
+    localStorage.setItem("tw_categories", JSON.stringify(categories));
+  }, [categories]);
 
   const [mapNodes, setMapNodes] = useState<MapNode[]>(() => {
     const raw = localStorage.getItem("tw_map_nodes");
@@ -2180,54 +2196,50 @@ export default function App() {
                   </span>
                 </button>
 
-                {/* Categories List */}
-                {categories.map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`snap-center shrink-0 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-right transition-all flex items-center gap-2 sm:gap-3 cursor-pointer min-w-[115px] sm:min-w-0 ${
-                      selectedCategory === cat.id
-                        ? "border-slate-900 bg-slate-900 text-white shadow-md"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <div
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center ${
-                        selectedCategory === cat.id
-                          ? "bg-orange-500 text-slate-950"
-                          : "bg-slate-100 text-slate-600"
+                {/* Categories List (Including Offers according to sorted order) */}
+                {categories.map((cat) => {
+                  const isOffers = cat.id === "offers";
+                  const isSelected = selectedCategory === cat.id;
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`snap-center shrink-0 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-right transition-all flex items-center gap-2 sm:gap-3 cursor-pointer min-w-[115px] sm:min-w-0 ${
+                        isSelected
+                          ? isOffers
+                            ? "border-red-600 bg-red-600 text-white shadow-md"
+                            : "border-slate-900 bg-slate-900 text-white shadow-md"
+                          : isOffers
+                          ? "border-red-200 bg-red-50/70 text-red-800 hover:bg-red-100/80"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                       }`}
                     >
-                      <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    </div>
-                    <span className="text-xs sm:text-sm font-extrabold whitespace-nowrap">
-                      {cat.label}
-                    </span>
-                  </button>
-                ))}
-
-                {/* Hot Offers Tab */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory("offers")}
-                  className={`snap-center shrink-0 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border text-right transition-all flex items-center gap-2 sm:gap-3 cursor-pointer min-w-[115px] sm:min-w-0 ${
-                    selectedCategory === "offers"
-                      ? "border-red-600 bg-red-600 text-white shadow-md"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  <div
-                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center ${
-                      selectedCategory === "offers" ? "bg-white text-red-600" : "bg-red-50 text-red-500"
-                    }`}
-                  >
-                    <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
-                  </div>
-                  <span className="text-xs sm:text-sm font-extrabold whitespace-nowrap font-sans">
-                    العروض الحالية
-                  </span>
-                </button>
+                      <div
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center ${
+                          isSelected
+                            ? isOffers
+                              ? "bg-white text-red-600"
+                              : "bg-orange-500 text-slate-950"
+                            : isOffers
+                            ? "bg-red-100 text-red-600"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        <CategoryIcon name={cat.icon} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      </div>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <span className="text-xs sm:text-sm font-extrabold whitespace-nowrap">
+                          {cat.label}
+                        </span>
+                        {isOffers && !isSelected && (
+                          <span className="text-[10px] hidden xs:inline text-red-500">🔥</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

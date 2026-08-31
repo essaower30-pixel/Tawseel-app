@@ -16,7 +16,13 @@ import {
   Smartphone,
   BookOpen,
   Scissors,
-  Home
+  Home,
+  Flame,
+  Tag,
+  Percent,
+  BadgePercent,
+  Zap,
+  TrendingUp
 } from "lucide-react";
 
 interface CategoryIconProps {
@@ -26,6 +32,17 @@ interface CategoryIconProps {
 
 export const CategoryIcon: React.FC<CategoryIconProps> = ({ name, className = "w-4 h-4" }) => {
   switch (name) {
+    case "Flame":
+      return <Flame className={className} />;
+    case "Tag":
+      return <Tag className={className} />;
+    case "Percent":
+    case "BadgePercent":
+      return <Percent className={className} />;
+    case "Zap":
+      return <Zap className={className} />;
+    case "TrendingUp":
+      return <TrendingUp className={className} />;
     case "Utensils":
       return <Utensils className={className} />;
     case "ShoppingBag":
@@ -64,6 +81,10 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ name, className = "w
 };
 
 export const AVAILABLE_CATEGORY_ICONS = [
+  { id: "Flame", label: "شعلة العروض والتخفيضات 🔥" },
+  { id: "Tag", label: "بطاقة أسعار وعروض 🏷️" },
+  { id: "Percent", label: "نسبة خصم وتنزيلات ٪" },
+  { id: "Sparkles", label: "عروض مميزة وهدايا ✨" },
   { id: "Utensils", label: "مطاعم ومأكولات" },
   { id: "ShoppingBag", label: "سوبرماركت وتسوق" },
   { id: "Pill", label: "صيدلية وأدوية" },
@@ -73,11 +94,12 @@ export const AVAILABLE_CATEGORY_ICONS = [
   { id: "Wrench", label: "صيانة وورش" },
   { id: "Car", label: "سيارات وتوصيل" },
   { id: "Coffee", label: "مقاهي ومشروبات" },
-  { id: "Sparkles", label: "عروض وهدايا" },
   { id: "Gift", label: "هدايا ومناسبات" },
   { id: "Shirt", label: "ألبسة وأقمشة" },
   { id: "Smartphone", label: "إلكترونيات وموبايل" },
   { id: "BookOpen", label: "قرطاسية ومكتبات" },
   { id: "Scissors", label: "صالونات وحلاقة" },
-  { id: "Home", label: "منزل ومفروشات" }
+  { id: "Home", label: "منزل ومفروشات" },
+  { id: "Zap", label: "توصيل سريع وفوري ⚡" },
+  { id: "TrendingUp", label: "الأكثر مبيعاً ورواجاً 📈" }
 ];

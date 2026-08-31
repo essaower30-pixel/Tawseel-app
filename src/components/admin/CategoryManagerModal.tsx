@@ -98,9 +98,11 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     setDragOverIndex(null);
   };
 
-  // Smart Sort: By most stores (demand)
+  // Smart Sort: By most stores (demand) with Offers at top
   const handleSortByPopularity = () => {
     const sorted = [...categories].sort((a, b) => {
+      if (a.id === "offers") return -1;
+      if (b.id === "offers") return 1;
       const countA = stores.filter((s) => s.category === a.id).length;
       const countB = stores.filter((s) => s.category === b.id).length;
       return countB - countA;
@@ -199,20 +201,28 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
             </div>
 
             {/* Dynamic categories preview */}
-            {categories.map((cat, idx) => (
-              <div
-                key={cat.id}
-                className={`shrink-0 px-3 py-1.5 rounded-xl border text-[11px] font-extrabold flex items-center gap-1.5 shadow-2xs transition-all ${
-                  idx === 0
-                    ? "bg-orange-500 text-white border-orange-600 ring-2 ring-orange-400/30"
-                    : "bg-white text-slate-800 border-slate-200"
-                }`}
-              >
-                <CategoryIcon name={cat.icon} className="w-3 h-3" />
-                <span>{cat.label}</span>
-                {idx === 0 && <span className="text-[9px] bg-white/20 px-1 rounded-md">الأول ⭐</span>}
-              </div>
-            ))}
+            {categories.map((cat, idx) => {
+              const isOffers = cat.id === "offers";
+              return (
+                <div
+                  key={cat.id}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl border text-[11px] font-extrabold flex items-center gap-1.5 shadow-2xs transition-all ${
+                    idx === 0
+                      ? isOffers
+                        ? "bg-red-600 text-white border-red-700 ring-2 ring-red-400/30"
+                        : "bg-orange-500 text-white border-orange-600 ring-2 ring-orange-400/30"
+                      : isOffers
+                      ? "bg-red-50 text-red-700 border-red-200"
+                      : "bg-white text-slate-800 border-slate-200"
+                  }`}
+                >
+                  <CategoryIcon name={cat.icon} className={`w-3 h-3 ${isOffers ? "text-red-500" : ""}`} />
+                  <span>{cat.label}</span>
+                  {idx === 0 && <span className="text-[9px] bg-white/20 px-1 rounded-md">الأول ⭐</span>}
+                  {isOffers && idx !== 0 && <span className="text-[9px] bg-red-100 text-red-700 px-1 rounded-md">🔥</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -341,6 +351,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         {/* Drag & Drop Categories List */}
         <div className="p-4 space-y-2 overflow-y-auto flex-1 divide-y divide-slate-100">
           {categories.map((cat, index) => {
+            const isOffers = cat.id === "offers";
             const storeCount = stores.filter((s) => s.category === cat.id).length;
             const isDragging = draggedIndex === index;
             const isOver = dragOverIndex === index;
@@ -365,7 +376,11 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                 <div
                   className={`flex items-center justify-between p-3 rounded-2xl border transition-all ${
                     index === 0
-                      ? "bg-orange-50/50 border-orange-200/90 shadow-2xs"
+                      ? isOffers
+                        ? "bg-red-50/70 border-red-200/90 shadow-2xs"
+                        : "bg-orange-50/50 border-orange-200/90 shadow-2xs"
+                      : isOffers
+                      ? "bg-red-50/40 hover:bg-red-50/70 border-red-200/70"
                       : "bg-slate-50/80 hover:bg-slate-100/80 border-slate-200/70"
                   }`}
                 >
@@ -383,9 +398,13 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                     <div
                       className={`w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
                         index === 0
-                          ? "bg-orange-500 text-white shadow-xs"
+                          ? isOffers
+                            ? "bg-red-600 text-white shadow-xs"
+                            : "bg-orange-500 text-white shadow-xs"
                           : index === 1
                           ? "bg-slate-800 text-white"
+                          : isOffers
+                          ? "bg-red-500 text-white"
                           : "bg-slate-200 text-slate-700"
                       }`}
                     >
@@ -393,8 +412,10 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                     </div>
 
                     {/* Category Icon */}
-                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-800 shrink-0 shadow-2xs">
-                      <CategoryIcon name={cat.icon} className="w-4 h-4 text-orange-600" />
+                    <div className={`w-8 h-8 rounded-xl bg-white border flex items-center justify-center shrink-0 shadow-2xs ${
+                      isOffers ? "border-red-200 text-red-600" : "border-slate-200 text-orange-600"
+                    }`}>
+                      <CategoryIcon name={cat.icon} className={`w-4 h-4 ${isOffers ? "text-red-500" : "text-orange-600"}`} />
                     </div>
 
                     {/* Category Title & Store Count */}
@@ -404,13 +425,22 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           {cat.label}
                         </span>
                         {index === 0 && (
-                          <span className="text-[10px] font-black bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full whitespace-nowrap">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            isOffers ? "bg-red-100 text-red-800" : "bg-orange-100 text-orange-800"
+                          }`}>
                             في الصدارة ⭐
+                          </span>
+                        )}
+                        {isOffers && index !== 0 && (
+                          <span className="text-[10px] font-black bg-red-100 text-red-800 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            الأكثر أهمية وتفاعلاً 🔥
                           </span>
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 font-semibold">
-                        {storeCount === 0
+                        {isOffers
+                          ? "عروض وتخفيضات حصرية لجميع المتاجر والطلبات"
+                          : storeCount === 0
                           ? "لا توجد متاجر مرتبطة حالياً"
                           : `${storeCount} ${storeCount === 1 ? "متجر مسجل" : "متاجر مسجلة"}`}
                       </p>
@@ -424,7 +454,11 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                       <button
                         type="button"
                         onClick={() => moveToTop(index)}
-                        className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all cursor-pointer"
+                        className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                          isOffers
+                            ? "text-red-500 hover:text-red-700 hover:bg-red-100"
+                            : "text-slate-400 hover:text-orange-600 hover:bg-orange-50"
+                        }`}
                         title="نقل إلى الصدارة فوراً"
                       >
                         <ArrowUpToLine className="w-4 h-4" />
@@ -477,6 +511,10 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        if (isOffers) {
+                          alert("تصنيف (العروض الحالية) هو قسم رئيسي للتطبيق لا يمكن حذفه، ويمكنك تغيير ترتيبه ونقله لأي موضع تريده.");
+                          return;
+                        }
                         if (storeCount > 0) {
                           alert(`لا يمكن حذف التصنيف لوجود ${storeCount} متجر مرتبط به.`);
                           return;

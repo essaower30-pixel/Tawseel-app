@@ -1,6 +1,7 @@
 import { Category, MapNode, Product, Store, StoreBroadcast, StoreReview } from "../types";
 
 export const initialCategories: Category[] = [
+  { id: "offers", label: "العروض الحالية", icon: "Flame" },
   { id: "restaurants", label: "مطاعم وجبات", icon: "Utensils" },
   { id: "supermarkets", label: "سوبرماركت", icon: "ShoppingBag" },
   { id: "pharmacies", label: "صيدليات", icon: "Pill" },
