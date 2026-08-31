@@ -80,6 +80,7 @@ import {
   AppUpdateInfo 
 } from "./utils/updateManager";
 import { AppUpdateModal } from "./components/AppUpdateModal";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import {
   ensureInitialStoresPreserved,
   fetchServerSync,
@@ -444,39 +445,50 @@ export default function App() {
   }, [reviews]);
 
   const handleAddReview = (newRev: Omit<StoreReview, "id" | "createdAt">) => {
-    const review: StoreReview = {
-      ...newRev,
-      id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const finalRating = Math.max(1, Math.min(5, Math.round(Number(newRev.rating) || 5)));
+      const review: StoreReview = {
+        ...newRev,
+        id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        orderId: newRev.orderId || `direct_review_${Date.now()}`,
+        rating: finalRating,
+        createdAt: new Date().toISOString()
+      };
 
-    setReviews((prev) => [review, ...prev]);
-    saveReviewToFirestore(review);
+      setReviews((prev) => [review, ...(prev || []).filter((r) => r && r.id !== review.id)]);
+      saveReviewToFirestore(review).catch((err) => console.warn("Firestore saveReview error:", err));
 
-    // Dynamically calculate and update the store's average rating and count
-    setStores((prevStores) => {
-      return prevStores.map((st) => {
-        if (st.id === review.storeId) {
-          const storeReviews = [...reviews.filter((r) => r.storeId === st.id), review];
-          const sum = storeReviews.reduce((acc, curr) => acc + curr.rating, 0);
-          const newAvg = Number((sum / storeReviews.length).toFixed(1));
-          const updatedStore = {
-            ...st,
-            rating: newAvg,
-            ratingCount: storeReviews.length
-          };
-          saveStoreToFirestore(updatedStore);
-          return updatedStore;
-        }
-        return st;
+      // Dynamically calculate and update the store's average rating and count
+      setStores((prevStores) => {
+        return (prevStores || []).map((st) => {
+          if (!st) return st;
+          if (st.id === review.storeId || (st.name && review.storeName && st.name === review.storeName)) {
+            const currentStoreReviews = (reviews || []).filter(
+              (r) => r && (r.storeId === st.id || (st.name && r.storeName === st.name))
+            );
+            const storeReviews = [...currentStoreReviews, review];
+            const sum = storeReviews.reduce((acc, curr) => acc + (Number(curr?.rating) || 5), 0);
+            const newAvg = Number((sum / storeReviews.length).toFixed(1));
+            const updatedStore: Store = {
+              ...st,
+              rating: newAvg,
+              ratingCount: storeReviews.length
+            };
+            saveStoreToFirestore(updatedStore).catch((err) => console.warn("Firestore saveStore error:", err));
+            return updatedStore;
+          }
+          return st;
+        });
       });
-    });
 
-    addToastNotification({
-      title: "شكراً لتقييمك! ⭐",
-      message: `تم إضافة تقييمك لمتجر (${review.storeName}) بنجاح.`,
-      type: "success"
-    });
+      addToastNotification({
+        title: "شكراً لتقييمك! ⭐",
+        message: `تم إضافة تقييمك لـ (${review.storeName || "صاحب المهنة/المتجر"}) بنجاح.`,
+        type: "success"
+      });
+    } catch (err) {
+      console.error("Error in handleAddReview:", err);
+    }
   };
 
   // App Update & Feature Releases State (إشعار التحديث الجديد للمستخدمين)
@@ -1975,25 +1987,30 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <StoreDetails
-                store={stores.find((st) => st.id === selectedStore.id) || selectedStore}
-                onBack={() => setSelectedStore(null)}
-                cartItems={cartItems}
-                onAddToCart={handleAddToCart}
-                onRemoveFromCart={handleRemoveFromCart}
-                onViewCart={() => setIsViewingCart(true)}
-                products={products}
-                onSubmitCustomOrder={handleCustomOrder}
-                customerUser={userProfile}
-                landmarks={mapNodes.map((n) => n.arabicName || n.name)}
-                currentLandmark={selectedLandmark}
-                reviews={reviews}
-                onAddReview={handleAddReview}
-                userOrders={allOrders.filter((o) => {
-                  if (!userProfile) return true;
-                  return o.customerPhone === userProfile.phone || o.customerName === userProfile.name;
-                })}
-              />
+              <ErrorBoundary 
+                fallbackTitle={`تنبيه في عرض تفاصيل (${selectedStore.name || "المتجر"}) 🛠️`}
+                onReset={() => setSelectedStore(null)}
+              >
+                <StoreDetails
+                  store={stores.find((st) => st.id === selectedStore.id) || selectedStore}
+                  onBack={() => setSelectedStore(null)}
+                  cartItems={cartItems}
+                  onAddToCart={handleAddToCart}
+                  onRemoveFromCart={handleRemoveFromCart}
+                  onViewCart={() => setIsViewingCart(true)}
+                  products={products}
+                  onSubmitCustomOrder={handleCustomOrder}
+                  customerUser={userProfile}
+                  landmarks={mapNodes.map((n) => n.arabicName || n.name)}
+                  currentLandmark={selectedLandmark}
+                  reviews={reviews}
+                  onAddReview={handleAddReview}
+                  userOrders={allOrders.filter((o) => {
+                    if (!userProfile) return true;
+                    return o.customerPhone === userProfile.phone || o.customerName === userProfile.name;
+                  })}
+                />
+              </ErrorBoundary>
             </motion.div>
           ) : (
             /* ========================================================================= */

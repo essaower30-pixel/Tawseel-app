@@ -67,26 +67,44 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const [activeMainTab, setActiveMainTab] = useState<"products" | "reviews">("products");
   const [reviewStarFilter, setReviewStarFilter] = useState<"all" | "5" | "4" | "with_comments">("all");
 
+  // Helper to format review date safely
+  const formatReviewDate = (dateStr?: string) => {
+    if (!dateStr) return "مؤخراً";
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "مؤخراً";
+      return d.toLocaleDateString("ar-SY", {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      });
+    } catch {
+      return "مؤخراً";
+    }
+  };
+
   // Reviews list for this store
   const storeReviewsList = useMemo(() => {
-    return (reviews || []).filter((r) => r.storeId === store.id);
-  }, [reviews, store.id]);
+    return (reviews || []).filter(
+      (r) => r && (r.storeId === store.id || (r.storeName && store.name && r.storeName === store.name))
+    );
+  }, [reviews, store.id, store.name]);
 
   // Computed Rating Statistics
   const ratingStats = useMemo(() => {
-    if (storeReviewsList.length === 0) {
+    if (!storeReviewsList || storeReviewsList.length === 0) {
       return {
-        average: store.rating || 5.0,
+        average: Number(store.rating || 5.0),
         totalCount: store.ratingCount || 0,
-        breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+        breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<number, number>,
         hasReviews: false
       };
     }
-    const sum = storeReviewsList.reduce((acc, curr) => acc + curr.rating, 0);
+    const sum = storeReviewsList.reduce((acc, curr) => acc + (Number(curr?.rating) || 5), 0);
     const avg = Number((sum / storeReviewsList.length).toFixed(1));
     const breakdown: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     storeReviewsList.forEach((r) => {
-      const star = Math.max(1, Math.min(5, Math.round(r.rating)));
+      const star = Math.max(1, Math.min(5, Math.round(Number(r?.rating) || 5)));
       breakdown[star] = (breakdown[star] || 0) + 1;
     });
     return {
@@ -100,9 +118,11 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   // Filtered reviews based on user selection
   const filteredReviews = useMemo(() => {
     return storeReviewsList.filter((r) => {
-      if (reviewStarFilter === "5") return r.rating === 5;
-      if (reviewStarFilter === "4") return r.rating >= 4;
-      if (reviewStarFilter === "with_comments") return r.comment && r.comment.trim().length > 0;
+      if (!r) return false;
+      const numRating = Number(r.rating) || 5;
+      if (reviewStarFilter === "5") return Math.round(numRating) === 5;
+      if (reviewStarFilter === "4") return numRating >= 4;
+      if (reviewStarFilter === "with_comments") return Boolean(r.comment && r.comment.trim().length > 0);
       return true;
     });
   }, [storeReviewsList, reviewStarFilter]);
@@ -111,7 +131,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const eligibleDeliveredOrder = useMemo(() => {
     if (!userOrders || userOrders.length === 0) return null;
     return userOrders.find((o) => {
-      const isThisStore = o.storeId === store.id || o.storeName === store.name;
+      if (!o) return false;
+      const isThisStore = o.storeId === store.id || (o.storeName && store.name && o.storeName === store.name);
       const isDelivered = o.status === "delivered";
       const alreadyReviewed = storeReviewsList.some((r) => r.orderId === o.id);
       return isThisStore && isDelivered && !alreadyReviewed;
@@ -1040,7 +1061,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               {/* Left: Overall Big Score */}
               <div className="flex flex-col items-center justify-center text-center p-5 bg-gradient-to-b from-amber-50 to-orange-50/50 rounded-3xl border border-amber-200/80 w-full md:w-64 shrink-0 space-y-2">
                 <span className="text-5xl sm:text-6xl font-black text-slate-900 tracking-tight">
-                  {ratingStats.average}
+                  {ratingStats.average.toFixed(1)}
                 </span>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -1220,11 +1241,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                             </span>
                           </h5>
                           <span className="text-[10px] text-slate-400 font-semibold block">
-                            {new Date(rev.createdAt).toLocaleDateString("ar-SY", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric"
-                            })}
+                            {formatReviewDate(rev.createdAt)}
                           </span>
                         </div>
                       </div>
@@ -1232,7 +1249,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       {/* Stars Badge */}
                       <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200/70 px-2 py-1 rounded-xl shrink-0">
                         <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span className="font-black text-amber-800 text-xs">{rev.rating}.0</span>
+                        <span className="font-black text-amber-800 text-xs">{Number(rev.rating || 5).toFixed(1)}</span>
                       </div>
                     </div>
 
@@ -1461,6 +1478,8 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         onClose={() => setIsReviewModalOpen(false)}
         storeName={store.name}
         storeId={store.id}
+        storeCategory={store.category}
+        isService={store.isService || store.category === "crafts" || store.category === "drivers" || store.category === "doctors"}
         orderId={eligibleDeliveredOrder?.id}
         customerName={customerUser?.name || "زبون المنصة"}
         customerPhone={customerUser?.phone}
