@@ -64,6 +64,7 @@ interface DashboardProps {
   onSendBroadcast?: (broadcast: StoreBroadcast) => void;
   onDeleteBroadcast?: (id: string) => void;
   onResendBroadcast?: (broadcast: StoreBroadcast) => void;
+  onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" }) => Promise<void> | void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -92,6 +93,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onSendBroadcast = () => {},
   onDeleteBroadcast = () => {},
   onResendBroadcast = () => {},
+  onCleanSlateData
 }) => {
   // Persistent Emergency Rush Mode
   const [isEmergencyRush, setIsEmergencyRush] = useState<boolean>(() => {
@@ -510,6 +512,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 auditLogs={auditLogs}
                 stores={stores}
                 onNavigateToTab={setActiveTab}
+                onCleanSlateData={onCleanSlateData}
               />
             )}
           </motion.div>

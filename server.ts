@@ -195,12 +195,19 @@ function readServerData() {
     if (fs.existsSync(STORAGE_FILE)) {
       const content = fs.readFileSync(STORAGE_FILE, "utf-8");
       const parsed = JSON.parse(content);
+      if (parsed.isCleanSlate) {
+        if (!parsed.stores) parsed.stores = [];
+        if (!parsed.orders) parsed.orders = [];
+        if (!parsed.products) parsed.products = [];
+        if (!parsed.notifications) parsed.notifications = [];
+        return parsed;
+      }
       if (!parsed.stores) parsed.stores = defaultInitialStores;
       if (!parsed.orders) parsed.orders = [];
       if (!parsed.products) parsed.products = [];
       if (!parsed.notifications) parsed.notifications = [];
       
-      // Ensure gypsum decor store exists
+      // Ensure gypsum decor store exists if not clean slate
       if (!parsed.stores.some((s: any) => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215")) {
         const gypsum = defaultInitialStores.find((s) => s.id === "store_gypsum_decor");
         if (gypsum) {
@@ -215,6 +222,7 @@ function readServerData() {
   }
 
   const initialData = {
+    isCleanSlate: false,
     stores: defaultInitialStores,
     orders: [],
     products: [],
@@ -437,6 +445,57 @@ app.delete("/api/products/:id", (req, res) => {
   data.products = (data.products || []).filter((p: any) => p.id !== productId);
   writeServerData(data);
   res.json({ success: true });
+});
+
+// 10. API: Clean Slate (Zero out demo data while preserving server data structures)
+app.post("/api/clean-slate", (req, res) => {
+  const { preserveCustomOnly, target } = req.body || {};
+  const currentData = readServerData();
+
+  if (target === "orders_only") {
+    currentData.orders = [];
+    currentData.notifications = [];
+    writeServerData(currentData);
+    return res.json({ success: true, message: "تم تصفير كافة الطلبات التجريبية بنجاح" });
+  }
+
+  // Complete Clean Slate
+  const cleanedData = {
+    isCleanSlate: true,
+    stores: [],
+    products: [],
+    orders: [],
+    notifications: [
+      {
+        id: "notif_clean_" + Date.now(),
+        type: "SYSTEM",
+        title: "تم تصفير البيانات التجريبية ✨",
+        message: "تم بدء النظام على نظافة تامة وجاهز لإضافة متاجر القرية الحقيقية.",
+        timestamp: Date.now()
+      }
+    ],
+    lastUpdated: Date.now()
+  };
+
+  writeServerData(cleanedData);
+  return res.json({ 
+    success: true, 
+    message: "تم تصفير كافة الأمثلة التجريبية والبدء على نظافة تامة مع حفظ هيكل البرنامج وإعداداته." 
+  });
+});
+
+// 11. API: Restore Default Demo Data
+app.post("/api/restore-defaults", (req, res) => {
+  const resetData = {
+    isCleanSlate: false,
+    stores: defaultInitialStores,
+    products: [],
+    orders: [],
+    notifications: [],
+    lastUpdated: Date.now()
+  };
+  writeServerData(resetData);
+  return res.json({ success: true, message: "تمت استعادة البيانات التجريبية الافتراضية بنجاح" });
 });
 
 // Mount Vite middleware for dev or static files for prod

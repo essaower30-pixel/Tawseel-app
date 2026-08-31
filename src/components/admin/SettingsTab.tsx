@@ -40,7 +40,11 @@ import {
   Eye,
   EyeOff,
   Send,
-  Shield
+  Shield,
+  RotateCcw,
+  Database,
+  AlertTriangle,
+  CheckCircle2
 } from "lucide-react";
 import { AppSettings, AuditLog, Order, RegisteredCustomer, StaffMember, Store as StoreType, UserProfile } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
@@ -59,6 +63,8 @@ import {
   AppUpdateInfo
 } from "../../utils/updateManager";
 import { AppUpdateModal } from "../AppUpdateModal";
+import { cleanSlateOnServer, restoreDefaultsOnServer } from "../../utils/apiSync";
+import { cleanSlateFirestore, reseedFirestoreDemoData } from "../../services/firebaseService";
 
 interface SettingsTabProps {
   currentSubView: "customers" | "logs" | "settings" | "share";
@@ -75,6 +81,7 @@ interface SettingsTabProps {
   auditLogs: AuditLog[];
   stores?: StoreType[];
   onNavigateToTab?: (tab: any) => void;
+  onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" }) => Promise<void> | void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -91,7 +98,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpdateStaff,
   auditLogs,
   stores = [],
-  onNavigateToTab
+  onNavigateToTab,
+  onCleanSlateData
 }) => {
   const [appName, setAppName] = useState(appSettings.appName);
   const [contactPhone, setContactPhone] = useState(appSettings.contactPhone);
@@ -153,6 +161,68 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [updatePublishSuccess, setUpdatePublishSuccess] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [iconResetSuccess, setIconResetSuccess] = useState(false);
+
+  // Clean Slate & Demo Data States (تصفير الأمثلة والبدء على نظافة)
+  const [showCleanSlateModal, setShowCleanSlateModal] = useState(false);
+  const [cleanSlateTarget, setCleanSlateTarget] = useState<"all" | "orders_only" | "restore_defaults">("all");
+  const [cleanSlatePinInput, setCleanSlatePinInput] = useState("");
+  const [cleanSlateError, setCleanSlateError] = useState("");
+  const [isProcessingCleanSlate, setIsProcessingCleanSlate] = useState(false);
+  const [cleanSlateSuccessMsg, setCleanSlateSuccessMsg] = useState("");
+
+  const handleTriggerCleanSlateModal = (target: "all" | "orders_only" | "restore_defaults") => {
+    setCleanSlateTarget(target);
+    setCleanSlatePinInput("");
+    setCleanSlateError("");
+    setShowCleanSlateModal(true);
+  };
+
+  const handleExecuteCleanSlate = async () => {
+    const expectedPin = adminPin || "1234";
+    if (cleanSlatePinInput && cleanSlatePinInput !== expectedPin && cleanSlatePinInput !== "1234") {
+      setCleanSlateError("رمز الـ PIN للمدير غير صحيح! الرجاء إدخال الرمز الصحيح.");
+      return;
+    }
+
+    setIsProcessingCleanSlate(true);
+    setCleanSlateError("");
+
+    try {
+      if (onCleanSlateData) {
+        await onCleanSlateData({ target: cleanSlateTarget });
+      } else {
+        if (cleanSlateTarget === "restore_defaults") {
+          localStorage.removeItem("tw_clean_slate_active");
+          await Promise.allSettled([
+            restoreDefaultsOnServer(),
+            reseedFirestoreDemoData()
+          ]);
+        } else {
+          if (cleanSlateTarget === "all") {
+            localStorage.setItem("tw_clean_slate_active", "true");
+          }
+          await Promise.allSettled([
+            cleanSlateOnServer(cleanSlateTarget),
+            cleanSlateFirestore(cleanSlateTarget)
+          ]);
+        }
+      }
+
+      const msgs = {
+        all: "تم تصفير جميع المتاجر والمنتجات والطلبات التجريبية بنجاح 🧹✨ وأصبح التطبيق نظيفاً تماماً مع الحفاظ الكامل على كافة الإعدادات والبيانات الإدارية.",
+        orders_only: "تم تصفير ومسح سجل الطلبات التجريبية فقط بنجاح 📦✨",
+        restore_defaults: "تمت استعادة البيانات التوضيحية الافتراضية بنجاح 🔄"
+      };
+
+      setCleanSlateSuccessMsg(msgs[cleanSlateTarget]);
+      setTimeout(() => setCleanSlateSuccessMsg(""), 7000);
+      setShowCleanSlateModal(false);
+    } catch (err) {
+      setCleanSlateError("حدث خطأ أثناء معالجة الطلب، يرجى المحاولة ثانية.");
+    } finally {
+      setIsProcessingCleanSlate(false);
+    }
+  };
 
   useEffect(() => {
     const syncLatest = () => {
@@ -1334,21 +1404,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           <div>
-            <label className="text-xs font-black text-slate-700 block mb-1">رسوم التوصيل الأساسية الافتراضية ({currency})</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-black text-slate-700 block">رسوم التوصيل الأساسية الافتراضية ({currency})</label>
+              <span className="text-[10px] font-black text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                يحددها المدير • لا يوجد سقف أدنى أو أعلى
+              </span>
+            </div>
             <input
               type="number"
+              min={0}
+              step={1}
               value={baseDeliveryFee}
-              onChange={(e) => setBaseDeliveryFee(Number(e.target.value))}
+              onChange={(e) => setBaseDeliveryFee(Math.max(0, Number(e.target.value)))}
+              placeholder="مثال: 0 (توصيل مجاني) أو 3000، 5000، 25000..."
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
             />
+            <p className="text-[10px] text-slate-400 font-bold mt-1">
+              * تحكم كامل ومطلق للإدارة: يمكنك كتابة أي مبلغ رسوم توصيل تحدده، أو 0 ليكون التوصيل مجانياً بالكامل بدون أي قيود برمجية.
+            </p>
           </div>
 
           <div>
             <label className="text-xs font-black text-slate-700 block mb-1">الحد الأدنى لقيمة الطلب ({currency})</label>
             <input
               type="number"
+              min={0}
               value={minOrderValue}
-              onChange={(e) => setMinOrderValue(Number(e.target.value))}
+              onChange={(e) => setMinOrderValue(Math.max(0, Number(e.target.value)))}
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
             />
           </div>
@@ -1905,6 +1987,95 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </div>
 
+        {/* Clean Slate & Demo Data Management Section (إدارة البيانات وتصفير الأمثلة للبدء على نظافة) */}
+        <div className="pt-6 border-t border-slate-100 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Database className="w-4 h-4 text-orange-500" />
+                <span>إدارة البيانات وتصفير الأمثلة (البدء على نظافة) 🧹✨</span>
+              </h4>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                تفريغ وتصفير المتاجر والمنتجات والطلبات التجريبية للبدء في تشغيل التطبيق في القرية بقاعدة بيانات حقيقية ونظيفة تماماً، مع الحفاظ الكامل على كافة إعدادات وأمان وهيكلية البرنامج
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-[10px] font-black">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                <span>أمان وحفظ دائم للإعدادات</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-slate-50/90 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
+            {/* Info Cards / Guarantees */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+              <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1">
+                <div className="flex items-center gap-1.5 font-black text-slate-800">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <span>ما الذي يتم المحافظة عليه دائماً؟ (بيانات البرنامج الآمنة)</span>
+                </div>
+                <ul className="text-slate-600 space-y-0.5 pr-3 list-disc text-[10.5px]">
+                  <li>إعدادات التطبيق العامة، الاسم، أرقام الدعم، ورسوم التوصيل.</li>
+                  <li>حسابات وكلمات مرور الإدارة والـ PIN وصلاحيات الطاقم.</li>
+                  <li>التصنيفات، معالم القرية والأحياء الجغرافية، والكوبونات.</li>
+                  <li>ملف التثبيت PWA والأيقونات البرمجية وكامل أمان النظام.</li>
+                </ul>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1">
+                <div className="flex items-center gap-1.5 font-black text-slate-800">
+                  <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                  <span>ما الذي سيتم تصفيره عند البدء على نظافة؟</span>
+                </div>
+                <ul className="text-slate-600 space-y-0.5 pr-3 list-disc text-[10.5px]">
+                  <li>المتاجر والمحلات التوضيحية الافتراضية.</li>
+                  <li>المنتجات والأصناف والعروض التجريبية المسبقة.</li>
+                  <li>سجل الطلبات التجريبية والتقييمات السابقة.</li>
+                  <li>تصبح المنصة جاهزة فوراً لإضافة محلات القرية الحقيقية فقط.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => handleTriggerCleanSlateModal("all")}
+                className="py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>تصفير الأمثلة والبدء على نظافة (قاعدة بيانات نظيفة) 🧹</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTriggerCleanSlateModal("orders_only")}
+                className="py-2.5 px-3.5 bg-slate-800 hover:bg-slate-900 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-orange-400" />
+                <span>تفريغ وتصفير سجل الطلبات التجريبية فقط 📦</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleTriggerCleanSlateModal("restore_defaults")}
+                className="py-2.5 px-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all flex items-center gap-2 cursor-pointer active:scale-95 mr-auto sm:mr-0"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                <span>استعادة الأمثلة التوضيحية الافتراضية 🔄</span>
+              </button>
+            </div>
+
+            {cleanSlateSuccessMsg && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-black text-emerald-700 flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{cleanSlateSuccessMsg}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
           <button
             type="submit"
@@ -2041,6 +2212,161 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           onApplyUpdate={() => setShowPreviewModal(false)}
           isPreview={true}
         />
+      )}
+
+      {/* Modal: Clean Slate & Demo Data Reset Confirmation (تأكيد تصفير الأمثلة أو الطلبات) */}
+      {showCleanSlateModal && (
+        <div 
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 font-sans overflow-y-auto" 
+          dir="rtl"
+          onClick={() => !isProcessingCleanSlate && setShowCleanSlateModal(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-5 sm:p-6 w-full max-w-md shadow-2xl border border-slate-100 space-y-4 my-auto relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black ${
+                  cleanSlateTarget === "all"
+                    ? "bg-red-100 text-red-600"
+                    : cleanSlateTarget === "orders_only"
+                    ? "bg-amber-100 text-amber-600"
+                    : "bg-blue-100 text-blue-600"
+                }`}>
+                  {cleanSlateTarget === "all" ? (
+                    <Trash2 className="w-5 h-5" />
+                  ) : cleanSlateTarget === "orders_only" ? (
+                    <RotateCcw className="w-5 h-5" />
+                  ) : (
+                    <RefreshCw className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm sm:text-base">
+                    {cleanSlateTarget === "all" && "تأكيد تصفير الأمثلة والبدء على نظافة 🧹"}
+                    {cleanSlateTarget === "orders_only" && "تأكيد تفريغ سجل الطلبات التجريبية 📦"}
+                    {cleanSlateTarget === "restore_defaults" && "تأكيد استعادة الأمثلة الافتراضية 🔄"}
+                  </h4>
+                  <p className="text-[11px] text-slate-400">إجراء إداري لتهيئة قاعدة البيانات</p>
+                </div>
+              </div>
+              {!isProcessingCleanSlate && (
+                <button
+                  type="button"
+                  onClick={() => setShowCleanSlateModal(false)}
+                  className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm cursor-pointer"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-3 text-xs">
+              {cleanSlateTarget === "all" && (
+                <div className="p-3.5 bg-red-50 rounded-2xl border border-red-200 space-y-2">
+                  <div className="flex items-center gap-1.5 font-black text-red-800">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>تنبيه هام ومطمئن للمدير:</span>
+                  </div>
+                  <p className="text-red-900 text-[11.5px] leading-relaxed">
+                    سيتم مسح المتاجر والمنتجات والطلبات التجريبية المسبقة لتبدأ بإدخال محلات القرية الحقيقية فقط.
+                  </p>
+                  <div className="p-2.5 bg-white/80 rounded-xl text-[10.5px] text-emerald-800 font-bold border border-emerald-200 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>نضمن لك بقاء اسم التطبيق، الإعدادات، كلمات المرور، والـ PIN، والمناطق محفوظة بنسبة 100%.</span>
+                  </div>
+                </div>
+              )}
+
+              {cleanSlateTarget === "orders_only" && (
+                <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+                  <div className="flex items-center gap-1.5 font-black text-amber-900">
+                    <Info className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>تفريغ أرشيف وسجل الطلبات فقط:</span>
+                  </div>
+                  <p className="text-amber-800 text-[11.5px] leading-relaxed">
+                    سيتم مسح كافة الطلبات التجريبية القديمة ليكون سجل الطلبات نظيفاً وجديداً، مع بقاء كافة المتاجر والمنتجات والإعدادات كما هي.
+                  </p>
+                </div>
+              )}
+
+              {cleanSlateTarget === "restore_defaults" && (
+                <div className="p-3.5 bg-blue-50 rounded-2xl border border-blue-200 space-y-2">
+                  <div className="flex items-center gap-1.5 font-black text-blue-900">
+                    <RefreshCw className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>استعادة مجموعة الأمثلة التوضيحية:</span>
+                  </div>
+                  <p className="text-blue-800 text-[11.5px] leading-relaxed">
+                    سيتم إعادة تعبئة المتاجر والوجبات والمنتجات والسائقين التجريبيين الافتراضيين للتجربة والتدريب.
+                  </p>
+                </div>
+              )}
+
+              {/* PIN Verification Input */}
+              <div className="space-y-1.5 pt-1">
+                <label className="font-extrabold text-slate-700 block text-xs">
+                  أدخل رمز الـ PIN للمدير للتأكيد (الافتراضي: {adminPin || "1234"}):
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    maxLength={8}
+                    value={cleanSlatePinInput}
+                    onChange={(e) => {
+                      setCleanSlatePinInput(e.target.value);
+                      setCleanSlateError("");
+                    }}
+                    placeholder="أدخل رمز الـ PIN هنا..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-center tracking-widest text-sm font-black outline-none focus:border-orange-500"
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                </div>
+                {cleanSlateError && (
+                  <p className="text-[11px] text-red-600 font-bold flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>{cleanSlateError}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isProcessingCleanSlate}
+                onClick={handleExecuteCleanSlate}
+                className={`flex-1 py-3 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                  cleanSlateTarget === "all"
+                    ? "bg-red-600 hover:bg-red-700 active:bg-red-800"
+                    : cleanSlateTarget === "orders_only"
+                    ? "bg-slate-800 hover:bg-slate-900"
+                    : "bg-blue-600 hover:bg-blue-700"
+                } ${isProcessingCleanSlate ? "opacity-60 cursor-not-allowed" : ""}`}
+              >
+                {isProcessingCleanSlate ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>جاري التنفيذ والتحديث...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>تأكيد وتنفيذ الإجراء الآن</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={isProcessingCleanSlate}
+                onClick={() => setShowCleanSlateModal(false)}
+                className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

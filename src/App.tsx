@@ -91,7 +91,9 @@ import {
   updateOrderOnServer,
   saveProductOnServer,
   updateProductOnServer,
-  deleteProductOnServer
+  deleteProductOnServer,
+  cleanSlateOnServer,
+  restoreDefaultsOnServer
 } from "./utils/apiSync";
 import {
   seedInitialFirestoreData,
@@ -109,7 +111,9 @@ import {
   deleteProductFromFirestore,
   saveDriverToFirestore,
   saveReviewToFirestore,
-  saveBroadcastToFirestore
+  saveBroadcastToFirestore,
+  cleanSlateFirestore,
+  reseedFirestoreDemoData
 } from "./services/firebaseService";
 import { CategoryIcon } from "./components/CategoryIcon";
 
@@ -854,7 +858,7 @@ export default function App() {
       addToastNotification({
         title: "تم رفض الصنف ❌",
         message: `تم رفض صنف "${product.name}" (${product.rejectionReason || "يرجى تعديل البيانات"}).`,
-        type: "alert"
+        type: "warning"
       });
     }
     await Promise.allSettled([
@@ -1527,6 +1531,99 @@ export default function App() {
     setShowAuthModal(true);
   };
 
+  const handleCleanSlateData = async (options: { target: "all" | "orders_only" | "restore_defaults" }) => {
+    if (options.target === "restore_defaults") {
+      localStorage.removeItem("tw_clean_slate_active");
+      localStorage.removeItem("tw_stores");
+      localStorage.removeItem("tw_products");
+      localStorage.removeItem("tw_orders");
+      setStores(initialStores);
+      setProducts(initialProducts);
+      setAllOrders(initialOrders);
+      await Promise.allSettled([
+        restoreDefaultsOnServer(),
+        reseedFirestoreDemoData()
+      ]);
+      addToastNotification({
+        order: {
+          id: "tw-reset",
+          storeId: "",
+          storeName: "توصيل القرية",
+          items: [],
+          subtotal: 0,
+          deliveryFee: 0,
+          total: 0,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          customerName: "",
+          customerPhone: "",
+          addressLandmark: ""
+        },
+        title: "تمت استعادة البيانات التوضيحية الافتراضية بنجاح 🔄",
+        message: "تمت استعادة قائمة المتاجر والمنتجات والطلبات التوضيحية للتجربة.",
+        type: "info"
+      });
+    } else if (options.target === "orders_only") {
+      setAllOrders([]);
+      localStorage.setItem("tw_orders", JSON.stringify([]));
+      await Promise.allSettled([
+        cleanSlateOnServer("orders_only"),
+        cleanSlateFirestore("orders_only")
+      ]);
+      addToastNotification({
+        order: {
+          id: "tw-reset",
+          storeId: "",
+          storeName: "توصيل القرية",
+          items: [],
+          subtotal: 0,
+          deliveryFee: 0,
+          total: 0,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          customerName: "",
+          customerPhone: "",
+          addressLandmark: ""
+        },
+        title: "تم تفريغ وتصفير سجل الطلبات التجريبية 📦✨",
+        message: "تم مسح جميع الطلبات التجريبية مع بقاء المتاجر والمنتجات والإعدادات كاملة.",
+        type: "info"
+      });
+    } else {
+      // target === "all" (Clean Slate)
+      localStorage.setItem("tw_clean_slate_active", "true");
+      setStores([]);
+      setProducts([]);
+      setAllOrders([]);
+      localStorage.setItem("tw_stores", JSON.stringify([]));
+      localStorage.setItem("tw_products", JSON.stringify([]));
+      localStorage.setItem("tw_orders", JSON.stringify([]));
+      await Promise.allSettled([
+        cleanSlateOnServer("all"),
+        cleanSlateFirestore("all")
+      ]);
+      addToastNotification({
+        order: {
+          id: "tw-reset",
+          storeId: "",
+          storeName: "توصيل القرية",
+          items: [],
+          subtotal: 0,
+          deliveryFee: 0,
+          total: 0,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+          customerName: "",
+          customerPhone: "",
+          addressLandmark: ""
+        },
+        title: "تم تصفير الأمثلة والبدء على نظافة 🧹✨",
+        message: "أصبح التطبيق الآن جاهزاً على نظافة مع الحفاظ التام على كامل إعدادات وحسابات البرنامج.",
+        type: "info"
+      });
+    }
+  };
+
   const handleShareWhatsApp = (type: "regular" | "business") => {
     const text = `السلام عليكم ورحمة الله وبركاته 🛍️ تصفح واطلب من تطبيق "توصيل" للقرية - توصيل سريع للمأكولات، التموينات، والصيدلية إلى عتبة بيتك!\nرابط التطبيق الرسمي المباشر:\n${OFFICIAL_APP_URL}`;
     openWhatsApp({
@@ -1805,6 +1902,7 @@ export default function App() {
                 onSendBroadcast={handleSendBroadcast}
                 onDeleteBroadcast={handleDeleteBroadcast}
                 onResendBroadcast={handleResendBroadcast}
+                onCleanSlateData={handleCleanSlateData}
                 onLogout={handleLogout}
               />
             </motion.div>

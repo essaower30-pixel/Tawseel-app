@@ -457,3 +457,65 @@ export async function saveCustomerToFirestore(customer: RegisteredCustomer): Pro
     return false;
   }
 }
+
+// Clear a specific collection in Firestore
+export async function clearFirestoreCollection(collectionName: string): Promise<boolean> {
+  try {
+    const snap = await getDocs(collection(db, collectionName));
+    const deletePromises = snap.docs.map((docSnap) => deleteDoc(docSnap.ref));
+    await Promise.all(deletePromises);
+    return true;
+  } catch (err) {
+    console.warn(`Error clearing Firestore collection ${collectionName}:`, err);
+    return false;
+  }
+}
+
+// Clean Slate in Firestore: Clears demo stores, products, orders, reviews, broadcasts while preserving settings/schema
+export async function cleanSlateFirestore(target: "all" | "orders_only" = "all"): Promise<boolean> {
+  try {
+    if (target === "orders_only") {
+      await clearFirestoreCollection("orders");
+      return true;
+    }
+    await Promise.all([
+      clearFirestoreCollection("stores"),
+      clearFirestoreCollection("products"),
+      clearFirestoreCollection("orders"),
+      clearFirestoreCollection("reviews"),
+      clearFirestoreCollection("broadcasts")
+    ]);
+    return true;
+  } catch (err) {
+    console.error("Error in cleanSlateFirestore:", err);
+    return false;
+  }
+}
+
+// Restore default demo dataset to Firestore
+export async function reseedFirestoreDemoData(): Promise<boolean> {
+  try {
+    for (const store of initialStores) {
+      await setDoc(doc(db, "stores", store.id), sanitizeForFirestore({
+        ...store,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+    for (const product of initialProducts) {
+      await setDoc(doc(db, "products", product.id), sanitizeForFirestore({
+        ...product,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+    for (const driver of initialDrivers) {
+      await setDoc(doc(db, "drivers", driver.id), sanitizeForFirestore({
+        ...driver,
+        updatedAt: new Date().toISOString()
+      }));
+    }
+    return true;
+  } catch (err) {
+    console.error("Error reseeding Firestore demo data:", err);
+    return false;
+  }
+}

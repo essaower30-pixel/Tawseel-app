@@ -23,8 +23,11 @@ export interface ServerSyncData {
 
 const API_BASE = "";
 
-// Ensure gypsum decor store is in initial list if missing from local cache
+// Ensure gypsum decor store is in initial list if missing from local cache (unless clean slate is active)
 export function ensureInitialStoresPreserved(currentStores: Store[]): Store[] {
+  if (typeof window !== "undefined" && localStorage.getItem("tw_clean_slate_active") === "true") {
+    return currentStores;
+  }
   const gypsumStore = initialStores.find(s => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215");
   if (!gypsumStore) return currentStores;
 
@@ -183,6 +186,33 @@ export async function deleteProductOnServer(productId: string): Promise<boolean>
   try {
     const res = await fetch(`${API_BASE}/api/products/${productId}`, {
       method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Clean Slate: Zero out all demo/sample data on central server
+export async function cleanSlateOnServer(target?: "all" | "orders_only"): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/clean-slate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target })
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Restore default demo dataset on server
+export async function restoreDefaultsOnServer(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/restore-defaults`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" }
     });
     return res.ok;
