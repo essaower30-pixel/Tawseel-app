@@ -375,8 +375,12 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 p-2 sm:p-3 pointer-events-none" dir="rtl">
-      <nav className="pointer-events-auto max-w-md mx-auto bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl shadow-slate-900/10 rounded-2xl sm:rounded-3xl px-2.5 py-1.5 flex items-center justify-around">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]"
+      dir="rtl"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <nav className="max-w-md mx-auto px-2 py-1.5 sm:py-2 flex items-center justify-around">
         {renderNavButtons()}
       </nav>
     </div>
