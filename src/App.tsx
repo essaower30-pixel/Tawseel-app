@@ -1831,7 +1831,7 @@ export default function App() {
               </span>
             </button>
 
-            {activeOrder ? (
+            {activeOrder && (
               <button
                 type="button"
                 onClick={() => {
@@ -1839,66 +1839,29 @@ export default function App() {
                   setIsViewingCart(false);
                   setIsAdminMode(false);
                 }}
-                className="bg-orange-500 text-white hover:bg-orange-600 font-extrabold text-xs py-2 px-4 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer"
+                className="bg-orange-500 text-white hover:bg-orange-600 font-extrabold text-xs py-2 px-3.5 sm:px-4 rounded-xl shadow-xs hover:shadow transition-all flex items-center gap-1.5 cursor-pointer animate-pulse"
+                title="متابعة وتتبع طلبك الحالي"
               >
                 <span className="w-2 h-2 rounded-full bg-white animate-ping inline-block" />
                 <span>تتبع طلبك الحالي</span>
               </button>
-            ) : (
-              <>
-                {/* Login Button in Header */}
-                <button
-                  type="button"
-                  onClick={() => setShowAuthModal(true)}
-                  className="py-2 px-3 sm:px-4 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
-                  title="تسجيل الدخول / تبديل الحساب"
-                >
-                  <LogIn className="w-4 h-4 text-orange-600 shrink-0" />
-                  <span>تسجيل الدخول</span>
-                </button>
+            )}
 
-                {/* Account Settings Header Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowAccountModal(true)}
-                  className="py-2 px-3 sm:px-3.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
-                  title="إعدادات الحساب وتعديل البيانات الشخصية"
-                >
-                  <User className="w-4 h-4 text-orange-600 shrink-0" />
-                  <span>حسابي</span>
-                </button>
-
-                {/* Cart Button (عربة التسوق) */}
-                {!isAdminMode && !isDriverMode && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedStore(null);
-                      setIsViewingCart(true);
-                    }}
-                    className={`relative py-2 px-3 sm:px-3.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                      cartItems.length > 0
-                        ? "bg-orange-500 border-orange-500 text-white shadow-md shadow-orange-500/20 font-black text-xs"
-                        : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 font-black text-xs"
-                    }`}
-                    title="عربة التسوق والطلبات"
-                  >
-                    <ShoppingCart className="w-4 h-4 text-orange-600" />
-                    <span>
-                      {cartItems.length > 0 ? `السلة (${totalCartCount})` : "السلة"}
-                    </span>
-                    {cartItems.length > 0 && (
-                      <span className="absolute -top-1.5 -left-1.5 w-5 h-5 bg-slate-900 text-white rounded-full text-[10px] flex items-center justify-center font-extrabold border border-white">
-                        {cartItems.length}
-                      </span>
-                    )}
-                  </button>
-                )}
-              </>
+            {/* If user is guest/unregistered only, show login button in header */}
+            {(!userProfile || userRole === "guest") && (
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="py-2 px-3 sm:px-4 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
+                title="تسجيل الدخول / تبديل الحساب"
+              >
+                <LogIn className="w-4 h-4 text-orange-600 shrink-0" />
+                <span>تسجيل الدخول</span>
+              </button>
             )}
 
             {/* Back to Home Button */}
-            {userProfile && (isAdminMode || isDriverMode || selectedStore || isViewingCart) && (
+            {(isAdminMode || isDriverMode || selectedStore || isViewingCart) && (
               <button
                 type="button"
                 onClick={() => {
@@ -1906,6 +1869,7 @@ export default function App() {
                   setIsViewingCart(false);
                   setIsAdminMode(false);
                   setIsDriverMode(false);
+                  setActiveOrder(null);
                 }}
                 className="py-2 px-3 sm:px-4 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 transition-all cursor-pointer flex items-center gap-1.5 font-black text-xs sm:text-sm shadow-xs animate-fade-in"
                 title="الرجوع للقائمة الرئيسية"
@@ -2855,38 +2819,43 @@ export default function App() {
       {userRole === "customer" && !isAdminMode && !isDriverMode && (
         <BottomNavigation
           userRole="customer"
-          activeTab={isViewingCart ? "cart" : activeOrder ? "orders" : "home"}
+          activeTab={
+            isViewingCart
+              ? "cart"
+              : showCustomerArchiveModal
+              ? "archive"
+              : activeOrder
+              ? "orders"
+              : "home"
+          }
           onNavigateHome={() => {
             setSelectedStore(null);
             setIsViewingCart(false);
             setActiveOrder(null);
+            setShowCustomerArchiveModal(false);
+          }}
+          onOpenOrdersArchive={() => {
+            setShowCustomerArchiveModal(true);
+          }}
+          onOpenCart={() => {
+            setSelectedStore(null);
+            setIsViewingCart(true);
+            setActiveOrder(null);
+            setShowCustomerArchiveModal(false);
           }}
           onSelectRoleTab={(tab) => {
             if (tab === "home") {
               setSelectedStore(null);
               setIsViewingCart(false);
               setActiveOrder(null);
-            } else if (tab === "orders") {
-              const myOrders = allOrders.filter(
-                (o) =>
-                  (userProfile?.phone && o.customerPhone === userProfile.phone) ||
-                  (userProfile?.name && o.customerName === userProfile.name)
-              );
-              if (myOrders.length > 0) {
-                const active = myOrders.find(
-                  (o) => o.status !== "delivered" && o.status !== "cancelled"
-                );
-                if (active) {
-                  setActiveOrder(active);
-                } else {
-                  setShowCustomerArchiveModal(true);
-                }
-              } else {
-                setShowCustomerArchiveModal(true);
-              }
+              setShowCustomerArchiveModal(false);
+            } else if (tab === "orders" || tab === "archive") {
+              setShowCustomerArchiveModal(true);
             } else if (tab === "cart") {
               setSelectedStore(null);
               setIsViewingCart(true);
+              setActiveOrder(null);
+              setShowCustomerArchiveModal(false);
             }
           }}
           onOpenAccount={() => setShowAccountModal(true)}
@@ -2899,7 +2868,7 @@ export default function App() {
                 o.status !== "cancelled"
             ).length
           }
-          cartCount={cartItems.length}
+          cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
           userName={userProfile?.name}
         />
       )}

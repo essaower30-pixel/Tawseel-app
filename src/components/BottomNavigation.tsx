@@ -282,7 +282,10 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         {/* 1. Home */}
         <button
           type="button"
-          onClick={onNavigateHome}
+          onClick={() => {
+            if (onNavigateHome) onNavigateHome();
+            if (onSelectRoleTab) onSelectRoleTab("home");
+          }}
           className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
             activeTab === "home"
               ? "text-orange-600 font-black"
@@ -299,15 +302,21 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         {/* 2. My Orders Archive */}
         <button
           type="button"
-          onClick={onOpenOrdersArchive}
+          onClick={() => {
+            if (onOpenOrdersArchive) {
+              onOpenOrdersArchive();
+            } else if (onSelectRoleTab) {
+              onSelectRoleTab("orders");
+            }
+          }}
           className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
-            activeTab === "archive"
+            activeTab === "archive" || activeTab === "orders"
               ? "text-orange-600 font-black"
               : "text-slate-500 hover:text-slate-800 font-bold"
           }`}
         >
           <div className="relative">
-            <Clock className={`w-5 h-5 ${activeTab === "archive" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
+            <Clock className={`w-5 h-5 ${activeTab === "archive" || activeTab === "orders" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
             {activeOrdersCount > 0 && (
               <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-xs">
                 {activeOrdersCount}
@@ -315,7 +324,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             )}
           </div>
           <span className="text-[10px] truncate max-w-[65px]">طلباتي</span>
-          {activeTab === "archive" && (
+          {(activeTab === "archive" || activeTab === "orders") && (
             <motion.div layoutId="nav_dot_cust" className="w-1.5 h-1.5 rounded-full bg-orange-600 mt-0.5" />
           )}
         </button>
@@ -323,7 +332,13 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
         {/* 3. Shopping Cart */}
         <button
           type="button"
-          onClick={onOpenCart}
+          onClick={() => {
+            if (onOpenCart) {
+              onOpenCart();
+            } else if (onSelectRoleTab) {
+              onSelectRoleTab("cart");
+            }
+          }}
           className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
             activeTab === "cart"
               ? "text-orange-600 font-black"
