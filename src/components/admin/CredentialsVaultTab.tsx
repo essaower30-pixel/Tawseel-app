@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { DriverMember, RegisteredCustomer, StaffMember, Store } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { getAppUrl } from "../../utils/appUrl";
 
 interface CredentialsVaultTabProps {
   customers: RegisteredCustomer[];
@@ -186,8 +187,8 @@ export const CredentialsVaultTab: React.FC<CredentialsVaultTabProps> = ({
 🆔 *اسم المستخدم:* ${acc.username}
 🔐 *كلمة المرور / الرمز السري:* ${pwd}
 
-🔗 *رابط الدخول للتطبيق:*
-${window.location.origin}
+🔗 *رابط الدخول المباشر للتطبيق:*
+${getAppUrl()}
 
 نحن دائماً بخدمتكم في حال احتجتم أي مساعدة!`;
 

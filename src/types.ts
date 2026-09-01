@@ -240,6 +240,7 @@ export interface AppSettings {
   activeRegions: string[];
   adminPassword?: string;
   adminPin?: string;
+  officialAppUrl?: string;
 }
 
 export type BroadcastType = "discount" | "update" | "alert" | "timing" | "system";

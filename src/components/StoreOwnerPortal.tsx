@@ -42,6 +42,8 @@ import { openWhatsApp } from "../utils/whatsapp";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
 import { StoreBroadcastViewer } from "./store/StoreBroadcastViewer";
 import { ImageUploader } from "./ImageUploader";
+import { BottomNavigation } from "./BottomNavigation";
+import { AccountSettingsModal } from "./AccountSettingsModal";
 
 interface StoreOwnerPortalProps {
   storeId: string;
@@ -99,6 +101,26 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+
+  const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
+    const updatedStore: Store = {
+      ...currentStore,
+      name: extraData?.storeName || currentStore.name,
+      ownerName: updatedProfile.name,
+      ownerPhone: updatedProfile.phone,
+      ownerPin: updatedProfile.pin,
+      contactPhone: updatedProfile.phone || currentStore.contactPhone,
+      workingHours: extraData?.storeHours || currentStore.workingHours
+    };
+    onUpdateStore(updatedStore);
+
+    localStorage.setItem("tw_user_profile", JSON.stringify(updatedProfile));
+    localStorage.setItem("tw_customer_user", JSON.stringify(updatedProfile));
+    localStorage.setItem("tw_saved_store_name", updatedStore.name);
+    localStorage.setItem("tw_saved_store_phone", updatedProfile.phone);
+    localStorage.setItem("tw_saved_store_pin", updatedProfile.pin);
+  };
 
   // Product Modal State
   const [showProductModal, setShowProductModal] = useState(false);
@@ -329,7 +351,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-12" dir="rtl">
+    <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-28" dir="rtl">
       {/* Merchant Header Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 text-white shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -392,6 +414,17 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
             >
               <Power className="w-4 h-4" />
               <span>{isOpen ? "إغلاق المتجر مؤقتاً" : "فتح المتجر للزبائن"}</span>
+            </button>
+
+            {/* Account Settings Button */}
+            <button
+              type="button"
+              onClick={() => setShowAccountModal(true)}
+              className="py-2 px-3.5 rounded-xl border border-orange-500/30 bg-orange-500/10 hover:bg-orange-500/20 text-xs font-black text-orange-400 transition-all cursor-pointer flex items-center gap-1.5"
+              title="إعدادات الحساب وتعديل بيانات المتجر"
+            >
+              <User className="w-4 h-4 text-orange-400" />
+              <span>حسابي</span>
             </button>
 
             {onBackToCustomerView && (
@@ -1442,6 +1475,31 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Universal Bottom Navigation for Store Owner */}
+      <BottomNavigation
+        userRole="store_owner"
+        activeTab={activeTab}
+        onNavigateHome={() => setActiveTab("orders")}
+        onSelectRoleTab={(tab) => setActiveTab(tab as any)}
+        onOpenAccount={() => setShowAccountModal(true)}
+        activeOrdersCount={storeOrders.filter(
+          (o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing"
+        ).length}
+        userName={userProfile.name}
+      />
+
+      {/* Account Settings Modal */}
+      {showAccountModal && (
+        <AccountSettingsModal
+          isOpen={showAccountModal}
+          onClose={() => setShowAccountModal(false)}
+          userRole="store_owner"
+          userProfile={userProfile}
+          currentStore={currentStore}
+          onUpdateProfile={handleProfileUpdate}
+          onLogout={onLogout}
+        />
       )}
     </div>
   );

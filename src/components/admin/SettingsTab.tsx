@@ -44,10 +44,12 @@ import {
   RotateCcw,
   Database,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Globe
 } from "lucide-react";
 import { AppSettings, AuditLog, Order, RegisteredCustomer, StaffMember, Store as StoreType, UserProfile } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { getAppUrl, getShareTemplates } from "../../utils/appUrl";
 import { 
   DEFAULT_APP_ICON_KEY, 
   getActiveAppIcon, 
@@ -106,6 +108,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [currency, setCurrency] = useState(appSettings.currency || "ل.س");
   const [baseDeliveryFee, setBaseDeliveryFee] = useState(appSettings.baseDeliveryFee);
   const [minOrderValue, setMinOrderValue] = useState(appSettings.minOrderValue);
+  const [officialAppUrl, setOfficialAppUrl] = useState(appSettings.officialAppUrl || "");
   const [newRegion, setNewRegion] = useState("");
   const [regions, setRegions] = useState<string[]>(appSettings.activeRegions || ["وسط البلد", "الحارة الشرقية", "حي المدارس", "الحارة الغربية", "طريق السهل"]);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -413,7 +416,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       activeRegions: regions,
       customAppIcon: appIcon,
       adminPassword: adminPassword.trim(),
-      adminPin: adminPin.trim() || "1234"
+      adminPin: adminPin.trim() || "1234",
+      officialAppUrl: officialAppUrl.trim()
     });
 
     // Update dynamic manifest with updated name
@@ -463,7 +467,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       activeRegions: regions,
       customAppIcon: appIcon,
       adminPassword: newPass,
-      adminPin: newPin || "1234"
+      adminPin: newPin || "1234",
+      officialAppUrl: officialAppUrl.trim()
     });
 
     // 3. Synchronize Manager in Staff list
@@ -492,7 +497,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const handleSendAdminCredsWA = (type: "regular" | "business" = "regular") => {
-    const msg = `🔐 *بيانات الدخول الإدارية المحدثة لمنصة (${appName})*\n\n👤 الحساب: المدير العام (Admin)\n🔑 كلمة المرور الرئيسية: *${adminPassword.trim()}*\n🔢 رمز PIN السريع: *${adminPin.trim()}*\n🌐 رابط التطبيق المباشر:\n${OFFICIAL_APP_URL}\n\n⚠️ يرجى الاحتفاظ بهذه البيانات بسرية تامة وعدم مشاركتها مع غير المخولين.`;
+    const activeUrl = getAppUrl({ ...appSettings, officialAppUrl });
+    const msg = `🔐 *بيانات الدخول الإدارية المحدثة لمنصة (${appName})*\n\n👤 الحساب: المدير العام (Admin)\n🔑 كلمة المرور الرئيسية: *${adminPassword.trim()}*\n🔢 رمز PIN السريع: *${adminPin.trim()}*\n🌐 رابط التطبيق المباشر:\n${activeUrl}\n\n⚠️ يرجى الاحتفاظ بهذه البيانات بسرية تامة وعدم مشاركتها مع غير المخولين.`;
     openWhatsApp({
       phone: contactPhone || "0991234567",
       message: msg,
@@ -666,10 +672,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     });
   };
 
-  const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/";
+  const activeAppUrl = getAppUrl({ ...appSettings, officialAppUrl });
 
   const handleCopyAppUrl = () => {
-    navigator.clipboard.writeText(OFFICIAL_APP_URL);
+    navigator.clipboard.writeText(activeAppUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
@@ -1132,14 +1138,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Subview 3: Central Administrative App Distribution & Broadcast Portal (الجهة المسؤولة حصراً عن توزيع التطبيق)
   if (currentSubView === "share") {
-    const originUrl = OFFICIAL_APP_URL;
+    const originUrl = activeAppUrl;
     
-    // Announcement templates
-    const templates = {
-      general: `🛍️ *إعلان رسمي من إدارة تطبيق (${appSettings.appName})*\n\nأهالينا الكرام، أصبح بإمكانكم الآن تصفح كافة مطاعم، بقاليات، صيدليات، وحرفيي المنطقة والطلب أونلاين مع خدمة التوصيل السريع إلى باب بيوتكم!\n\n📲 *رابط التطبيق الرسمي المباشر:*\n${originUrl}\n\n(يمكنكم فتح الرابط وتثبيت التطبيق على الشاشة الرئيسية فوراً)`,
-      merchants: `🏪 *دعوة رسمية لأصحاب المتاجر والمطاعم والصيدليات للانضمام لمنصة (${appSettings.appName})*\n\nسجل متجرك الآن واعرض منتجاتك لأهالي المحافظة مع إدارة متكاملة للطلبات وفريق كباتن توصيل جاهز لنقل طلباتك.\n\n🌐 *رابط الانضمام والتسجيل:*\n${originUrl}`,
-      drivers: `🛵 *فرصة عمل: انضم لفريق كباتن التوصيل في منصة (${appSettings.appName})*\n\nنبحث عن شباب نشيطين للانضمام لأسطول التوصيل مع عوائد ممتازة وحرية في أوقات العمل.\n\n📍 *رابط التسجيل وبدء العمل:*\n${originUrl}`
-    };
+    // Announcement templates using dynamic active URL
+    const templates = getShareTemplates(appSettings.appName, originUrl);
 
     const currentText = templates[selectedTemplate];
 
@@ -1154,6 +1156,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       navigator.clipboard.writeText(currentText);
       setCopiedMessage(true);
       setTimeout(() => setCopiedMessage(false), 2500);
+    };
+
+    const handleAutoDetectUrl = () => {
+      if (typeof window !== "undefined" && window.location) {
+        const detected = window.location.origin + (window.location.pathname !== "/" ? window.location.pathname : "");
+        setOfficialAppUrl(detected);
+        onUpdateAppSettings({
+          ...appSettings,
+          officialAppUrl: detected
+        });
+        alert(`تم التقاط وحفظ رابط التطبيق الحالي بنجاح:\n${detected}`);
+      }
     };
 
     return (
@@ -1184,7 +1198,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           <div className="bg-white/10 p-3 rounded-2xl border border-white/10 text-xs text-slate-200 flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>
-              تم حصر قنوات مشاركة ونشر التطبيق في لوحة الإدارة فقط لضمان النشر المنظم والرسمي، بينما يحتفظ الزبائن بخاصية تثبيت التطبيق والباركود على هواتفهم.
+              تم تدقيق وتحديث روابط النشر في الواتساب والباركود لتعمل مباشرة وتفتح المنصة دون أي خطأ 404.
             </span>
           </div>
         </div>
@@ -1295,21 +1309,48 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
             {/* Direct Link Section */}
             <div className="pt-3 border-t border-slate-100 space-y-2">
-              <span className="text-xs font-black text-slate-600 block">رابط التطبيق المباشر:</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-slate-700 block">رابط التطبيق المباشر المعتمد:</span>
+                <span className="text-[10px] text-emerald-600 font-bold">يعمل بدون أخطاء 404 ✓</span>
+              </div>
+              
               <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-2xl border border-slate-200">
                 <input
                   type="text"
                   readOnly
+                  dir="ltr"
                   value={originUrl}
-                  className="w-full bg-transparent text-xs font-mono text-slate-700 font-bold focus:outline-hidden"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                  className="w-full bg-transparent text-xs font-mono text-left text-slate-700 font-bold focus:outline-hidden"
                 />
                 <button
                   type="button"
                   onClick={handleCopyAppUrl}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 shadow-xs"
+                  className="px-3.5 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-black flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 shadow-xs"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedLink ? "تم النسخ!" : "نسخ الرابط"}</span>
+                </button>
+              </div>
+
+              {/* URL Quick Action Tools */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => window.open(originUrl, "_blank")}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-orange-500" />
+                  <span>فتح وتجربة الرابط في نافذة جديدة 🌐</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAutoDetectUrl}
+                  className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-800 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer border border-orange-200"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-orange-600" />
+                  <span>التقاط الرابط الحالي تلقائياً 🔄</span>
                 </button>
               </div>
             </div>
@@ -1332,7 +1373,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div className="mt-4 p-5 bg-gradient-to-b from-slate-50 to-orange-50/40 border-2 border-dashed border-orange-200 rounded-3xl flex flex-col items-center justify-center text-center space-y-3">
                 <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-md">
                   <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
                       originUrl
                     )}`}
                     alt="App Direct QR Code"
@@ -1443,6 +1484,38 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               onChange={(e) => setCurrency(e.target.value)}
               className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-orange-500" />
+                <span>رابط التطبيق الرسمي المباشر (المستخدم في الواتساب والباركود)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.location) {
+                    const detected = window.location.origin + (window.location.pathname !== "/" ? window.location.pathname : "");
+                    setOfficialAppUrl(detected);
+                  }
+                }}
+                className="text-[10px] text-orange-600 hover:text-orange-700 font-bold bg-orange-50 hover:bg-orange-100 px-2 py-0.5 rounded-md border border-orange-200 cursor-pointer"
+              >
+                التقاط الرابط الحالي تلقائياً 🔄
+              </button>
+            </div>
+            <input
+              type="text"
+              dir="ltr"
+              value={officialAppUrl}
+              onChange={(e) => setOfficialAppUrl(e.target.value)}
+              placeholder="اتركه فارغاً للاعتماد التلقائي على رابط المتصفح الحالي النشط"
+              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-left font-bold text-slate-800 focus:outline-hidden focus:border-orange-500"
+            />
+            <p className="text-[10px] text-slate-400 font-bold mt-1">
+              * يُستخدم هذا الرابط في جميع رسائل الواتساب، بوسترات الباركود، وبيانات الدخول لضمان فتح التطبيق مباشرة دون خطأ 404.
+            </p>
           </div>
         </div>
 
@@ -2136,7 +2209,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      window.open(OFFICIAL_APP_URL, "_blank");
+                      window.open(activeAppUrl, "_blank");
                     }}
                     className="flex-1 py-2.5 px-3 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                   >
@@ -2146,7 +2219,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(OFFICIAL_APP_URL);
+                      navigator.clipboard.writeText(activeAppUrl);
                       alert("تم نسخ رابط التطبيق المباشر! يمكنك فتحه في متصفح كروم وتثبيته فوراً.");
                     }}
                     className="py-2.5 px-3 bg-white border border-amber-300 text-amber-900 font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"

@@ -40,7 +40,8 @@ import {
   Volume2,
   VolumeX,
   Bell,
-  CheckCircle2
+  CheckCircle2,
+  User
 } from "lucide-react";
 import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
@@ -55,6 +56,8 @@ import { StoreOwnerPortal } from "./components/StoreOwnerPortal";
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
+import { BottomNavigation } from "./components/BottomNavigation";
+import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { openWhatsApp } from "./utils/whatsapp";
 import {
@@ -117,8 +120,9 @@ import {
   reseedFirestoreDemoData
 } from "./services/firebaseService";
 import { CategoryIcon } from "./components/CategoryIcon";
+import { getAppUrl, getShareTemplates } from "./utils/appUrl";
 
-export const OFFICIAL_APP_URL = "https://essaower30-pixel.github.io/Tawseel-app/";
+export { getAppUrl };
 
 export default function App() {
   // Global State with LocalStorage Persistence
@@ -244,6 +248,59 @@ export default function App() {
     const raw = localStorage.getItem("tw_customer_user") || localStorage.getItem("tw_user_profile");
     return raw ? JSON.parse(raw) : { name: "أحمد العلي", phone: "0988776655", pin: "1234" };
   });
+
+  const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
+
+  const handleUpdateUserProfile = async (updatedProfile: UserProfile, extraData?: any) => {
+    setUserProfile(updatedProfile);
+    localStorage.setItem("tw_user_profile", JSON.stringify(updatedProfile));
+    localStorage.setItem("tw_customer_user", JSON.stringify(updatedProfile));
+
+    if (userRole === "driver" || extraData?.driverVehicle) {
+      setDriversList((prev) => {
+        const next = prev.map((d) =>
+          d.phone === updatedProfile.phone || d.name === updatedProfile.name
+            ? {
+                ...d,
+                name: updatedProfile.name,
+                phone: updatedProfile.phone,
+                pin: updatedProfile.pin,
+                vehicle: extraData?.driverVehicle || d.vehicle
+              }
+            : d
+        );
+        localStorage.setItem("tw_drivers_list", JSON.stringify(next));
+        localStorage.setItem("tw_drivers", JSON.stringify(next));
+        return next;
+      });
+    }
+
+    if (userRole === "store_owner" || extraData?.storeName) {
+      setStores((prev) => {
+        const next = prev.map((s) =>
+          s.id === currentStoreId || s.ownerPhone === updatedProfile.phone
+            ? {
+                ...s,
+                name: extraData?.storeName || s.name,
+                ownerName: updatedProfile.name,
+                ownerPhone: updatedProfile.phone,
+                ownerPin: updatedProfile.pin,
+                contactPhone: updatedProfile.phone || s.contactPhone,
+                workingHours: extraData?.storeHours || s.workingHours
+              }
+            : s
+        );
+        localStorage.setItem("tw_stores", JSON.stringify(next));
+        return next;
+      });
+    }
+
+    addToastNotification({
+      title: "تم حفظ وتحديث بيانات حسابك بنجاح ✅",
+      message: `الاسم: ${updatedProfile.name} • الهاتف: ${updatedProfile.phone} • تم مزامنة البيانات عبر الحسابات`,
+      type: "success"
+    });
+  };
 
   // Admin PIN Gate Modal
   const [showAdminPinModal, setShowAdminPinModal] = useState(false);
@@ -1653,15 +1710,17 @@ export default function App() {
   };
 
   const handleShareWhatsApp = (type: "regular" | "business") => {
-    const text = `السلام عليكم ورحمة الله وبركاته 🛍️ تصفح واطلب من تطبيق "توصيل" للقرية - توصيل سريع للمأكولات، التموينات، والصيدلية إلى عتبة بيتك!\nرابط التطبيق الرسمي المباشر:\n${OFFICIAL_APP_URL}`;
+    const liveAppUrl = getAppUrl();
+    const templates = getShareTemplates("توصيل", liveAppUrl);
     openWhatsApp({
-      message: text,
+      message: templates.headerQuickShare,
       type
     });
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(OFFICIAL_APP_URL);
+    const liveAppUrl = getAppUrl();
+    navigator.clipboard.writeText(liveAppUrl);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2500);
   };
@@ -1798,6 +1857,17 @@ export default function App() {
                   <span>تسجيل الدخول</span>
                 </button>
 
+                {/* Account Settings Header Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowAccountModal(true)}
+                  className="py-2 px-3 sm:px-3.5 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
+                  title="إعدادات الحساب وتعديل البيانات الشخصية"
+                >
+                  <User className="w-4 h-4 text-orange-600 shrink-0" />
+                  <span>حسابي</span>
+                </button>
+
                 {/* Cart Button (عربة التسوق) */}
                 {!isAdminMode && !isDriverMode && (
                   <button
@@ -1849,7 +1919,7 @@ export default function App() {
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full relative min-h-[500px]">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-28 flex-1 w-full relative min-h-[500px]">
         {/* Router Views with Smooth Transition */}
         <AnimatePresence mode="wait">
           {userRole === "store_owner" ? (
@@ -2780,6 +2850,79 @@ export default function App() {
         onViewOrder={handleViewToastOrder}
         currentRole={userRole}
       />
+
+      {/* Universal Bottom Navigation for Customer View */}
+      {userRole === "customer" && !isAdminMode && !isDriverMode && (
+        <BottomNavigation
+          userRole="customer"
+          activeTab={isViewingCart ? "cart" : activeOrder ? "orders" : "home"}
+          onNavigateHome={() => {
+            setSelectedStore(null);
+            setIsViewingCart(false);
+            setActiveOrder(null);
+          }}
+          onSelectRoleTab={(tab) => {
+            if (tab === "home") {
+              setSelectedStore(null);
+              setIsViewingCart(false);
+              setActiveOrder(null);
+            } else if (tab === "orders") {
+              const myOrders = allOrders.filter(
+                (o) =>
+                  (userProfile?.phone && o.customerPhone === userProfile.phone) ||
+                  (userProfile?.name && o.customerName === userProfile.name)
+              );
+              if (myOrders.length > 0) {
+                const active = myOrders.find(
+                  (o) => o.status !== "delivered" && o.status !== "cancelled"
+                );
+                if (active) {
+                  setActiveOrder(active);
+                } else {
+                  setShowCustomerArchiveModal(true);
+                }
+              } else {
+                setShowCustomerArchiveModal(true);
+              }
+            } else if (tab === "cart") {
+              setSelectedStore(null);
+              setIsViewingCart(true);
+            }
+          }}
+          onOpenAccount={() => setShowAccountModal(true)}
+          activeOrdersCount={
+            allOrders.filter(
+              (o) =>
+                userProfile?.phone &&
+                o.customerPhone === userProfile.phone &&
+                o.status !== "delivered" &&
+                o.status !== "cancelled"
+            ).length
+          }
+          cartCount={cartItems.length}
+          userName={userProfile?.name}
+        />
+      )}
+
+      {/* Global Account Settings Modal */}
+      {showAccountModal && (
+        <AccountSettingsModal
+          isOpen={showAccountModal}
+          onClose={() => setShowAccountModal(false)}
+          userRole={userRole}
+          userProfile={userProfile}
+          currentStore={stores.find(
+            (s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone)
+          )}
+          currentDriver={driversList.find(
+            (d) =>
+              (userProfile?.phone && d.phone === userProfile.phone) ||
+              (userProfile?.name && d.name === userProfile.name)
+          )}
+          onUpdateProfile={handleUpdateUserProfile}
+          onLogout={handleLogout}
+        />
+      )}
     </div>
   );
 }

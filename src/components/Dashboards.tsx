@@ -37,6 +37,8 @@ import { OrdersTab } from "./admin/OrdersTab";
 import { SettingsTab } from "./admin/SettingsTab";
 import { CredentialsVaultTab } from "./admin/CredentialsVaultTab";
 import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
+import { BottomNavigation } from "./BottomNavigation";
+import { AccountSettingsModal } from "./AccountSettingsModal";
 
 interface DashboardProps {
   userRole: "admin" | "store_owner" | "driver";
@@ -334,6 +336,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   });
 
+  const [showAccountModal, setShowAccountModal] = useState(false);
+
+  const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
+    if (currentStaff?.role === "manager" || userRole === "admin") {
+      const updatedSettings: AppSettings = {
+        ...appSettings,
+        adminPassword: updatedProfile.pin,
+        adminPin: updatedProfile.pin,
+        contactPhone: updatedProfile.phone || appSettings.contactPhone
+      };
+      handleUpdateAppSettings(updatedSettings);
+      localStorage.setItem("tw_admin_password", updatedProfile.pin);
+      localStorage.setItem("tw_admin_pin", updatedProfile.pin);
+    }
+    if (currentStaff) {
+      const updatedSt: StaffMember = {
+        ...currentStaff,
+        name: updatedProfile.name,
+        phone: updatedProfile.phone,
+        pin: updatedProfile.pin
+      };
+      handleUpdateStaff(updatedSt);
+    }
+    localStorage.setItem("tw_user_profile", JSON.stringify(updatedProfile));
+    localStorage.setItem("tw_customer_user", JSON.stringify(updatedProfile));
+  };
+
   // Registered customers count
   const registeredCount = Math.max(orders.length + registeredCustomers.length, registeredCustomers.length);
 
@@ -346,7 +375,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   ).length;
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-6 pb-28">
       {/* Header & Tabs Navigation */}
       <AdminHeader
         activeTab={activeTab}
@@ -357,6 +386,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         currentStaff={currentStaff}
         onSelectStaff={handleSelectStaff}
         onLogout={onLogout}
+        onOpenAccount={() => setShowAccountModal(true)}
         pendingStoresCount={pendingStoresCount}
         pendingProductsCount={pendingProductsCount}
       />
@@ -518,6 +548,32 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Universal Bottom Navigation for Admin / Staff */}
+      <BottomNavigation
+        userRole="admin"
+        activeTab={activeTab}
+        onNavigateHome={() => setActiveTab("stats")}
+        onSelectRoleTab={(tab) => setActiveTab(tab as any)}
+        onOpenAccount={() => setShowAccountModal(true)}
+        activeOrdersCount={orders.filter(
+          (o) => o.status === "pending" || o.status === "accepted" || o.status === "preparing"
+        ).length}
+        userName={currentStaff?.name || userProfile.name}
+      />
+
+      {/* Account Settings Modal */}
+      {showAccountModal && (
+        <AccountSettingsModal
+          isOpen={showAccountModal}
+          onClose={() => setShowAccountModal(false)}
+          userRole="admin"
+          userProfile={userProfile}
+          currentStaff={currentStaff}
+          onUpdateProfile={handleProfileUpdate}
+          onLogout={onLogout}
+        />
+      )}
     </div>
   );
 };

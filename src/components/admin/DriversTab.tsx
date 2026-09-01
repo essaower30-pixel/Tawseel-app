@@ -21,6 +21,7 @@ import {
 import { DriverMember } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { getAppUrl } from "../../utils/appUrl";
 
 interface DriversTabProps {
   driversList: DriverMember[];
@@ -102,14 +103,16 @@ export const DriversTab: React.FC<DriversTabProps> = ({
   };
 
   const handleCopyCredentials = (driver: DriverMember) => {
-    const text = `🛵 بيانات حساب كابتن التوصيل (تطبيق توصيل):\n👤 اسم الكابتن: ${driver.name}\n🔑 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور (PIN): ${driver.pin || "1111"}\n📱 رقم الهاتف: ${driver.phone}\n🌐 رابط التطبيق:\nhttps://essaower30-pixel.github.io/Tawseel-app/`;
+    const appUrl = getAppUrl();
+    const text = `🛵 بيانات حساب كابتن التوصيل (تطبيق توصيل):\n👤 اسم الكابتن: ${driver.name}\n🔑 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور (PIN): ${driver.pin || "1111"}\n📱 رقم الهاتف: ${driver.phone}\n🌐 رابط التطبيق المباشر:\n${appUrl}`;
     navigator.clipboard.writeText(text);
     setCopiedId(driver.id);
     setTimeout(() => setCopiedId(null), 2500);
   };
 
   const handleSendCredentialsWhatsApp = (driver: DriverMember, type: "regular" | "business" = "regular") => {
-    const text = `مرحباً كابتن ${driver.name} 🛵\nتم إنشاء وتفعيل حسابك في منصة "توصيل".\n\n📌 بيانات الدخول الخاصة بك:\n👤 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور / PIN: ${driver.pin || "1111"}\n\n🌐 يمكنك الدخول مباشرة عبر تبويب "دخول كابتن توصيل 🛵" من خلال الرابط التالي:\nhttps://essaower30-pixel.github.io/Tawseel-app/\n\nبالتوفيق، إدارة منصة توصيل 🚀`;
+    const appUrl = getAppUrl();
+    const text = `مرحباً كابتن ${driver.name} 🛵\nتم إنشاء وتفعيل حسابك في منصة "توصيل".\n\n📌 بيانات الدخول الخاصة بك:\n👤 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور / PIN: ${driver.pin || "1111"}\n\n🌐 يمكنك الدخول مباشرة عبر تبويب "دخول كابتن توصيل 🛵" من خلال الرابط التالي:\n${appUrl}\n\nبالتوفيق، إدارة منصة توصيل 🚀`;
     openWhatsApp({
       phone: driver.phone,
       message: text,

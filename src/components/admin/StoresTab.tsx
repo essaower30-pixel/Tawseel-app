@@ -33,6 +33,7 @@ import {
 import { Category, Product, Store, StoreBroadcast } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { getAppUrl } from "../../utils/appUrl";
 import { ImageUploader } from "../ImageUploader";
 import { approveStoreOnServer } from "../../utils/apiSync";
 import { CategoryManagerModal } from "./CategoryManagerModal";
@@ -218,8 +219,8 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
   // Generate congratulatory approval message for merchant
   const generateApprovalSuccessMessage = (st: Store) => {
-    const originUrl = typeof window !== "undefined" ? window.location.origin : "https://tawseel.ai.studio";
-    return `أهلاً بك يا معلم ${st.ownerName || "صاحب المتجر"} المحترم! 🏪🎉\n\nيسر إدارة تطبيق توصيل إعلامكم بأنه *تمت الموافقة الرسمية على تفعيل واعتماد متجركم (${st.name})*!\n\n✅ أصبح متجركم الآن ظاهراً ونشطاً لجميع أهالي القرية والزبائن في التطبيق.\n\n🔑 *بيانات دخول لوحة التحكم الخاصة بك:*\n• رقم الهاتف: *${st.ownerPhone || st.contactPhone}*\n• رمز الـ PIN السري: *${st.ownerPin || "1234"}*\n• رابط المنصة:\n${originUrl}\n\nنبارك لكم الانضمام ونتمنى لكم عملاً موفقاً ومبيعات ممتازة! 🚀`;
+    const originUrl = getAppUrl();
+    return `أهلاً بك يا معلم ${st.ownerName || "صاحب المتجر"} المحترم! 🏪🎉\n\nيسر إدارة تطبيق توصيل إعلامكم بأنه *تمت الموافقة الرسمية على تفعيل واعتماد متجركم (${st.name})*!\n\n✅ أصبح متجركم الآن ظاهراً ونشطاً لجميع أهالي القرية والزبائن في التطبيق.\n\n🔑 *بيانات دخول لوحة التحكم الخاصة بك:*\n• رقم الهاتف: *${st.ownerPhone || st.contactPhone}*\n• رمز الـ PIN السري: *${st.ownerPin || "1234"}*\n• رابط المنصة المباشر:\n${originUrl}\n\nنبارك لكم الانضمام ونتمنى لكم عملاً موفقاً ومبيعات ممتازة! 🚀`;
   };
 
   const handleSendApprovalWA = (st: Store, type: "regular" | "business" = "regular") => {
@@ -258,7 +259,7 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
   // Generate Merchant Onboarding Message for WhatsApp
   const generateStoreOnboardingMessage = (st: Store) => {
-    const originUrl = typeof window !== "undefined" ? window.location.origin : "https://tawseel.ai.studio";
+    const originUrl = getAppUrl();
     return `أهلاً بك يا معلم ${st.ownerName || "صاحب المحل"} المحترم! 🏪\n\nقامت إدارة تطبيق التوصيل بإنشاء وتفعيل حساب متجرك (*${st.name}*) بنجاح.\n\n🔑 *بيانات الدخول للوحة التحكم الخاصة بك:*\n• رقم الهاتف: ${st.ownerPhone || st.contactPhone || "رقم هاتفك"}\n• رمز الـ PIN السري: *${st.ownerPin || "1234"}*\n• رابط المنصة المباشر:\n${originUrl}\n\n📦 أسطول كباتن التوصيل جاهز لاستلام وتوصيل طلبات زبائنكم فوراً.\nلأي استفسار أو إضافة منتجات، نحن بخدمتكم دائماً!`;
   };
 

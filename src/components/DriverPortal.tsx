@@ -27,6 +27,8 @@ import {
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
+import { BottomNavigation } from "./BottomNavigation";
+import { AccountSettingsModal } from "./AccountSettingsModal";
 
 interface DriverPortalProps {
   userProfile: UserProfile;
@@ -73,6 +75,26 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   const [activeTab, setActiveTab] = useState<"my_orders" | "available_orders" | "history">("my_orders");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+
+  const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
+    const updatedDriver: DriverMember = {
+      ...currentDriver,
+      name: updatedProfile.name,
+      phone: updatedProfile.phone,
+      pin: updatedProfile.pin,
+      vehicle: extraData?.driverVehicle || currentDriver.vehicle
+    };
+    if (onUpdateDriverProfile) {
+      onUpdateDriverProfile(updatedDriver);
+    }
+    localStorage.setItem("tw_user_profile", JSON.stringify(updatedProfile));
+    localStorage.setItem("tw_customer_user", JSON.stringify(updatedProfile));
+    localStorage.setItem("tw_saved_driver_name", updatedProfile.name);
+    localStorage.setItem("tw_saved_driver_phone", updatedProfile.phone);
+    localStorage.setItem("tw_saved_driver_pin", updatedProfile.pin);
+    localStorage.setItem("tw_saved_driver_user", updatedProfile.phone);
+  };
 
   const handleToggleSound = () => {
     const next = !soundAlerts;
@@ -117,7 +139,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-12" dir="rtl">
+    <div className="max-w-5xl mx-auto space-y-6 text-right font-sans pb-28" dir="rtl">
       {/* Top Banner: Captain Identity & Stats */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700/80 rounded-3xl p-5 sm:p-7 text-white shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -156,6 +178,17 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
             >
               {soundAlerts ? <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
               <span>{soundAlerts ? "تنبيه الرنين مفعّل 🔔" : "الصوت مكتوم"}</span>
+            </button>
+
+            {/* Account Settings Button */}
+            <button
+              type="button"
+              onClick={() => setShowAccountModal(true)}
+              className="py-2 px-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-black text-emerald-400 transition-all cursor-pointer flex items-center gap-1.5"
+              title="إعدادات الحساب وتعديل بيانات الكابتن"
+            >
+              <User className="w-4 h-4 text-emerald-400" />
+              <span>حسابي</span>
             </button>
 
             {onBackToCustomerView && (
@@ -600,6 +633,29 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
             </p>
           </div>
         </div>
+      )}
+      {/* Universal Bottom Navigation for Driver */}
+      <BottomNavigation
+        userRole="driver"
+        activeTab={activeTab}
+        onNavigateHome={() => setActiveTab("my_orders")}
+        onSelectRoleTab={(tab) => setActiveTab(tab as any)}
+        onOpenAccount={() => setShowAccountModal(true)}
+        activeOrdersCount={myOrders.length}
+        userName={currentDriver.name}
+      />
+
+      {/* Account Settings Modal */}
+      {showAccountModal && (
+        <AccountSettingsModal
+          isOpen={showAccountModal}
+          onClose={() => setShowAccountModal(false)}
+          userRole="driver"
+          userProfile={userProfile}
+          currentDriver={currentDriver}
+          onUpdateProfile={handleProfileUpdate}
+          onLogout={onLogout}
+        />
       )}
     </div>
   );

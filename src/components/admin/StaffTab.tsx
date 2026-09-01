@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { StaffMember, StaffPermission, StaffRole } from "../../types";
 import { openWhatsApp } from "../../utils/whatsapp";
+import { getAppUrl } from "../../utils/appUrl";
 
 interface StaffTabProps {
   staffList: StaffMember[];
@@ -238,6 +239,7 @@ ${permNames}`;
       .map(pid => `• ${ALL_PERMISSIONS.find(p => p.id === pid)?.label || pid}`)
       .join("\n");
 
+    const appUrl = getAppUrl();
     const message = `🔐 *بيانات الدخول وتخصيص المهام الإدارية*
 
 مرحباً يا *${staff.name}*، تم اعتماد وتخصيص مهامك في لوحة تحكم المنصة:
@@ -251,7 +253,7 @@ ${permNames}`;
 ${permNames}
 
 🌐 *رابط الدخول المباشر للوحة:*
-https://essaower30-pixel.github.io/Tawseel-app/
+${appUrl}
 
 يرجى تسجيل الدخول باستخدام كلمة المرور الخاصة بك للوصول إلى صفحة مهامك المخصصة.`;
 
