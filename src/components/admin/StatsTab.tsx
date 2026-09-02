@@ -100,11 +100,6 @@ export const StatsTab: React.FC<StatsTabProps> = ({
   const activeStoresCount = stores.filter(s => s.status !== "closed").length;
   const availableDriversCount = driversList.filter(d => d.status === "available").length;
 
-  // Chart data simulation (7 days)
-  const daysLabels = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "اليوم"];
-  const salesTrend = [120000, 185000, 140000, 260000, 310000, 290000, totalSales > 0 ? totalSales : 380000];
-  const maxTrend = Math.max(...salesTrend, 1);
-
   // Format WhatsApp report
   const generateWhatsappReport = () => {
     const periodLabel = filterPeriod === "today" ? "اليوم" : filterPeriod === "week" ? "الأسبوعي" : filterPeriod === "month" ? "الشهري" : "الشامل (كافة الأوقات)";
@@ -508,13 +503,21 @@ export const StatsTab: React.FC<StatsTabProps> = ({
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {topStores.map((st, i) => (
-                        <tr key={i}>
-                          <td className="p-2.5 font-bold">{st.name}</td>
-                          <td className="p-2.5">{st.count}</td>
-                          <td className="p-2.5 font-black text-orange-600">{st.sales.toLocaleString()} {currency}</td>
+                      {topStores.length > 0 ? (
+                        topStores.map((st, i) => (
+                          <tr key={i}>
+                            <td className="p-2.5 font-bold">{st.name}</td>
+                            <td className="p-2.5">{st.count}</td>
+                            <td className="p-2.5 font-black text-orange-600">{st.sales.toLocaleString()} {currency}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="p-4 text-center text-slate-400 font-bold">
+                            لا توجد حركات بيع مسجلة بعد (المبيعات مصفّرة 0)
+                          </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -86,7 +86,7 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
     };
   };
 
-  // 1. Daily Sales & Orders Trend Data
+  // 1. Daily Sales & Orders Trend Data (Strictly 100% Real Calculations)
   const dailySalesData = useMemo(() => {
     const daysCount = salesTimeframe;
     const now = new Date();
@@ -114,42 +114,27 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
 
       const dayCompletedOrders = dayOrders.filter((o) => o.status === "delivered");
       
-      // Calculate real sales
+      // Calculate 100% real sales and fees
       const realSales = dayCompletedOrders.reduce((acc, o) => acc + (o.subtotal || 0), 0);
       const realDeliveryFees = dayCompletedOrders.reduce((acc, o) => acc + (o.deliveryFee || 0), 0);
       const totalCount = dayOrders.length;
-
-      // Realistic baseline padding if app is newly deployed or has minimal seed orders
-      // Ensures the chart displays aesthetically even before high volume
-      let displayedSales = realSales;
-      let displayedCount = totalCount;
-      let displayedDelivery = realDeliveryFees;
-
-      if (realSales === 0 && dayOrders.length === 0 && orders.length < 5) {
-        // Subtle baseline curve for visualization demo
-        const baselineMultiplier = (i % 3 === 0 ? 1.4 : i % 2 === 0 ? 0.9 : 1.15);
-        const synthetic = Math.round((140000 + (7 - (i % 7)) * 35000) * baselineMultiplier);
-        displayedSales = synthetic;
-        displayedCount = Math.round(displayedSales / 45000);
-        displayedDelivery = displayedCount * 3000;
-      }
 
       result.push({
         dateKey,
         dayName,
         shortLabel,
-        sales: displayedSales,
-        ordersCount: displayedCount,
+        sales: realSales,
+        ordersCount: totalCount,
         completedSales: realSales,
-        deliveryFees: displayedDelivery,
-        avgOrderValue: displayedCount > 0 ? Math.round(displayedSales / displayedCount) : 0
+        deliveryFees: realDeliveryFees,
+        avgOrderValue: totalCount > 0 ? Math.round(realSales / totalCount) : 0
       });
     }
 
     return result;
   }, [orders, salesTimeframe]);
 
-  // Key KPI aggregates
+  // Key KPI aggregates (Strictly from real orders)
   const totalSalesInRange = useMemo(() => {
     return dailySalesData.reduce((sum, d) => sum + d.sales, 0);
   }, [dailySalesData]);
@@ -159,15 +144,16 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
   }, [dailySalesData]);
 
   const avgDailySales = useMemo(() => {
-    return Math.round(totalSalesInRange / (dailySalesData.length || 1));
+    return dailySalesData.length > 0 ? Math.round(totalSalesInRange / dailySalesData.length) : 0;
   }, [totalSalesInRange, dailySalesData]);
 
   const highestSalesDay = useMemo(() => {
-    if (dailySalesData.length === 0) return null;
-    return [...dailySalesData].sort((a, b) => b.sales - a.sales)[0];
-  }, [dailySalesData]);
+    if (dailySalesData.length === 0 || totalSalesInRange === 0) return null;
+    const sorted = [...dailySalesData].filter(d => d.sales > 0).sort((a, b) => b.sales - a.sales);
+    return sorted.length > 0 ? sorted[0] : null;
+  }, [dailySalesData, totalSalesInRange]);
 
-  // 2. Orders & Sales per Store Data
+  // 2. Orders & Sales per Store Data (Strictly 100% Real from Orders)
   const storesChartData = useMemo(() => {
     const map: Record<string, {
       storeId: string;
@@ -192,7 +178,7 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
       };
     });
 
-    // Populate from actual orders
+    // Populate strictly from actual orders
     orders.forEach((ord) => {
       if (map[ord.storeId]) {
         map[ord.storeId].ordersCount += 1;
@@ -215,19 +201,6 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
       }
     });
 
-    // If there are zero/few orders across stores, distribute illustrative proportions
-    const totalRecordedOrders = Object.values(map).reduce((sum, s) => sum + s.ordersCount, 0);
-    if (totalRecordedOrders < 5 && stores.length > 0) {
-      stores.forEach((st, idx) => {
-        const factor = Math.max(1, (stores.length - idx));
-        if (map[st.id].ordersCount === 0) {
-          map[st.id].ordersCount = factor * 3 + Math.floor(Math.random() * 4);
-          map[st.id].totalSales = map[st.id].ordersCount * (35000 + idx * 8000);
-          map[st.id].completedOrdersCount = Math.round(map[st.id].ordersCount * 0.85);
-        }
-      });
-    }
-
     // Compute average ticket
     const list = Object.values(map).map((item) => ({
       ...item,
@@ -235,7 +208,7 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
     }));
 
     // Sort by orders count descending
-    return list.sort((a, b) => b.ordersCount - a.ordersCount);
+    return list.sort((a, b) => b.ordersCount - a.ordersCount || b.totalSales - a.totalSales);
   }, [stores, orders]);
 
   // 3. Category Breakdown Data for Pie Chart
@@ -243,24 +216,26 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
     const catMap: Record<string, { name: string; count: number; sales: number; color: string }> = {};
 
     storesChartData.forEach((s) => {
-      const catId = s.category || "other";
-      const catObj = categories.find((c) => c.id === catId);
-      const catName = catObj ? catObj.label : (catId === "restaurants" ? "مطاعم ومأكولات" : catId);
-      const color = CATEGORY_COLORS[catId] || CHART_PALETTE[Object.keys(catMap).length % CHART_PALETTE.length];
+      if (s.ordersCount > 0) {
+        const catId = s.category || "other";
+        const catObj = categories.find((c) => c.id === catId);
+        const catName = catObj ? catObj.label : (catId === "restaurants" ? "مطاعم ومأكولات" : catId);
+        const color = CATEGORY_COLORS[catId] || CHART_PALETTE[Object.keys(catMap).length % CHART_PALETTE.length];
 
-      if (!catMap[catId]) {
-        catMap[catId] = {
-          name: catName,
-          count: 0,
-          sales: 0,
-          color
-        };
+        if (!catMap[catId]) {
+          catMap[catId] = {
+            name: catName,
+            count: 0,
+            sales: 0,
+            color
+          };
+        }
+        catMap[catId].count += s.ordersCount;
+        catMap[catId].sales += s.totalSales;
       }
-      catMap[catId].count += s.ordersCount;
-      catMap[catId].sales += s.totalSales;
     });
 
-    return Object.values(catMap).filter((item) => item.count > 0);
+    return Object.values(catMap);
   }, [storesChartData, categories]);
 
   // Custom Chart Tooltips (Arabic, High Contrast)
@@ -752,38 +727,50 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
               </span>
             </div>
 
-            <div className="w-full h-72" dir="ltr">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryShareData}
-                    dataKey="count"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={65}
-                    outerRadius={105}
-                    paddingAngle={4}
-                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {categoryShareData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: any, name: any) => [`${value} طلب`, name]}
-                    contentStyle={{
-                      backgroundColor: "#0f172a",
-                      color: "#fff",
-                      borderRadius: "14px",
-                      border: "1px solid #334155",
-                      direction: "rtl",
-                      textAlign: "right"
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {categoryShareData.length > 0 ? (
+              <div className="w-full h-72" dir="ltr">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryShareData}
+                      dataKey="count"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={105}
+                      paddingAngle={4}
+                      label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {categoryShareData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, name: any) => [`${value} طلب`, name]}
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        color: "#fff",
+                        borderRadius: "14px",
+                        border: "1px solid #334155",
+                        direction: "rtl",
+                        textAlign: "right"
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="w-full h-64 flex flex-col items-center justify-center text-center p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mb-3">
+                  <PieIcon className="w-6 h-6" />
+                </div>
+                <h5 className="font-black text-slate-800 text-sm">لا توجد حركات مسجلة للقطاعات بعد</h5>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                  عند تسجيل أول طلب في أي متجر أو مطعم، سيتم رسم المخطط الدائري ونسب القطاعات تلقائياً في الوقت الفعلي.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Legend and Insights */}
@@ -795,20 +782,26 @@ export const VisualChartsSection: React.FC<VisualChartsSectionProps> = ({
               </h4>
 
               <div className="space-y-2.5">
-                {categoryShareData.map((cat, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60 text-xs"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
-                      <span className="font-bold text-slate-200">{cat.name}</span>
+                {categoryShareData.length > 0 ? (
+                  categoryShareData.map((cat, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2.5 bg-slate-800/60 rounded-xl border border-slate-700/60 text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                        <span className="font-bold text-slate-200">{cat.name}</span>
+                      </div>
+                      <div className="text-left font-black text-amber-400">
+                        {cat.count} <span className="text-[10px] text-slate-400 font-normal">طلب</span>
+                      </div>
                     </div>
-                    <div className="text-left font-black text-amber-400">
-                      {cat.count} <span className="text-[10px] text-slate-400 font-normal">طلب</span>
-                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 bg-slate-800/40 rounded-xl text-center text-xs text-slate-400 font-bold">
+                    البيانات جاهزة ونظيفة للبدء الفعلي (0 حركات)
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
