@@ -37,6 +37,7 @@ import { OrdersTab } from "./admin/OrdersTab";
 import { SettingsTab } from "./admin/SettingsTab";
 import { CredentialsVaultTab } from "./admin/CredentialsVaultTab";
 import { OrdersArchiveReportsTab } from "./admin/OrdersArchiveReportsTab";
+import { PlatformFeaturesTab } from "./admin/PlatformFeaturesTab";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
 
@@ -401,6 +402,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
           >
+            {activeTab === "platform_features" && (
+              <PlatformFeaturesTab
+                appSettings={appSettings}
+                currency={appSettings.currency || "ل.س"}
+              />
+            )}
+
             {activeTab === "stats" && (
               <StatsTab
                 stores={stores}

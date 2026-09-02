@@ -179,7 +179,8 @@ export type StaffPermission =
   | "staff"
   | "logs"
   | "settings"
-  | "share";
+  | "share"
+  | "platform_features";
 
 export interface StaffMember {
   id: string;

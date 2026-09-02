@@ -25,12 +25,15 @@ import {
   UserCheck,
   Shield,
   Volume2,
-  VolumeX
+  VolumeX,
+  Sparkles
 } from "lucide-react";
 import { StaffMember, StaffPermission } from "../../types";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../../utils/soundNotifications";
 
 export type AdminTab = 
+  | "platform_features"
+  | "share"
   | "stats" 
   | "archive_reports"
   | "vault"
@@ -44,8 +47,7 @@ export type AdminTab =
   | "craftsmen" 
   | "customers" 
   | "logs" 
-  | "settings" 
-  | "share";
+  | "settings";
 
 interface AdminHeaderProps {
   activeTab: AdminTab;
@@ -81,6 +83,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   const [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
 
   const allNavTabs = [
+    { id: "platform_features", label: "ميزات واستطاعة المنصة والترويج", icon: Sparkles, emoji: "💎" },
     { id: "share", label: "نشر وتوزيع التطبيق (الإدارة)", icon: Share2, emoji: "📢" },
     { id: "stats", label: "الإحصائيات والأرباح", icon: BarChart3, emoji: "📊" },
     { id: "archive_reports", label: "أرشيف الطلبات والتقارير المالية", icon: Archive, emoji: "📦" },
