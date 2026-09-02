@@ -73,9 +73,24 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   // Sync state whenever modal opens or profile changes
   useEffect(() => {
     if (isOpen) {
-      setName(userProfile?.name || currentStore?.ownerName || currentDriver?.name || currentStaff?.name || "");
-      setPhone(userProfile?.phone || currentStore?.ownerPhone || currentStore?.contactPhone || currentDriver?.phone || currentStaff?.phone || "");
-      setPin(userProfile?.pin || currentStore?.ownerPin || currentDriver?.pin || currentStaff?.pin || "1234");
+      if (userRole === "admin" && currentStaff) {
+        setName(currentStaff.name || userProfile?.name || "");
+        setPhone(currentStaff.phone || userProfile?.phone || "");
+        setPin(currentStaff.pin || userProfile?.pin || "1234");
+      } else if (userRole === "store_owner" && currentStore) {
+        setName(currentStore.ownerName || userProfile?.name || "");
+        setPhone(currentStore.ownerPhone || currentStore.contactPhone || userProfile?.phone || "");
+        setPin(currentStore.ownerPin || userProfile?.pin || "1234");
+      } else if (userRole === "driver" && currentDriver) {
+        setName(currentDriver.name || userProfile?.name || "");
+        setPhone(currentDriver.phone || userProfile?.phone || "");
+        setPin(currentDriver.pin || userProfile?.pin || "1234");
+      } else {
+        setName(userProfile?.name || "");
+        setPhone(userProfile?.phone || "");
+        setPin(userProfile?.pin || "1234");
+      }
+
       if (currentStore) {
         setStoreName(currentStore.name || "");
         setStoreHours(currentStore.workingHours || "9:00 ص - 11:00 م");
@@ -86,7 +101,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       setSaveSuccess(false);
       setErrorMessage("");
     }
-  }, [isOpen, userProfile, currentStore, currentDriver, currentStaff]);
+  }, [isOpen, userProfile, userRole, currentStore, currentDriver, currentStaff]);
 
   if (!isOpen) return null;
 
@@ -152,7 +167,36 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   // Role Badge Display Helper
   const getRoleDetails = () => {
     switch (userRole) {
-      case "admin":
+      case "admin": {
+        if (currentStaff) {
+          if (currentStaff.role === "accountant") {
+            return {
+              title: `حساب المحاسب المالي (${currentStaff.name})`,
+              badge: "محاسب مالي 📊",
+              bg: "from-blue-950 to-slate-900",
+              accentColor: "border-blue-500/30 text-blue-600 bg-blue-50",
+              icon: <ShieldCheck className="w-6 h-6 text-blue-400" />
+            };
+          }
+          if (currentStaff.role === "orders_clerk") {
+            return {
+              title: `حساب مسؤول الطلبات (${currentStaff.name})`,
+              badge: "معالجة الطلبات 📦",
+              bg: "from-purple-950 to-slate-900",
+              accentColor: "border-purple-500/30 text-purple-600 bg-purple-50",
+              icon: <ShieldCheck className="w-6 h-6 text-purple-400" />
+            };
+          }
+          if (currentStaff.role === "support") {
+            return {
+              title: `حساب خدمة العملاء (${currentStaff.name})`,
+              badge: "دعم فني 🎧",
+              bg: "from-cyan-950 to-slate-900",
+              accentColor: "border-cyan-500/30 text-cyan-600 bg-cyan-50",
+              icon: <ShieldCheck className="w-6 h-6 text-cyan-400" />
+            };
+          }
+        }
         return {
           title: "حساب الإدارة والمدير العام",
           badge: "مدير النظام 🛡️",
@@ -160,6 +204,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           accentColor: "border-purple-500/30 text-purple-600 bg-purple-50",
           icon: <ShieldCheck className="w-6 h-6 text-purple-400" />
         };
+      }
       case "store_owner":
         return {
           title: "حساب صاحب المتجر / المطعم",

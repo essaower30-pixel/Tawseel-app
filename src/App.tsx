@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
-import { initialDrivers, initialOrders, initialCoupons } from "./data/adminInitialData";
+import { initialDrivers, initialOrders, initialCoupons, initialStaff } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
@@ -1864,16 +1864,28 @@ export default function App() {
               </button>
             )}
 
-            {/* If user is guest/unregistered only, show login button in header */}
-            {(!userProfile || userRole === "guest") && (
+            {/* User Login & Account Switch Button in Header */}
+            {!userProfile || userRole === "guest" ? (
               <button
                 type="button"
                 onClick={() => setShowAuthModal(true)}
-                className="py-2 px-3 sm:px-4 rounded-xl border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
+                className="py-2 px-3 sm:px-4 rounded-xl border border-orange-400/80 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-md shadow-orange-500/20 active:scale-95 whitespace-nowrap"
                 title="تسجيل الدخول / تبديل الحساب"
               >
-                <LogIn className="w-4 h-4 text-orange-600 shrink-0" />
+                <LogIn className="w-4 h-4 text-white shrink-0" />
                 <span>تسجيل الدخول</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAccountModal(true)}
+                className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
+                title="إعدادات الحساب والملف الشخصي وتبديل الحساب"
+              >
+                <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <span className="max-w-[85px] sm:max-w-[130px] truncate">{userProfile.name}</span>
               </button>
             )}
 
@@ -2804,10 +2816,10 @@ export default function App() {
         currentRole={userRole}
       />
 
-      {/* Universal Bottom Navigation for Customer View */}
-      {userRole === "customer" && !isAdminMode && !isDriverMode && (
+      {/* Universal Bottom Navigation for Customer & Guest View */}
+      {(userRole === "customer" || userRole === "guest") && !isAdminMode && !isDriverMode && (
         <BottomNavigation
-          userRole="customer"
+          userRole={userRole === "guest" ? "customer" : "customer"}
           activeTab={
             isViewingCart
               ? "cart"
@@ -2824,7 +2836,11 @@ export default function App() {
             setShowCustomerArchiveModal(false);
           }}
           onOpenOrdersArchive={() => {
-            setShowCustomerArchiveModal(true);
+            if (userRole === "guest" || !userProfile) {
+              setShowAuthModal(true);
+            } else {
+              setShowCustomerArchiveModal(true);
+            }
           }}
           onOpenCart={() => {
             setSelectedStore(null);
@@ -2839,7 +2855,11 @@ export default function App() {
               setActiveOrder(null);
               setShowCustomerArchiveModal(false);
             } else if (tab === "orders" || tab === "archive") {
-              setShowCustomerArchiveModal(true);
+              if (userRole === "guest" || !userProfile) {
+                setShowAuthModal(true);
+              } else {
+                setShowCustomerArchiveModal(true);
+              }
             } else if (tab === "cart") {
               setSelectedStore(null);
               setIsViewingCart(true);
@@ -2847,7 +2867,13 @@ export default function App() {
               setShowCustomerArchiveModal(false);
             }
           }}
-          onOpenAccount={() => setShowAccountModal(true)}
+          onOpenAccount={() => {
+            if (userRole === "guest" || !userProfile) {
+              setShowAuthModal(true);
+            } else {
+              setShowAccountModal(true);
+            }
+          }}
           activeOrdersCount={
             allOrders.filter(
               (o) =>
@@ -2869,6 +2895,24 @@ export default function App() {
           onClose={() => setShowAccountModal(false)}
           userRole={userRole}
           userProfile={userProfile}
+          currentStaff={(() => {
+            if (userRole !== "admin") return undefined;
+            const activeStaffId = localStorage.getItem("tw_active_staff_id") || userProfile?.staffId;
+            let list = initialStaff;
+            try {
+              const raw = localStorage.getItem("tw_staff_members");
+              if (raw) list = JSON.parse(raw);
+            } catch {}
+            if (activeStaffId) {
+              const found = list.find((s: any) => s.id === activeStaffId);
+              if (found) return found;
+            }
+            if (userProfile?.name) {
+              const foundByName = list.find((s: any) => s.name === userProfile.name || s.pin === userProfile.pin);
+              if (foundByName) return foundByName;
+            }
+            return list.find((s: any) => s.role === "manager") || list[0];
+          })()}
           currentStore={stores.find(
             (s) => s.id === currentStoreId || (userProfile?.phone && s.ownerPhone === userProfile.phone)
           )}
