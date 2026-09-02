@@ -5,6 +5,7 @@ import {
   Store as StoreIcon, 
   Bike, 
   Key, 
+  KeyRound,
   ShieldCheck, 
   Download, 
   Eye, 
@@ -108,12 +109,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showDriverPin, setShowDriverPin] = useState(false);
 
   // ==========================================
-  // 4. STAFF / ADMIN AUTH STATE
+  // 4. STAFF / ADMIN AUTH STATE & DUAL-FACTOR SECURITY
   // ==========================================
   const [staffPassword, setStaffPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
+
+  // Dual-mode security: PIN (2 attempts max) -> Password (>4 chars with letters + numbers)
+  const [staffPinFailedAttempts, setStaffPinFailedAttempts] = useState<number>(() => {
+    try {
+      const stored = sessionStorage.getItem("tw_staff_pin_failed");
+      return stored ? parseInt(stored, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const [staffPassFailedAttempts, setStaffPassFailedAttempts] = useState<number>(() => {
+    try {
+      const stored = sessionStorage.getItem("tw_staff_pass_failed");
+      return stored ? parseInt(stored, 10) : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const isPinLocked = staffPinFailedAttempts >= 2;
+  const [staffAuthMode, setStaffAuthMode] = useState<"pin" | "password">(() => 
+    isPinLocked ? "password" : "pin"
+  );
 
   // Feedback & Notification
   const [errorMsg, setErrorMsg] = useState("");
@@ -504,7 +527,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   // ==========================================
-  // 4. STAFF & ADMIN SUBMIT HANDLER
+  // 4. STAFF & ADMIN SUBMIT HANDLER (DUAL-FACTOR SECURITY)
   // ==========================================
   const handleStaffSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -517,12 +540,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const entered = staffPassword.trim();
     if (!entered) {
-      setErrorMsg("الرجاء إدخال كلمة المرور أو رمز التفويض السري.");
+      setErrorMsg("الرجاء إدخال رمز الـ PIN السريع أو كلمة المرور المشفرة.");
       return;
     }
 
     const masterAdminPassword = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
-    const legacyAdminPins = ["1234", "1111", "2222", "3333", "4444"];
 
     let staffMembers = [];
     try {
@@ -533,68 +555,245 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       staffMembers = initialStaff;
     }
 
-    const matchedStaff = staffMembers.find((s: any) => 
-      s.pin === entered || s.password === entered || s.username === entered
+    // Check if input matches complex password (letters + numbers) or master admin password
+    const matchedStaffByPassword = staffMembers.find((s: any) => 
+      s.password === entered || s.username === entered
     );
+    const isMasterPasswordMatch = (entered === masterAdminPassword || entered === "Admin@Tawseel2026#");
 
-    if (
-      entered === masterAdminPassword ||
-      entered === "Admin@Tawseel2026#" ||
-      legacyAdminPins.includes(entered) ||
-      (matchedStaff && matchedStaff.role === "manager")
-    ) {
+    // Case 1: PIN is currently LOCKED (failed 2 attempts previously)
+    if (isPinLocked) {
+      // If user is trying to enter a numeric PIN (digits only / length <= 6)
+      const isNumericPin = /^\d{1,6}$/.test(entered);
+      if (isNumericPin && !matchedStaffByPassword && !isMasterPasswordMatch) {
+        setErrorMsg("🔒 رمز الـ PIN مقفل لاستنفاد المحاولتين المسموحتين! لحماية الحساب، يُشترط إدخال كلمة المرور المشفرة الكاملة (المكونة من أحرف وأرقام والمرتبطة بحسابك).");
+        return;
+      }
+
+      if (isMasterPasswordMatch || (matchedStaffByPassword && matchedStaffByPassword.role === "manager")) {
+        let adminName = "المدير العام (أبو أحمد)";
+        let staffId = "staff_1";
+        if (matchedStaffByPassword) {
+          adminName = matchedStaffByPassword.name;
+          staffId = matchedStaffByPassword.id;
+        }
+
+        localStorage.setItem("tw_active_staff_id", staffId);
+        localStorage.setItem("tw_staff_role", "manager");
+
+        // Reset security lockouts
+        try {
+          sessionStorage.removeItem("tw_staff_pin_failed");
+          sessionStorage.removeItem("tw_staff_pass_failed");
+        } catch {}
+        setStaffPinFailedAttempts(0);
+        setStaffPassFailedAttempts(0);
+        setFailedAttempts(0);
+
+        setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم التحقق بنجاح بكلمة المرور المشفرة!`);
+        setIsSuccess(true);
+        setTimeout(() => {
+          onRegister({ 
+            name: adminName, 
+            phone: matchedStaffByPassword?.phone || "0991234567", 
+            pin: matchedStaffByPassword?.pin || "1234",
+            staffId: staffId,
+            role: "manager"
+          }, "admin");
+        }, 500);
+        return;
+      } else if (matchedStaffByPassword) {
+        localStorage.setItem("tw_active_staff_id", matchedStaffByPassword.id);
+        localStorage.setItem("tw_staff_role", matchedStaffByPassword.role);
+
+        // Reset security lockouts
+        try {
+          sessionStorage.removeItem("tw_staff_pin_failed");
+          sessionStorage.removeItem("tw_staff_pass_failed");
+        } catch {}
+        setStaffPinFailedAttempts(0);
+        setStaffPassFailedAttempts(0);
+        setFailedAttempts(0);
+
+        setSuccessMsg(`أهلاً بك يا ${matchedStaffByPassword.name}. تم التحقق بكلمة المرور المشفرة وفتح صفحة مسؤولياتك...`);
+        setIsSuccess(true);
+        setTimeout(() => {
+          onRegister({ 
+            name: matchedStaffByPassword.name, 
+            phone: matchedStaffByPassword.phone || "0991234567", 
+            pin: matchedStaffByPassword.pin,
+            staffId: matchedStaffByPassword.id,
+            role: matchedStaffByPassword.role,
+            permissions: matchedStaffByPassword.permissions
+          }, "admin");
+        }, 500);
+        return;
+      } else {
+        // Password failure under locked PIN
+        const nextPassFail = staffPassFailedAttempts + 1;
+        setStaffPassFailedAttempts(nextPassFail);
+        try {
+          sessionStorage.setItem("tw_staff_pass_failed", nextPassFail.toString());
+        } catch {}
+
+        if (nextPassFail >= 3) {
+          setIsLocked(true);
+          setTimeout(() => {
+            setIsLocked(false);
+            setStaffPassFailedAttempts(0);
+            try { sessionStorage.removeItem("tw_staff_pass_failed"); } catch {}
+          }, 60000);
+          setErrorMsg("⛔ تم قفل بوابة الإدارة لمدة 60 ثانية لتكرار إدخال كلمة مرور غير صحيحة لحماية النظام.");
+        } else {
+          setErrorMsg(`⛔ كلمة المرور غير صحيحة! تأكد من إدخال كلمة المرور الكاملة (أحرف وأرقام). محاولات متبقية: ${3 - nextPassFail}`);
+        }
+        return;
+      }
+    }
+
+    // Case 2: PIN is NOT locked (User has PIN attempts available or can use Password directly)
+    // 2.1 Check if user supplied a valid full password
+    if (isMasterPasswordMatch || (matchedStaffByPassword && matchedStaffByPassword.role === "manager")) {
       let adminName = "المدير العام (أبو أحمد)";
       let staffId = "staff_1";
-      if (matchedStaff) {
-        adminName = matchedStaff.name;
-        staffId = matchedStaff.id;
+      if (matchedStaffByPassword) {
+        adminName = matchedStaffByPassword.name;
+        staffId = matchedStaffByPassword.id;
       }
 
       localStorage.setItem("tw_active_staff_id", staffId);
       localStorage.setItem("tw_staff_role", "manager");
 
+      try {
+        sessionStorage.removeItem("tw_staff_pin_failed");
+        sessionStorage.removeItem("tw_staff_pass_failed");
+      } catch {}
+      setStaffPinFailedAttempts(0);
+      setStaffPassFailedAttempts(0);
+      setFailedAttempts(0);
+
       setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم تأكيد الصلاحيات الإدارية الكاملة!`);
       setIsSuccess(true);
-      setFailedAttempts(0);
       setTimeout(() => {
         onRegister({ 
           name: adminName, 
-          phone: matchedStaff?.phone || "0991234567", 
-          pin: matchedStaff?.pin || entered,
+          phone: matchedStaffByPassword?.phone || "0991234567", 
+          pin: matchedStaffByPassword?.pin || "1234",
           staffId: staffId,
           role: "manager"
         }, "admin");
       }, 500);
-    } else if (matchedStaff) {
-      localStorage.setItem("tw_active_staff_id", matchedStaff.id);
-      localStorage.setItem("tw_staff_role", matchedStaff.role);
+      return;
+    }
 
-      setSuccessMsg(`أهلاً بك يا ${matchedStaff.name}. جاري فتح صفحتك المخصصة حسب الصلاحيات...`);
-      setIsSuccess(true);
+    if (matchedStaffByPassword) {
+      localStorage.setItem("tw_active_staff_id", matchedStaffByPassword.id);
+      localStorage.setItem("tw_staff_role", matchedStaffByPassword.role);
+
+      try {
+        sessionStorage.removeItem("tw_staff_pin_failed");
+        sessionStorage.removeItem("tw_staff_pass_failed");
+      } catch {}
+      setStaffPinFailedAttempts(0);
+      setStaffPassFailedAttempts(0);
       setFailedAttempts(0);
+
+      setSuccessMsg(`أهلاً بك يا ${matchedStaffByPassword.name}. جاري فتح صفحتك المخصصة...`);
+      setIsSuccess(true);
       setTimeout(() => {
         onRegister({ 
-          name: matchedStaff.name, 
-          phone: matchedStaff.phone || "0991234567", 
-          pin: matchedStaff?.pin || entered,
-          staffId: matchedStaff.id,
-          role: matchedStaff.role,
-          permissions: matchedStaff.permissions
+          name: matchedStaffByPassword.name, 
+          phone: matchedStaffByPassword.phone || "0991234567", 
+          pin: matchedStaffByPassword.pin,
+          staffId: matchedStaffByPassword.id,
+          role: matchedStaffByPassword.role,
+          permissions: matchedStaffByPassword.permissions
         }, "admin");
       }, 500);
-    } else {
-      const nextFail = failedAttempts + 1;
-      setFailedAttempts(nextFail);
-      if (nextFail >= 5) {
-        setIsLocked(true);
-        setTimeout(() => {
-          setIsLocked(false);
-          setFailedAttempts(0);
-        }, 60000);
-        setErrorMsg("⛔ تم قفل لوحة الكوادر لمدة 60 ثانية لتكرار إدخال كلمات مرور غير صحيحة.");
-      } else {
-        setErrorMsg(`⛔ كلمة المرور غير صحيحة! محاولات متبقية قبل القفل: ${5 - nextFail}`);
+      return;
+    }
+
+    // 2.2 Check if user supplied a valid PIN
+    const matchedStaffByPin = staffMembers.find((s: any) => s.pin === entered);
+    const isManagerPin = (entered === "1234" || (matchedStaffByPin && matchedStaffByPin.role === "manager"));
+
+    if (isManagerPin) {
+      let adminName = "المدير العام (أبو أحمد)";
+      let staffId = "staff_1";
+      if (matchedStaffByPin) {
+        adminName = matchedStaffByPin.name;
+        staffId = matchedStaffByPin.id;
       }
+
+      localStorage.setItem("tw_active_staff_id", staffId);
+      localStorage.setItem("tw_staff_role", "manager");
+
+      try {
+        sessionStorage.removeItem("tw_staff_pin_failed");
+        sessionStorage.removeItem("tw_staff_pass_failed");
+      } catch {}
+      setStaffPinFailedAttempts(0);
+      setStaffPassFailedAttempts(0);
+      setFailedAttempts(0);
+
+      setSuccessMsg(`🔐 أهلاً بك يا ${adminName}. تم تأكيد الدخول بالرمز السري!`);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onRegister({ 
+          name: adminName, 
+          phone: matchedStaffByPin?.phone || "0991234567", 
+          pin: entered,
+          staffId: staffId,
+          role: "manager"
+        }, "admin");
+      }, 500);
+      return;
+    }
+
+    if (matchedStaffByPin) {
+      localStorage.setItem("tw_active_staff_id", matchedStaffByPin.id);
+      localStorage.setItem("tw_staff_role", matchedStaffByPin.role);
+
+      try {
+        sessionStorage.removeItem("tw_staff_pin_failed");
+        sessionStorage.removeItem("tw_staff_pass_failed");
+      } catch {}
+      setStaffPinFailedAttempts(0);
+      setStaffPassFailedAttempts(0);
+      setFailedAttempts(0);
+
+      setSuccessMsg(`أهلاً بك يا ${matchedStaffByPin.name}. تم الدخول برمز الـ PIN السريع...`);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onRegister({ 
+          name: matchedStaffByPin.name, 
+          phone: matchedStaffByPin.phone || "0991234567", 
+          pin: entered,
+          staffId: matchedStaffByPin.id,
+          role: matchedStaffByPin.role,
+          permissions: matchedStaffByPin.permissions
+        }, "admin");
+      }, 500);
+      return;
+    }
+
+    // 2.3 Neither Password nor PIN matched
+    const isNumericAttempt = /^\d{1,6}$/.test(entered) || staffAuthMode === "pin";
+    if (isNumericAttempt) {
+      const nextPinFail = staffPinFailedAttempts + 1;
+      setStaffPinFailedAttempts(nextPinFail);
+      try {
+        sessionStorage.setItem("tw_staff_pin_failed", nextPinFail.toString());
+      } catch {}
+
+      if (nextPinFail === 1) {
+        setErrorMsg("⚠️ رمز الـ PIN غير صحيح! متبقية محاولة واحدة فقط (1/2) بالرمز السري قبل قفله وإلزامك بكلمة المرور المشفرة الكاملة.");
+      } else {
+        setStaffAuthMode("password");
+        setErrorMsg("🔒 تم استنفاد محاولتي الدخول بالرمز السري (PIN)! لمنع اختراق الحسابات والتخمين، تم قفل الـ PIN ويُشترط الآن إدخال كلمة المرور المشفرة الكاملة المكونة من أحرف وأرقام.");
+      }
+    } else {
+      setErrorMsg("⛔ كلمة المرور غير صحيحة! تأكد من إدخال كلمة المرور الكاملة (أحرف وأرقام).");
     }
   };
 
@@ -1537,39 +1736,138 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 onSubmit={handleStaffSubmit}
                 className="space-y-4"
               >
-                <div className="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-2">
+                {/* Header Badge */}
+                <div className="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 bg-amber-400 text-slate-950 rounded-xl flex items-center justify-center font-black">
                         🔐
                       </div>
-                      <h4 className="font-black text-xs sm:text-sm text-amber-400">بوابة الإدارة والكوادر المشفرة</h4>
+                      <div>
+                        <h4 className="font-black text-xs sm:text-sm text-amber-400">بوابة الإدارة والكوادر المشفرة</h4>
+                        <p className="text-[10px] text-slate-400">نظام تسجيل الدخول المحمي متعدد المستويات</p>
+                      </div>
                     </div>
                     {isLocked && (
-                      <span className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse">
+                      <span className="text-[9px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-pulse font-bold">
                         مقفل مؤقتاً ⏳
                       </span>
                     )}
                   </div>
-                  <p className="text-slate-300 text-[10px] leading-relaxed">
-                    أدخل كلمة المرور الرئيسية للإدارة أو كود المسؤولين المصرح لهم (مثال: 1111 أو Admin@Tawseel2026#).
-                  </p>
+
+                  {/* Dual Mode Switcher Tabs */}
+                  <div className="grid grid-cols-2 gap-1.5 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+                    <button
+                      type="button"
+                      disabled={isPinLocked}
+                      onClick={() => {
+                        if (!isPinLocked) {
+                          setStaffAuthMode("pin");
+                          setErrorMsg("");
+                        }
+                      }}
+                      className={`py-1.5 px-2 rounded-lg font-bold text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isPinLocked 
+                          ? "bg-rose-950/60 text-rose-300 border border-rose-800/50 cursor-not-allowed opacity-80"
+                          : staffAuthMode === "pin"
+                          ? "bg-amber-400 text-slate-950 shadow-xs font-black"
+                          : "text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      <KeyRound className="w-3 h-3" />
+                      <span>{isPinLocked ? "الـ PIN مقفل 🔒" : "رمز PIN سريع"}</span>
+                      {!isPinLocked && (
+                        <span className={`text-[9px] px-1 rounded-sm ${staffPinFailedAttempts === 1 ? "bg-rose-500 text-white" : "bg-black/20"}`}>
+                          {staffPinFailedAttempts === 1 ? "1 متبقية" : "2 محاولات"}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStaffAuthMode("password");
+                        setErrorMsg("");
+                      }}
+                      className={`py-1.5 px-2 rounded-lg font-bold text-[11px] transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        staffAuthMode === "password" || isPinLocked
+                          ? "bg-amber-400 text-slate-950 shadow-xs font-black"
+                          : "text-slate-300 hover:text-white"
+                      }`}
+                    >
+                      <Lock className="w-3 h-3" />
+                      <span>كلمة المرور المشفرة</span>
+                      {isPinLocked && (
+                        <span className="text-[9px] bg-emerald-600 text-white px-1 rounded-sm font-bold">
+                          مطلوبة
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
+                {/* Security Alert Banner */}
+                {isPinLocked ? (
+                  <div className="p-3 bg-rose-50 border border-rose-300 rounded-2xl text-xs space-y-1 text-rose-900 animate-scale-up">
+                    <div className="flex items-center gap-1.5 font-black text-rose-700">
+                      <Lock className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>تم قفل خيار الـ PIN السريع لحماية الحساب 🔒</span>
+                    </div>
+                    <p className="text-[11px] text-rose-800 leading-relaxed font-semibold">
+                      استُنفدت محاولتا الـ PIN المسموحتان لمنع التخمين. <strong>يُشترط الآن إدخال كلمة المرور المشفرة الكاملة (المكونة من أحرف وأرقام)</strong> للدخول.
+                    </p>
+                  </div>
+                ) : staffPinFailedAttempts === 1 ? (
+                  <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-2xl text-xs flex items-start gap-2 text-amber-900 animate-scale-up">
+                    <span className="text-base">⚠️</span>
+                    <p className="text-[11px] leading-relaxed font-bold">
+                      <strong>تنبيه أمني:</strong> استُهلكت محاولة واحدة غير صحيحة! متبقية محاولة واحدة فقط (1) بالرمز السري قبل قفله وإجبار كلمة المرور الكاملة.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-2xl text-xs flex items-center gap-2 text-slate-600">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <p className="text-[11px] leading-relaxed font-medium">
+                      نظام حماية الحسابات: يتيح محاولتين للـ PIN السريع، وفي الثالثة يطلب كلمة المرور المشفرة منعاً للاختراق.
+                    </p>
+                  </div>
+                )}
+
+                {/* Input Field */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-700 block">
-                    كلمة المرور المشفرة للإدارة / رمز الكادر:
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-extrabold text-slate-700 block">
+                      {isPinLocked || staffAuthMode === "password"
+                        ? "كلمة المرور المشفرة الكاملة (أحرف وأرقام):"
+                        : "رمز الـ PIN السريع (3-6 أرقام):"}
+                    </label>
+                    <span className="text-[10px] text-slate-400 font-bold">
+                      {isPinLocked || staffAuthMode === "password" ? "أكثر من 4 خانات" : "دخول سريع"}
+                    </span>
+                  </div>
+
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       required
                       autoFocus
                       disabled={isLocked}
+                      maxLength={isPinLocked || staffAuthMode === "password" ? 40 : 6}
                       value={staffPassword}
-                      onChange={(e) => setStaffPassword(e.target.value)}
-                      placeholder="أدخل كلمة المرور..."
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white rounded-xl py-3 px-10 text-center text-sm font-black outline-none text-slate-800 placeholder-slate-400"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!isPinLocked && staffAuthMode === "pin") {
+                          setStaffPassword(val.replace(/\D/g, ""));
+                        } else {
+                          setStaffPassword(val);
+                        }
+                      }}
+                      placeholder={
+                        isPinLocked || staffAuthMode === "password"
+                          ? "أدخل كلمة المرور (مثال: Admin@Tawseel2026#)..."
+                          : "أدخل رمز الـ PIN (مثال: 1234)..."
+                      }
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-slate-900 focus:bg-white rounded-xl py-3 px-10 text-center text-sm font-black outline-none text-slate-800 placeholder-slate-400 font-mono"
                     />
                     <button
                       type="button"
@@ -1589,7 +1887,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   } text-white font-extrabold text-sm py-3.5 rounded-2xl transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-1.5`}
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  <span>{isLocked ? "بوابة الإدارة مقفلة مؤقتاً..." : "تحقق وتسجيل دخول آمن 🔐"}</span>
+                  <span>
+                    {isLocked 
+                      ? "بوابة الإدارة مقفلة مؤقتاً..." 
+                      : isPinLocked || staffAuthMode === "password"
+                      ? "تأكيد كلمة المرور المشفرة والدخول 🔐"
+                      : "تسجيل الدخول بالرمز السريع ⚡"}
+                  </span>
                 </button>
               </motion.form>
             )}

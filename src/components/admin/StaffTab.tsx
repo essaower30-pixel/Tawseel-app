@@ -100,13 +100,24 @@ export const StaffTab: React.FC<StaffTabProps> = ({
     setVisiblePasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const generateStrongPassword = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyz";
+    const nums = "23456789";
+    const special = "#@!";
+    const randomChar = chars.charAt(Math.floor(Math.random() * chars.length));
+    const randomChar2 = chars.charAt(Math.floor(Math.random() * chars.length)).toUpperCase();
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const randomSpec = special.charAt(Math.floor(Math.random() * special.length));
+    return `Pass_${randomChar}${randomChar2}${randomNum}${randomSpec}`;
+  };
+
   const handleOpenAddModal = () => {
     setEditingStaffId(null);
     setName("");
     setRole("orders_clerk");
     setPhone("");
     setUsername("");
-    setPassword("");
+    setPassword(generateStrongPassword());
     setPin(Math.floor(1000 + Math.random() * 9000).toString());
     setNotes("");
     setSelectedPermissions([...DEFAULT_ROLE_PERMISSIONS.orders_clerk]);
@@ -120,7 +131,7 @@ export const StaffTab: React.FC<StaffTabProps> = ({
     setRole(staff.role);
     setPhone(staff.phone || "");
     setUsername(staff.username || "");
-    setPassword(staff.password || staff.pin || "");
+    setPassword(staff.password || generateStrongPassword());
     setPin(staff.pin || "1234");
     setNotes(staff.notes || "");
     setSelectedPermissions(staff.permissions && staff.permissions.length > 0 
@@ -161,15 +172,27 @@ export const StaffTab: React.FC<StaffTabProps> = ({
 
     const trimmedName = name.trim();
     const trimmedPin = pin.trim();
-    const trimmedPass = password.trim() || trimmedPin;
+    const trimmedPass = password.trim();
 
     if (!trimmedName) {
       setFormError("الرجاء إدخال اسم الموظف.");
       return;
     }
 
-    if (!trimmedPin || trimmedPin.length < 3) {
-      setFormError("الرجاء إدخال رمز PIN للدخول مكون من 3-6 خانات على الأقل.");
+    if (!trimmedPin || trimmedPin.length < 3 || !/^\d+$/.test(trimmedPin)) {
+      setFormError("الرجاء إدخال رمز PIN للدخول السريع مكون من 3-6 أرقام فقط.");
+      return;
+    }
+
+    if (!trimmedPass || trimmedPass.length <= 4) {
+      setFormError("يجب أن تكون كلمة المرور (الباسوورد) أكثر من 4 خانات لحماية الحساب من الاختراق.");
+      return;
+    }
+
+    const hasLetters = /[a-zA-Z\u0600-\u06FF]/.test(trimmedPass);
+    const hasNumbers = /\d/.test(trimmedPass);
+    if (!hasLetters || !hasNumbers) {
+      setFormError("يجب أن تحتوي كلمة المرور على أحرف وأرقام معاً (مثال: Pass_2026 أو user_ahmed_55).");
       return;
     }
 
@@ -623,15 +646,25 @@ ${appUrl}
                   </div>
 
                   <div>
-                    <label className="block font-bold text-[11px] text-slate-600 mb-1">كلمة المرور (الباسوورد): *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-[11px] text-slate-600">كلمة المرور المشفرة (أكثر من 4 خانات): *</label>
+                      <button
+                        type="button"
+                        onClick={() => setPassword(generateStrongPassword())}
+                        className="text-[10px] text-orange-600 font-bold hover:underline flex items-center gap-0.5"
+                        title="توليد كلمة مرور قوية"
+                      >
+                        🎲 توليد
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         type={showFormPassword ? "text" : "password"}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="أدخل كلمة المرور..."
-                        className="w-full py-2 pl-8 pr-3 bg-white border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                        placeholder="أحرف وأرقام (مثال: Pass_2026)"
+                        className="w-full py-2 pl-8 pr-3 bg-white border border-slate-200 rounded-xl font-bold font-mono text-xs focus:outline-hidden focus:border-orange-500"
                       />
                       <button
                         type="button"
@@ -644,16 +677,33 @@ ${appUrl}
                   </div>
 
                   <div>
-                    <label className="block font-bold text-[11px] text-slate-600 mb-1">رمز الـ PIN السريع (3-6 أرقام): *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-[11px] text-slate-600">رمز PIN السريع (3-6 أرقام): *</label>
+                      <button
+                        type="button"
+                        onClick={() => setPin(Math.floor(1000 + Math.random() * 9000).toString())}
+                        className="text-[10px] text-slate-500 hover:text-orange-600 font-bold"
+                      >
+                        🎲 رمز جديد
+                      </button>
+                    </div>
                     <input
                       type="text"
                       required
                       maxLength={6}
                       value={pin}
-                      onChange={(e) => setPin(e.target.value)}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                       placeholder="مثال: 5555"
                       className="w-full py-2 px-3 bg-white border border-slate-200 rounded-xl font-mono text-center tracking-widest font-black focus:outline-hidden focus:border-orange-500"
                     />
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-amber-50/80 border border-amber-200/80 rounded-xl text-[11px] text-amber-900 flex items-start gap-2">
+                  <span className="text-sm shrink-0">🛡️</span>
+                  <div>
+                    <span className="font-black">نظام الحماية ضد الاختراق والتخمين:</span>{" "}
+                    يُتاح للموظف تسجيل الدخول بالرمز السري <strong>(PIN)</strong> لمرتين فقط، وفي المحاولة الثالثة يُقفل الـ PIN ويُشترط إدخال <strong>كلمة المرور المشفرة الكاملة (المكونة من أحرف وأرقام)</strong> لحماية حسابات الكوادر من أي وصول غير مصرح به.
                   </div>
                 </div>
               </div>

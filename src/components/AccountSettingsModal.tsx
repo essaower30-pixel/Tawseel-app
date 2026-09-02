@@ -56,6 +56,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [phone, setPhone] = useState(userProfile?.phone || "");
   const [pin, setPin] = useState(userProfile?.pin || "");
   const [showPin, setShowPin] = useState(false);
+  const [staffPassword, setStaffPassword] = useState("");
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
 
   // Specific extra role states
   const [storeName, setStoreName] = useState(currentStore?.name || "");
@@ -77,6 +79,13 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         setName(currentStaff.name || userProfile?.name || "");
         setPhone(currentStaff.phone || userProfile?.phone || "");
         setPin(currentStaff.pin || userProfile?.pin || "1234");
+        setStaffPassword(currentStaff.password || "Admin@Tawseel2026#");
+      } else if (userRole === "admin") {
+        setName(userProfile?.name || "المدير العام");
+        setPhone(userProfile?.phone || "0991234567");
+        setPin(userProfile?.pin || "1234");
+        const masterPass = localStorage.getItem("tw_admin_secure_password") || "Admin@Tawseel2026#";
+        setStaffPassword(masterPass);
       } else if (userRole === "store_owner" && currentStore) {
         setName(currentStore.ownerName || userProfile?.name || "");
         setPhone(currentStore.ownerPhone || currentStore.contactPhone || userProfile?.phone || "");
@@ -111,6 +120,16 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     setShowPin(true);
   };
 
+  const handleGenerateStaffPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
+    let pass = "";
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setStaffPassword(pass);
+    setShowStaffPassword(true);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -124,6 +143,21 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     if (!pin.trim()) {
       setErrorMessage("الرجاء إدخال رمز المرور أو الـ PIN.");
       return;
+    }
+
+    if (userRole === "admin") {
+      if (!/^\d{3,6}$/.test(pin.trim())) {
+        setErrorMessage("يجب أن يتكون رمز الـ PIN للكادر من 3 إلى 6 أرقام فقط.");
+        return;
+      }
+      if (!staffPassword.trim() || staffPassword.trim().length <= 4) {
+        setErrorMessage("يجب أن تتكون كلمة المرور المشفرة من أكثر من 4 خانات.");
+        return;
+      }
+      if (!/[a-zA-Z]/.test(staffPassword.trim()) || !/[0-9]/.test(staffPassword.trim())) {
+        setErrorMessage("يجب أن تحتوي كلمة المرور على أحرف وأرقام معاً لضمان حماية الحساب من الاختراق.");
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -147,6 +181,32 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
       if (userRole === "customer") {
         localStorage.setItem("tw_saved_customer_address", customerAddress.trim());
+      }
+
+      // Sync staff members in localStorage if staff/admin
+      if (userRole === "admin") {
+        try {
+          const raw = localStorage.getItem("tw_staff_members");
+          let staffList = raw ? JSON.parse(raw) : [];
+          if (currentStaff) {
+            staffList = staffList.map((s: any) => 
+              s.id === currentStaff.id 
+                ? { ...s, name: name.trim(), phone: phone.trim(), pin: pin.trim(), password: staffPassword.trim() }
+                : s
+            );
+          } else {
+            // Update admin staff_1
+            staffList = staffList.map((s: any) => 
+              s.id === "staff_1" || s.role === "manager"
+                ? { ...s, name: name.trim(), phone: phone.trim(), pin: pin.trim(), password: staffPassword.trim() }
+                : s
+            );
+            localStorage.setItem("tw_admin_secure_password", staffPassword.trim());
+          }
+          localStorage.setItem("tw_staff_members", JSON.stringify(staffList));
+        } catch (e) {
+          console.error("Error updating staff member state:", e);
+        }
       }
 
       await onUpdateProfile(updatedProfile, extraData);
@@ -340,12 +400,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             </p>
           </div>
 
-          {/* PIN / Password with Show/Hide & Generator */}
+          {/* PIN / Quick Access Code */}
           <div className="space-y-1.5 p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-orange-500" />
-                <span>الرمز السري / كلمة المرور (PIN):</span>
+                <span>{userRole === "admin" ? "رمز الـ PIN السريع (متاح محاولتان):" : "الرمز السري (PIN):"}</span>
                 <span className="text-red-500">*</span>
               </label>
               <button
@@ -354,7 +414,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 className="text-[10px] text-orange-600 hover:text-orange-700 font-bold bg-orange-100/70 hover:bg-orange-100 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-all"
               >
                 <Sparkles className="w-3 h-3 text-orange-500" />
-                <span>توليد رمز جديد</span>
+                <span>توليد PIN</span>
               </button>
             </div>
 
@@ -362,8 +422,13 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               <input
                 type={showPin ? "text" : "password"}
                 required
+                maxLength={userRole === "admin" ? 6 : 8}
                 value={pin}
-                onChange={(e) => setPin(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (userRole === "admin") setPin(val.replace(/\D/g, ""));
+                  else setPin(val);
+                }}
                 placeholder="رمز المرور (PIN)"
                 className="w-full p-3 pl-10 bg-white border border-slate-200 rounded-xl text-xs sm:text-sm font-mono font-black text-left tracking-wider text-slate-900 focus:outline-hidden focus:border-orange-500"
               />
@@ -376,9 +441,53 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               </button>
             </div>
             <p className="text-[10px] text-slate-500 font-semibold">
-              🔒 احفظ هذا الرمز جيداً حيث ستحتاجه في المرات القادمة لتأكيد الدخول إلى حسابك.
+              {userRole === "admin"
+                ? "⚡ للدخول السريع اليومي. يُسمح بمحاولتين فقط للدخول عبر هذا الرمز، وفي الثالثة يُلزم النظام كلمة المرور المشفرة."
+                : "🔒 احفظ هذا الرمز جيداً حيث ستحتاجه في المرات القادمة لتأكيد الدخول إلى حسابك."}
             </p>
           </div>
+
+          {/* Admin / Staff Encrypted Strong Password Field */}
+          {userRole === "admin" && (
+            <div className="space-y-1.5 p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                  <span>كلمة المرور المشفرة الكاملة (أحرف + أرقام):</span>
+                  <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateStaffPassword}
+                  className="text-[10px] text-amber-800 hover:text-amber-900 font-bold bg-amber-200/70 hover:bg-amber-200 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-all"
+                >
+                  <Sparkles className="w-3 h-3 text-amber-700" />
+                  <span>توليد باسوورد قوي</span>
+                </button>
+              </div>
+
+              <div className="relative">
+                <input
+                  type={showStaffPassword ? "text" : "password"}
+                  required
+                  value={staffPassword}
+                  onChange={(e) => setStaffPassword(e.target.value)}
+                  placeholder="كلمة المرور (أكثر من 4 خانات مع أحرف وأرقام)"
+                  className="w-full p-3 pl-10 bg-white border border-amber-300 rounded-xl text-xs sm:text-sm font-mono font-black text-left tracking-wider text-slate-900 focus:outline-hidden focus:border-amber-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowStaffPassword(!showStaffPassword)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+                >
+                  {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-800 font-semibold">
+                🛡️ مطلوبة للدخول المشفر أو عند استنفاد محاولتي الـ PIN. يجب أن تتجاوز 4 خانات وتحتوي على أحرف وأرقام.
+              </p>
+            </div>
+          )}
 
           {/* Role-Specific Fields */}
           {userRole === "store_owner" && (
