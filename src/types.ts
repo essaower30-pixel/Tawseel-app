@@ -25,6 +25,8 @@ export interface Product {
   sizes?: StoreSize[];
   additions?: StoreAddition[];
   isHidden?: boolean;
+  isAvailable?: boolean;
+  inStock?: boolean;
   isApproved?: boolean;
   approvalStatus?: "pending" | "approved" | "rejected";
   rejectionReason?: string;

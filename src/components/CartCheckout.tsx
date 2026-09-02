@@ -1,6 +1,8 @@
 import React, { useState } from "react";
-import { ArrowRight, Trash2, Plus, Minus, Tag, Check, MapPin, Phone, User, ShoppingCart, ShieldCheck } from "lucide-react";
-import { CartItem, MapNode, Store, StoreAddition, StoreSize, UserProfile } from "../types";
+import { ArrowRight, Trash2, Plus, Minus, Tag, Check, MapPin, Phone, User, ShoppingCart, ShieldCheck, Sparkles, X, Gift, Scale } from "lucide-react";
+import { CartItem, Coupon, MapNode, Store, StoreAddition, StoreSize, UserProfile } from "../types";
+import { initialCoupons } from "../data/adminInitialData";
+import { TermsAgreementModal } from "./TermsAgreementModal";
 
 interface CartCheckoutProps {
   cartItems: CartItem[];
@@ -14,6 +16,7 @@ interface CartCheckoutProps {
   mapNodes: MapNode[];
   stores: Store[];
   customerUser: UserProfile | null;
+  coupons?: Coupon[];
 }
 
 export const CartCheckout: React.FC<CartCheckoutProps> = ({
@@ -27,38 +30,95 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
   onSelectLandmark,
   mapNodes,
   stores,
-  customerUser
+  customerUser,
+  coupons
 }) => {
   const [customerName, setCustomerName] = useState(customerUser?.name || "");
   const [customerPhone, setCustomerPhone] = useState(customerUser?.phone || "");
   const [notes, setNotes] = useState("");
   const [addressDetails, setAddressDetails] = useState("");
   const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number } | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountPercent: number; calculatedDiscount: number } | null>(null);
   const [couponError, setCouponError] = useState("");
+  const [couponSuccess, setCouponSuccess] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "electronic">("cash");
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
+  // Get available active coupons
+  const activeCoupons: Coupon[] = (() => {
+    if (coupons && coupons.length > 0) {
+      return coupons.filter(c => c.isActive !== false);
+    }
+    try {
+      const saved = localStorage.getItem("tw_coupons");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((c: Coupon) => c.isActive !== false);
+        }
+      }
+    } catch {}
+    return initialCoupons.filter(c => c.isActive !== false);
+  })();
 
   const currentStoreId = cartItems.length > 0 ? cartItems[0].product.storeId : "";
   const currentStore = stores.find((s) => s.id === currentStoreId);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.totalItemPrice * item.quantity, 0);
-  const deliveryFee = currentStore ? currentStore.deliveryFee : 5;
+  const deliveryFee = currentStore ? (currentStore.deliveryFee || 5000) : 5000;
 
-  const discountAmount = appliedCoupon ? Math.round((subtotal * appliedCoupon.discountPercent) / 100) : 0;
+  const calculateDiscount = (coupon: { discountPercent: number; maxDiscount?: number }) => {
+    let raw = (subtotal * coupon.discountPercent) / 100;
+    if (coupon.maxDiscount && coupon.maxDiscount > 0) {
+      raw = Math.min(raw, coupon.maxDiscount);
+    }
+    return Math.round(raw);
+  };
+
+  const discountAmount = appliedCoupon ? calculateDiscount(appliedCoupon) : 0;
   const total = Math.max(0, subtotal - discountAmount + deliveryFee);
 
-  const handleApplyCoupon = (e: React.FormEvent) => {
-    e.preventDefault();
+  const applyCouponByCode = (inputCode: string) => {
     setCouponError("");
-    const code = couponInput.trim().toUpperCase();
-    if (!code) return;
+    setCouponSuccess("");
+    const cleanCode = inputCode.trim().toUpperCase();
+    if (!cleanCode) return;
 
-    if (code === "TAWSEEL" || code === "WELCOME" || code === "KORAYA") {
-      setAppliedCoupon({ code, discountPercent: 15 });
-      setCouponInput("");
-    } else {
+    // Search in activeCoupons or fallback built-ins
+    const matched = activeCoupons.find((c) => c.code.toUpperCase() === cleanCode) || 
+      (cleanCode === "TAWSEEL" ? { code: "TAWSEEL", discountPercent: 15, maxDiscount: 25000, minOrder: 0, isActive: true } :
+       cleanCode === "WELCOME" ? { code: "WELCOME", discountPercent: 20, maxDiscount: 30000, minOrder: 0, isActive: true } :
+       cleanCode === "KORAYA" ? { code: "KORAYA", discountPercent: 15, maxDiscount: 20000, minOrder: 0, isActive: true } : null);
+
+    if (!matched) {
       setCouponError("كود الخصم غير صالح أو منتهي الصلاحية.");
+      return;
     }
+
+    if (matched.minOrder && subtotal < matched.minOrder) {
+      setCouponError(`الحد الأدنى لقيمة الطلب لتطبيق هذا الكوبون هو ${matched.minOrder.toLocaleString()} ل.س`);
+      return;
+    }
+
+    const calcDisc = calculateDiscount(matched);
+    setAppliedCoupon({
+      code: matched.code,
+      discountPercent: matched.discountPercent,
+      calculatedDiscount: calcDisc
+    });
+    setCouponSuccess(`تم تفعيل كود الخصم (${matched.code}) بنجاح! تم توفير ${calcDisc.toLocaleString()} ل.س 🎉`);
+    setCouponInput("");
+  };
+
+  const handleApplyCouponForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    applyCouponByCode(couponInput);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponSuccess("");
+    setCouponError("");
   };
 
   const handleConfirmOrder = (e: React.FormEvent) => {
@@ -276,52 +336,123 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
           {/* Order Summary & Payment */}
           <div className="space-y-4">
             <div className="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs space-y-4 text-right">
-              <h3 className="font-black text-slate-800 text-sm">ملخص الفاتورة</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-black text-slate-800 text-sm">ملخص الفاتورة</h3>
+                <span className="text-[10px] bg-orange-100 text-orange-800 font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Gift className="w-3 h-3 text-orange-600" />
+                  <span>عروض وتخفيضات</span>
+                </span>
+              </div>
 
-              {/* Coupon Form */}
-              <form onSubmit={handleApplyCoupon} className="space-y-1.5">
+              {/* Quick Available Coupons Chips */}
+              {activeCoupons.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    <span>كوبونات الخصم المتاحة (انقر للتطبيق فوراً):</span>
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeCoupons.map((c) => {
+                      const isSelected = appliedCoupon?.code.toUpperCase() === c.code.toUpperCase();
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => {
+                            if (isSelected) {
+                              handleRemoveCoupon();
+                            } else {
+                              applyCouponByCode(c.code);
+                            }
+                          }}
+                          className={`text-[11px] font-black px-2.5 py-1 rounded-xl transition-all cursor-pointer border flex items-center gap-1 active:scale-95 shadow-xs ${
+                            isSelected
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200/80"
+                          }`}
+                        >
+                          <Tag className="w-3 h-3" />
+                          <span>{c.code}</span>
+                          <span className={isSelected ? "text-emerald-200" : "text-amber-700"}>
+                            ({c.discountPercent}%)
+                          </span>
+                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual Coupon Form */}
+              <form onSubmit={handleApplyCouponForm} className="space-y-1.5 pt-1">
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value)}
-                    placeholder="كود الخصم (مثال: TAWSEEL)"
+                    placeholder="أدخل كود خصم آخر..."
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold outline-none uppercase"
                   />
                   <button
                     type="submit"
-                    className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs px-3 rounded-xl cursor-pointer"
+                    className="bg-slate-900 hover:bg-slate-800 active:bg-black text-white font-black text-xs px-3 rounded-xl cursor-pointer transition-all"
                   >
                     تطبيق
                   </button>
                 </div>
+
                 {appliedCoupon && (
+                  <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
+                    <span className="text-emerald-800 font-bold flex items-center gap-1.5 text-[11px]">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>تم تطبيق كود ({appliedCoupon.code}) بنسبة {appliedCoupon.discountPercent}%</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-red-500 hover:text-red-700 text-[10px] font-black underline cursor-pointer p-0.5"
+                    >
+                      إلغاء الخصم
+                    </button>
+                  </div>
+                )}
+
+                {couponSuccess && !appliedCoupon && (
                   <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                    <Check className="w-3 h-3" /> تم تطبيق كود ({appliedCoupon.code}) بنسبة {appliedCoupon.discountPercent}%
+                    <Check className="w-3 h-3" /> {couponSuccess}
                   </p>
                 )}
-                {couponError && <p className="text-[10px] text-red-500 font-bold">{couponError}</p>}
+
+                {couponError && (
+                  <p className="text-[10px] text-red-500 font-bold bg-red-50 p-1.5 rounded-lg border border-red-100">
+                    {couponError}
+                  </p>
+                )}
               </form>
 
               {/* Price Breakdown */}
               <div className="space-y-2 text-xs pt-2 border-t border-slate-100">
                 <div className="flex justify-between text-slate-600 font-bold">
                   <span>قيمة المنتجات:</span>
-                  <span>{subtotal} ل.س</span>
+                  <span>{subtotal.toLocaleString()} ل.س</span>
                 </div>
                 <div className="flex justify-between text-slate-600 font-bold">
                   <span>أجور التوصيل:</span>
-                  <span>{deliveryFee} ل.س</span>
+                  <span>{deliveryFee.toLocaleString()} ل.س</span>
                 </div>
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-600 font-black">
-                    <span>خصم الكوبون:</span>
-                    <span>-{discountAmount} ل.س</span>
+                  <div className="flex justify-between text-emerald-600 font-black bg-emerald-50/80 p-1.5 rounded-xl border border-emerald-100">
+                    <span className="flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5" />
+                      <span>خصم الكوبون ({appliedCoupon?.code}):</span>
+                    </span>
+                    <span>-{discountAmount.toLocaleString()} ل.س</span>
                   </div>
                 )}
                 <div className="flex justify-between text-slate-900 font-black text-base pt-2 border-t border-slate-100">
                   <span>المجموع النهائي:</span>
-                  <span>{total} ل.س</span>
+                  <span className="text-orange-600 font-mono text-lg">{total.toLocaleString()} ل.س</span>
                 </div>
               </div>
 
@@ -354,6 +485,21 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                 </div>
               </div>
 
+              {/* Legal Terms Notice */}
+              <div className="text-center pt-1">
+                <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                  بتأكيدك للطلب فإنك توافق على{" "}
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-orange-600 underline hover:text-orange-700 font-black cursor-pointer inline-flex items-center gap-0.5"
+                  >
+                    <span>شروط الاستخدام وإخلاء المسؤولية</span>
+                    <Scale className="w-2.5 h-2.5" />
+                  </button>
+                </p>
+              </div>
+
               {/* Submit Button */}
               <button
                 type="submit"
@@ -369,6 +515,16 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Terms Agreement Modal */}
+      {showTermsModal && (
+        <TermsAgreementModal
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          role="customer"
+          showAcceptButton={false}
+        />
       )}
     </div>
   );

@@ -20,9 +20,12 @@ import {
   Shield,
   Smartphone,
   RefreshCw,
-  Check
+  Check,
+  Scale,
+  FileText
 } from "lucide-react";
 import { UserProfile, Store, DriverMember, StaffMember, AppSettings } from "../types";
+import { TermsAgreementModal } from "./TermsAgreementModal";
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -62,6 +65,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     () => localStorage.getItem("tw_saved_customer_address") || "وسط البلد - بجانب المسجد الكبير"
   );
 
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -405,6 +409,32 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             </div>
           )}
 
+          {/* Legal Terms & Agreements Button according to role */}
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Scale className="w-4 h-4 text-amber-600" />
+              <div>
+                <span className="text-xs font-black text-slate-800 block">
+                  وثيقة الشروط والمسؤوليات القانونية ⚖️
+                </span>
+                <span className="text-[10px] text-slate-500 font-bold">
+                  {userRole === "store_owner"
+                    ? "شروط التاجر وإخلاء مسؤولية المنصة"
+                    : userRole === "driver"
+                    ? "قواعد الكابتن والعمل الحر والسلامة"
+                    : "اتفاقية الاستخدام وإخلاء المسؤولية للزبائن"}
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(true)}
+              className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+            >
+              عرض البنود 📄
+            </button>
+          </div>
+
           {/* Action Buttons */}
           <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
             <button
@@ -446,6 +476,16 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           💡 يتم حفظ التعديلات سحابياً ومحلياً على الفور لتنعكس على جميع الطلبات ولوحات التحكم.
         </div>
       </motion.div>
+
+      {/* Terms Agreement Viewer Modal */}
+      {showTermsModal && (
+        <TermsAgreementModal
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          role={userRole}
+          showAcceptButton={false}
+        />
+      )}
     </div>
   );
 };

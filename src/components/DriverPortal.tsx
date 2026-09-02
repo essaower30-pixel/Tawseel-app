@@ -22,13 +22,15 @@ import {
   ShoppingBag,
   Camera,
   ZoomIn,
-  X
+  X,
+  Wallet
 } from "lucide-react";
 import { DriverMember, Order, Store, UserProfile } from "../types";
 import { ContactActions } from "./ContactActions";
 import { playOrderAlertSound, isSoundEnabled, setSoundEnabled } from "../utils/soundNotifications";
 import { BottomNavigation } from "./BottomNavigation";
 import { AccountSettingsModal } from "./AccountSettingsModal";
+import { CaptainWallet } from "./driver/CaptainWallet";
 
 interface DriverPortalProps {
   userProfile: UserProfile;
@@ -72,7 +74,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   const [driverStatus, setDriverStatus] = useState<"available" | "busy" | "offline">(
     currentDriver.status || "available"
   );
-  const [activeTab, setActiveTab] = useState<"my_orders" | "available_orders" | "history">("my_orders");
+  const [activeTab, setActiveTab] = useState<"my_orders" | "available_orders" | "history" | "wallet">("my_orders");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
@@ -316,7 +318,20 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
           }`}
         >
           <CheckCircle2 className="w-4 h-4" />
-          <span>سجل التوصيلات المكتملة ({completedOrders.length})</span>
+          <span>سجل التوصيلات ({completedOrders.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("wallet")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "wallet"
+              ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
+              : "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100"
+          }`}
+        >
+          <Wallet className="w-4 h-4 text-emerald-500" />
+          <span>محفظتي وأرباحي 💰</span>
         </button>
       </div>
 
@@ -605,6 +620,15 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {/* Captain's Financial Wallet */}
+      {activeTab === "wallet" && (
+        <CaptainWallet
+          currentDriver={currentDriver}
+          orders={orders}
+          currency={currency}
+        />
       )}
 
       {/* Image Zoom Modal for Driver */}

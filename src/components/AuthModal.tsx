@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Lock,
   RefreshCw,
-  Edit3
+  Edit3,
+  Scale,
+  FileText
 } from "lucide-react";
 import { Store, UserProfile, DriverMember } from "../types";
 import { initialDrivers, initialStaff } from "../data/adminInitialData";
@@ -30,6 +32,7 @@ import {
   AppUpdateInfo 
 } from "../utils/updateManager";
 import { AppUpdateModal } from "./AppUpdateModal";
+import { TermsAgreementModal } from "./TermsAgreementModal";
 
 interface AuthModalProps {
   onRegister: (profile: UserProfile, role: "customer" | "store_owner" | "admin" | "driver") => void;
@@ -117,6 +120,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Role-Specific Legal Terms Agreement States
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsModalRole, setTermsModalRole] = useState<"customer" | "store_owner" | "driver">("customer");
+  const [customerAgreeTerms, setCustomerAgreeTerms] = useState<boolean>(true);
+  const [storeAgreeTerms, setStoreAgreeTerms] = useState<boolean>(true);
+  const [driverAgreeTerms, setDriverAgreeTerms] = useState<boolean>(true);
+
   // Secret gesture for staff tab
   const [secretClicks, setSecretClicks] = useState(0);
   const [showSecretStaffTab, setShowSecretStaffTab] = useState(false);
@@ -192,6 +202,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    if (!isReturningCustomer && !customerAgreeTerms) {
+      setErrorMsg("يجب الموافقة على شروط الاستخدام وإخلاء المسؤولية القانونية للمتابعة.");
+      setTermsModalRole("customer");
+      setShowTermsModal(true);
+      return;
+    }
+
+    // Record terms acceptance
+    try {
+      localStorage.setItem("tw_terms_accepted_customer", JSON.stringify({
+        acceptedAt: new Date().toISOString(),
+        phone,
+        name
+      }));
+    } catch {}
+
     // Verify stored PIN if customer was previously registered with a specific PIN
     try {
       const rawC = localStorage.getItem("tw_registered_customers");
@@ -257,6 +283,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg("الرجاء إدخال رمز المرور السري (PIN).");
       return;
     }
+
+    if (!isReturningDriver && !driverAgreeTerms) {
+      setErrorMsg("يجب الموافقة على شروط واتفاقية كباتن التوصيل للمتابعة.");
+      setTermsModalRole("driver");
+      setShowTermsModal(true);
+      return;
+    }
+
+    // Record terms acceptance for driver
+    try {
+      localStorage.setItem("tw_terms_accepted_driver", JSON.stringify({
+        acceptedAt: new Date().toISOString(),
+        driverUser: enteredUser
+      }));
+    } catch {}
 
     let driversList: DriverMember[] = [];
     try {
@@ -399,6 +440,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg("الرجاء إدخال رمز حماية لمتجرك مكون من 4 أرقام.");
       return;
     }
+
+    if (!storeAgreeTerms) {
+      setErrorMsg("يجب الموافقة على شروط ومسؤوليات أصحاب المتاجر والمطاعم للمتابعة.");
+      setTermsModalRole("store_owner");
+      setShowTermsModal(true);
+      return;
+    }
+
+    // Record terms acceptance for store owner
+    try {
+      localStorage.setItem("tw_terms_accepted_store", JSON.stringify({
+        acceptedAt: new Date().toISOString(),
+        phone,
+        storeName: name
+      }));
+    } catch {}
 
     if (stores.find(s => cleanPhone(s.ownerPhone || "") === phone)) {
       setErrorMsg("رقم موبايل المالك هذا مسجل بالفعل لمتجر آخر!");
@@ -868,6 +925,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </p>
                     </div>
 
+                    {/* Legal Agreement Checkbox for Customer */}
+                    <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-1 text-right">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={customerAgreeTerms}
+                          onChange={(e) => setCustomerAgreeTerms(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
+                        />
+                        <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                          أوافق على{" "}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setTermsModalRole("customer");
+                              setShowTermsModal(true);
+                            }}
+                            className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
+                          >
+                            شروط الاستخدام وإخلاء المسؤولية القانونية للزبائن ⚖️
+                          </button>
+                        </span>
+                      </label>
+                    </div>
+
                     <button
                       type="submit"
                       className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center"
@@ -1115,6 +1198,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-center text-base font-black tracking-widest outline-none"
                           />
                         </div>
+
+                        {/* Legal Agreement Checkbox for Store Owner */}
+                        <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-1 text-right">
+                          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={storeAgreeTerms}
+                              onChange={(e) => setStoreAgreeTerms(e.target.checked)}
+                              className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
+                            />
+                            <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                              أوافق وألتزم بـ{" "}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setTermsModalRole("store_owner");
+                                  setShowTermsModal(true);
+                                }}
+                                className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
+                              >
+                                وثيقة شروط ومسؤوليات أصحاب المتاجر والمطاعم 🏪
+                              </button>
+                            </span>
+                          </label>
+                        </div>
+
                         <button
                           type="submit"
                           className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md transition-all cursor-pointer text-center"
@@ -1325,6 +1435,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
                     </div>
 
+                    {/* Legal Agreement Checkbox for Driver */}
+                    <div className="bg-slate-50 border border-slate-200/90 p-3 rounded-2xl space-y-1 text-right">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={driverAgreeTerms}
+                          onChange={(e) => setDriverAgreeTerms(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300 cursor-pointer shrink-0"
+                        />
+                        <span className="text-[11px] font-bold text-slate-700 leading-tight">
+                          أوافق وألتزم بـ{" "}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setTermsModalRole("driver");
+                              setShowTermsModal(true);
+                            }}
+                            className="text-orange-600 font-black underline hover:text-orange-700 cursor-pointer"
+                          >
+                            وثيقة شروط وقواعد كباتن التوصيل والعمل الحر 🛵
+                          </button>
+                        </span>
+                      </label>
+                    </div>
+
                     <button
                       type="submit"
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
@@ -1473,6 +1609,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           update={currentAppUpdate}
           onClose={() => setShowUpdateModal(false)}
           onApplyUpdate={handleApplyUpdateInAuth}
+        />
+      )}
+
+      {/* Role-Specific Legal Terms Modal */}
+      {showTermsModal && (
+        <TermsAgreementModal
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          role={termsModalRole}
+          showAcceptButton={true}
+          onAccept={() => {
+            if (termsModalRole === "customer") setCustomerAgreeTerms(true);
+            if (termsModalRole === "store_owner") setStoreAgreeTerms(true);
+            if (termsModalRole === "driver") setDriverAgreeTerms(true);
+            setShowTermsModal(false);
+          }}
         />
       )}
     </div>

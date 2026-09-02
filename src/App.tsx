@@ -41,11 +41,12 @@ import {
   VolumeX,
   Bell,
   CheckCircle2,
-  User
+  User,
+  Bot
 } from "lucide-react";
-import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview } from "./types";
+import { CartItem, Category, DriverMember, MapNode, Order, Product, Store, StoreAddition, StoreSize, UserProfile, StoreBroadcast, StoreReview, Coupon } from "./types";
 import { initialCategories, initialMapNodes, initialProducts, initialStores, initialStoreBroadcasts, initialStoreReviews } from "./data/initialData";
-import { initialDrivers, initialOrders } from "./data/adminInitialData";
+import { initialDrivers, initialOrders, initialCoupons } from "./data/adminInitialData";
 import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
@@ -250,6 +251,22 @@ export default function App() {
   });
 
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
+
+  // Global Coupons State
+  const [coupons, setCoupons] = useState<Coupon[]>(() => {
+    try {
+      const saved = localStorage.getItem("tw_coupons");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return initialCoupons;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("tw_coupons", JSON.stringify(coupons));
+  }, [coupons]);
 
   const handleUpdateUserProfile = async (updatedProfile: UserProfile, extraData?: any) => {
     setUserProfile(updatedProfile);
@@ -2027,6 +2044,7 @@ export default function App() {
                 customerUser={userProfile}
                 mapNodes={mapNodes}
                 stores={stores}
+                coupons={coupons}
               />
             </motion.div>
           ) : selectedStore ? (
@@ -2165,35 +2183,6 @@ export default function App() {
                   <Phone className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                 </div>
               </div>
-            </div>
-
-            {/* Custom Store Order Quick Home Banner */}
-            <div 
-              onClick={() => setShowHomeCustomOrderModal(true)}
-              className="bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-lg shadow-orange-500/20 cursor-pointer hover:opacity-95 transition-all flex flex-col sm:flex-row items-center justify-between gap-3 text-right group active:scale-[0.99]"
-            >
-              <div className="flex items-center gap-3.5 w-full sm:w-auto">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center text-2xl group-hover:scale-110 transition-transform shrink-0 shadow-inner">
-                  🛍️
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-white/25 text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase">
-                      ميزة جديدة ✍️
-                    </span>
-                    <h3 className="font-black text-sm sm:text-base">طلب خاص من أي متجر (منتجات غير معروضة)</h3>
-                  </div>
-                  <p className="text-white/90 text-xs font-semibold mt-1">
-                    اختر أي متجر في بلدتك واكتب مقاضيك أو صوّر ورقة الطلبات بالكاميرا ليحضرها لك فوراً!
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="w-full sm:w-auto bg-white text-orange-600 hover:bg-orange-50 font-black text-xs py-2.5 px-5 rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer shrink-0 pointer-events-none"
-              >
-                ابدأ الطلب الخاص الآن 🚀
-              </button>
             </div>
 
             {/* 4. Categories Selector */}

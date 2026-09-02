@@ -647,27 +647,32 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               )}
 
               {/* CUSTOM STORE ORDER BANNER (For standard stores) */}
-              <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 border border-orange-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-right shadow-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-sm">
+              <div className="bg-gradient-to-r from-orange-500/15 via-amber-500/10 to-orange-500/10 border-2 border-orange-400/80 hover:border-orange-500 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-3.5 text-right shadow-sm hover:shadow-md transition-all">
+                <div className="flex items-center gap-3.5 w-full sm:w-auto">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-black text-2xl shrink-0 shadow-md shadow-orange-500/25">
                     🛍️
                   </div>
                   <div>
-                    <h4 className="font-black text-slate-900 text-xs sm:text-sm">
-                      لم تجد ما تبحث عنه في القائمة؟ طلب مخصص من ({store.name})
-                    </h4>
-                    <p className="text-slate-600 text-[11px] font-semibold mt-0.5">
-                      اكتب طلبك الخاص أو صوّر ورقة المقاضي / المنتج بالكاميرا وسيحضرها لك المتجر فوراً!
+                    <div className="flex items-center gap-2">
+                      <span className="bg-orange-500 text-white font-black text-[9px] sm:text-[10px] px-2.5 py-0.5 rounded-full uppercase">
+                        طلب حر ✍️
+                      </span>
+                      <h4 className="font-black text-slate-900 text-xs sm:text-sm">
+                        لم تجد طلبك في القائمة؟ طلب خاص من ({store.name})
+                      </h4>
+                    </div>
+                    <p className="text-slate-600 text-[11px] sm:text-xs font-semibold mt-1">
+                      اكتب قائمة مقاضيك أو صوّر ورقة الطلبات بالكاميرا وسيحضرها لك المتجر والكابتن فوراً!
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowCustomOrderModal(true)}
-                  className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white font-black text-xs py-2.5 px-5 rounded-xl shadow-md shadow-orange-600/20 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
+                  className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs py-3 px-5 rounded-2xl shadow-md shadow-orange-500/25 transition-all cursor-pointer whitespace-nowrap flex items-center justify-center gap-2 active:scale-95 shrink-0"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>طلب خاص من هذا المتجر ✍️</span>
+                  <Edit3 className="w-4 h-4" />
+                  <span>اطلب منتج غير معروض الآن 🚀</span>
                 </button>
               </div>
 
@@ -968,17 +973,28 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           storeProducts.map((product) => {
             const count = getProductCountInCart(product.id);
             const hasOptions = (product.sizes && product.sizes.length > 0) || (product.additions && product.additions.length > 0);
+            const isOutOfStock = product.isAvailable === false || product.inStock === false || (product.stock !== undefined && product.stock <= 0);
 
             return (
               <div
                 key={product.id}
-                className="bg-white rounded-3xl p-4 border border-slate-200/80 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative text-right"
+                className={`bg-white rounded-3xl p-4 border shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative text-right ${
+                  isOutOfStock ? "border-slate-200 bg-slate-50/70 opacity-90" : "border-slate-200/80"
+                }`}
               >
-                {product.isOffer && (
-                  <span className="absolute top-3 left-3 bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">
-                    {product.offerLabel || "عرض خاص"}
-                  </span>
-                )}
+                {/* Badges */}
+                <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
+                  {isOutOfStock && (
+                    <span className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">
+                      نفذت الكمية ❌
+                    </span>
+                  )}
+                  {!isOutOfStock && product.isOffer && (
+                    <span className="bg-red-500 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xs">
+                      {product.offerLabel || "عرض خاص"}
+                    </span>
+                  )}
+                </div>
 
                 <div className="space-y-2">
                   <div className="h-36 rounded-2xl overflow-hidden bg-slate-100 relative">
@@ -986,7 +1002,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       src={product.image}
                       alt={product.name}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                        isOutOfStock ? "grayscale-[60%] opacity-80" : ""
+                      }`}
                     />
                   </div>
                   <h3 className="font-black text-slate-800 text-sm">{product.name}</h3>
@@ -996,15 +1014,23 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                   <div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-base font-black text-slate-900">{product.price} ل.س</span>
+                      <span className="text-base font-black text-slate-900">{product.price.toLocaleString()} ل.س</span>
                       {product.originalPrice && (
-                        <span className="text-xs text-slate-400 line-through">{product.originalPrice} ل.س</span>
+                        <span className="text-xs text-slate-400 line-through">{product.originalPrice.toLocaleString()} ل.س</span>
                       )}
                     </div>
                     {product.unit && <span className="text-[10px] text-slate-400 font-bold block">{product.unit}</span>}
                   </div>
 
-                  {hasOptions ? (
+                  {isOutOfStock ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="bg-slate-100 text-slate-400 border border-slate-200 font-black text-xs py-2 px-3 rounded-xl cursor-not-allowed flex items-center gap-1 opacity-70"
+                    >
+                      <span>غير متوفر</span>
+                    </button>
+                  ) : hasOptions ? (
                     <button
                       type="button"
                       onClick={() => handleOpenCustomization(product)}

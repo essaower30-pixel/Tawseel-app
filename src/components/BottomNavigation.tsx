@@ -16,7 +16,8 @@ import {
   Settings,
   Flame,
   CheckCircle2,
-  FileText
+  FileText,
+  Wallet
 } from "lucide-react";
 
 interface BottomNavigationProps {
@@ -172,7 +173,24 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             )}
           </button>
 
-          {/* 3. History & Earnings */}
+          {/* 3. Captain Financial Wallet */}
+          <button
+            type="button"
+            onClick={() => onSelectRoleTab && onSelectRoleTab("wallet")}
+            className={`relative flex-1 py-1.5 px-2 flex flex-col items-center justify-center gap-0.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === "wallet"
+                ? "text-emerald-600 font-black"
+                : "text-slate-500 hover:text-slate-800 font-bold"
+            }`}
+          >
+            <Wallet className={`w-5 h-5 ${activeTab === "wallet" ? "text-emerald-600 scale-110" : "text-slate-500"}`} />
+            <span className="text-[10px] truncate max-w-[65px]">محفظتي</span>
+            {activeTab === "wallet" && (
+              <motion.div layoutId="nav_dot_driver" className="w-1.5 h-1.5 rounded-full bg-emerald-600 mt-0.5" />
+            )}
+          </button>
+
+          {/* 4. History */}
           <button
             type="button"
             onClick={() => onSelectRoleTab && onSelectRoleTab("history")}
@@ -189,7 +207,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             )}
           </button>
 
-          {/* 4. My Account */}
+          {/* 5. My Account */}
           <button
             type="button"
             onClick={onOpenAccount}
