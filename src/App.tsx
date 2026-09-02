@@ -60,6 +60,7 @@ import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
 import { BottomNavigation } from "./components/BottomNavigation";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
+import { OfflineBanner } from "./components/OfflineBanner";
 import { openWhatsApp } from "./utils/whatsapp";
 import {
   playOrderAlertSound,
@@ -1780,6 +1781,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50 text-slate-800 flex flex-col items-center font-sans selection:bg-orange-500 selection:text-slate-950 pb-12" dir="rtl">
+      {/* Offline Connectivity Status Banner */}
+      <OfflineBanner />
+
       {/* Top Application Header */}
       <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 py-3 px-3 sm:px-6 sticky top-0 z-50 shadow-xs select-none">
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between gap-2 sm:gap-4">
