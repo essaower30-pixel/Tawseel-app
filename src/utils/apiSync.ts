@@ -1,4 +1,4 @@
-import { Store, Order, Product, Category } from "../types";
+import { Store, Order, Product, Category, DriverMember } from "../types";
 import { initialStores, initialProducts, initialCategories, initialMapNodes } from "../data/initialData";
 import { initialOrders } from "../data/adminInitialData";
 
@@ -16,6 +16,7 @@ export interface ServerSyncData {
   stores: Store[];
   products: Product[];
   orders: Order[];
+  drivers?: DriverMember[];
   notifications?: ServerNotification[];
   categories?: Category[];
   lastUpdated: number;
@@ -194,8 +195,71 @@ export async function deleteProductOnServer(productId: string): Promise<boolean>
   }
 }
 
-// Clean Slate: Zero out all demo/sample data on central server
-export async function cleanSlateOnServer(target?: "all" | "orders_only"): Promise<boolean> {
+// Fetch drivers fleet from central server
+export async function fetchDriversFromServer(): Promise<DriverMember[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/drivers`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store"
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (err) {
+    console.warn("Failed to fetch drivers from server:", err);
+  }
+  return [];
+}
+
+// Register or Add a new Driver on central server
+export async function saveDriverOnServer(driver: DriverMember): Promise<DriverMember> {
+  try {
+    const res = await fetch(`${API_BASE}/api/drivers`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(driver)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.driver || driver;
+    }
+  } catch (err) {
+    console.warn("Failed to save driver on server:", err);
+  }
+  return driver;
+}
+
+// Update driver on central server
+export async function updateDriverOnServer(driver: DriverMember): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/drivers/${driver.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(driver)
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Delete driver on central server
+export async function deleteDriverOnServer(driverId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/drivers/${driverId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    return false;
+  }
+}
+
+// Clean Slate: Zero out demo/sample data on central server
+export async function cleanSlateOnServer(target?: "all" | "orders_only" | "zero_transactions"): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/api/clean-slate`, {
       method: "POST",

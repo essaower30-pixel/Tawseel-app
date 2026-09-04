@@ -13,8 +13,8 @@ export const initialCustomers: RegisteredCustomer[] = [
     notes: "طلب تسجيله هاتفياً لعدم معرفته بالهواتف الذكية - يفضل التواصل بالاتصال", 
     registeredBy: "المدير العام", 
     registeredAt: "2025-01-20", 
-    totalOrdersCount: 8, 
-    totalSpent: 124000 
+    totalOrdersCount: 0, 
+    totalSpent: 0 
   },
   { 
     id: "cust_2", 
@@ -28,8 +28,8 @@ export const initialCustomers: RegisteredCustomer[] = [
     notes: "سُجلت بمساعدة خدمة العملاء - تفضل الدفع النقدي عند الاستلام", 
     registeredBy: "مسؤول الطلبات", 
     registeredAt: "2025-02-05", 
-    totalOrdersCount: 5, 
-    totalSpent: 78000 
+    totalOrdersCount: 0, 
+    totalSpent: 0 
   },
   { 
     id: "cust_3", 
@@ -43,8 +43,8 @@ export const initialCustomers: RegisteredCustomer[] = [
     notes: "مدرس متقاعد - تم تسجيله عبر اتصال هاتفي مع الإدارة", 
     registeredBy: "المدير العام", 
     registeredAt: "2025-02-12", 
-    totalOrdersCount: 3, 
-    totalSpent: 45000 
+    totalOrdersCount: 0, 
+    totalSpent: 0 
   },
   { 
     id: "cust_4", 
@@ -58,8 +58,8 @@ export const initialCustomers: RegisteredCustomer[] = [
     notes: "زبونة دائمة - تطلب أسبوعياً من السوبرماركت", 
     registeredBy: "المدير العام", 
     registeredAt: "2025-02-18", 
-    totalOrdersCount: 6, 
-    totalSpent: 92000 
+    totalOrdersCount: 0, 
+    totalSpent: 0 
   }
 ];
 
@@ -119,9 +119,9 @@ export const initialStaff: StaffMember[] = [
 ];
 
 export const initialDrivers: DriverMember[] = [
-  { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", password: "driver_pass_1111", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 142, earnings: 710000, rating: 4.9, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-01-10" },
-  { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", password: "driver_pass_2222", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 98, earnings: 490000, rating: 4.8, vehicle: "سكوتر كهربائي", createdAt: "2025-01-20" },
-  { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", password: "driver_pass_3333", phone: "0993334455", pin: "3333", status: "busy", totalDeliveries: 64, earnings: 320000, rating: 4.7, vehicle: "دراجة نارية هوائية", createdAt: "2025-02-05" }
+  { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", password: "driver_pass_1111", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي", createdAt: "2025-01-10" },
+  { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", password: "driver_pass_2222", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "سكوتر كهربائي", createdAt: "2025-01-20" },
+  { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", password: "driver_pass_3333", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية", createdAt: "2025-02-05" }
 ];
 
 export const initialCraftsmen: Craftsman[] = [

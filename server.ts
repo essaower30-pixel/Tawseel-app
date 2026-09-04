@@ -199,12 +199,18 @@ function readServerData() {
         if (!parsed.stores) parsed.stores = [];
         if (!parsed.orders) parsed.orders = [];
         if (!parsed.products) parsed.products = [];
+        if (!parsed.drivers) parsed.drivers = [];
         if (!parsed.notifications) parsed.notifications = [];
         return parsed;
       }
       if (!parsed.stores) parsed.stores = defaultInitialStores;
       if (!parsed.orders) parsed.orders = [];
       if (!parsed.products) parsed.products = [];
+      if (!parsed.drivers) parsed.drivers = [
+        { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
+        { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "سكوتر كهربائي" },
+        { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية" }
+      ];
       if (!parsed.notifications) parsed.notifications = [];
       
       // Ensure gypsum decor store exists if not clean slate
@@ -447,16 +453,82 @@ app.delete("/api/products/:id", (req, res) => {
   res.json({ success: true });
 });
 
-// 10. API: Clean Slate (Zero out demo data while preserving server data structures)
+// 10. API: Drivers Fleet
+app.get("/api/drivers", (req, res) => {
+  const data = readServerData();
+  res.json(data.drivers || []);
+});
+
+app.post("/api/drivers", (req, res) => {
+  const newDriver = req.body;
+  if (!newDriver || !newDriver.name) {
+    return res.status(400).json({ error: "بيانات الكابتن غير مكتملة" });
+  }
+  const data = readServerData();
+  if (!data.drivers) data.drivers = [];
+  
+  const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+  const targetPhone = cleanPhone(newDriver.phone);
+
+  const existingIdx = data.drivers.findIndex((d: any) => {
+    if (d.id === newDriver.id) return true;
+    if (targetPhone && cleanPhone(d.phone) === targetPhone) return true;
+    if (newDriver.username && d.username && d.username.toLowerCase() === newDriver.username.toLowerCase()) return true;
+    return false;
+  });
+
+  if (existingIdx >= 0) {
+    data.drivers[existingIdx] = { ...data.drivers[existingIdx], ...newDriver };
+  } else {
+    data.drivers.push(newDriver);
+  }
+
+  writeServerData(data);
+  res.json({ success: true, driver: newDriver });
+});
+
+app.put("/api/drivers/:id", (req, res) => {
+  const driverId = req.params.id;
+  const updates = req.body;
+  const data = readServerData();
+  if (!data.drivers) data.drivers = [];
+  const idx = data.drivers.findIndex((d: any) => d.id === driverId);
+  if (idx >= 0) {
+    data.drivers[idx] = { ...data.drivers[idx], ...updates };
+    writeServerData(data);
+    return res.json({ success: true, driver: data.drivers[idx] });
+  }
+  res.status(404).json({ error: "الكابتن غير موجود" });
+});
+
+app.delete("/api/drivers/:id", (req, res) => {
+  const driverId = req.params.id;
+  const data = readServerData();
+  data.drivers = (data.drivers || []).filter((d: any) => d.id !== driverId);
+  writeServerData(data);
+  res.json({ success: true });
+});
+
+// 11. API: Clean Slate (Zero out demo data while preserving server data structures)
 app.post("/api/clean-slate", (req, res) => {
   const { preserveCustomOnly, target } = req.body || {};
   const currentData = readServerData();
 
-  if (target === "orders_only") {
+  if (target === "zero_transactions" || target === "orders_only") {
     currentData.orders = [];
     currentData.notifications = [];
+    if (currentData.drivers) {
+      currentData.drivers = currentData.drivers.map((d: any) => ({
+        ...d,
+        totalDeliveries: 0,
+        earnings: 0
+      }));
+    }
     writeServerData(currentData);
-    return res.json({ success: true, message: "تم تصفير كافة الطلبات التجريبية بنجاح" });
+    return res.json({ 
+      success: true, 
+      message: "تم تصفير الحركات وكافة عدادات الطلبات والتوصيلات إلى (0) بنجاح مع إبقاء المتاجر والأصناف لتعديلها." 
+    });
   }
 
   // Complete Clean Slate
@@ -465,6 +537,7 @@ app.post("/api/clean-slate", (req, res) => {
     stores: [],
     products: [],
     orders: [],
+    drivers: (currentData.drivers || []).map((d: any) => ({ ...d, totalDeliveries: 0, earnings: 0 })),
     notifications: [
       {
         id: "notif_clean_" + Date.now(),

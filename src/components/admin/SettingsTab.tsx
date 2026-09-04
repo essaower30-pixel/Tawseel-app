@@ -83,7 +83,7 @@ interface SettingsTabProps {
   auditLogs: AuditLog[];
   stores?: StoreType[];
   onNavigateToTab?: (tab: any) => void;
-  onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" }) => Promise<void> | void;
+  onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" | "zero_transactions" }) => Promise<void> | void;
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -167,13 +167,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Clean Slate & Demo Data States (تصفير الأمثلة والبدء على نظافة)
   const [showCleanSlateModal, setShowCleanSlateModal] = useState(false);
-  const [cleanSlateTarget, setCleanSlateTarget] = useState<"all" | "orders_only" | "restore_defaults">("all");
+  const [cleanSlateTarget, setCleanSlateTarget] = useState<"all" | "orders_only" | "restore_defaults" | "zero_transactions">("all");
   const [cleanSlatePinInput, setCleanSlatePinInput] = useState("");
   const [cleanSlateError, setCleanSlateError] = useState("");
   const [isProcessingCleanSlate, setIsProcessingCleanSlate] = useState(false);
   const [cleanSlateSuccessMsg, setCleanSlateSuccessMsg] = useState("");
 
-  const handleTriggerCleanSlateModal = (target: "all" | "orders_only" | "restore_defaults") => {
+  const handleTriggerCleanSlateModal = (target: "all" | "orders_only" | "restore_defaults" | "zero_transactions") => {
     setCleanSlateTarget(target);
     setCleanSlatePinInput("");
     setCleanSlateError("");
@@ -214,6 +214,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const msgs = {
         all: "تم تصفير جميع المتاجر والمنتجات والطلبات التجريبية بنجاح 🧹✨ وأصبح التطبيق نظيفاً تماماً مع الحفاظ الكامل على كافة الإعدادات والبيانات الإدارية.",
         orders_only: "تم تصفير ومسح سجل الطلبات التجريبية فقط بنجاح 📦✨",
+        zero_transactions: "تم تصفير جميع الطلبات والمعاملات وإحصائيات الكباتن بنجاح 0️⃣✨ مع بقاء المحلات والمنتجات والحسابات كاملة.",
         restore_defaults: "تمت استعادة البيانات التوضيحية الافتراضية بنجاح 🔄"
       };
 
@@ -2123,6 +2124,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
               <button
                 type="button"
+                onClick={() => handleTriggerCleanSlateModal("zero_transactions")}
+                className="py-2.5 px-3.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-200" />
+                <span>تصفير النشاط والإحصائيات فقط (0️⃣ طلبات)</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => handleTriggerCleanSlateModal("orders_only")}
                 className="py-2.5 px-3.5 bg-slate-800 hover:bg-slate-900 text-white font-black text-xs rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
               >
@@ -2304,11 +2314,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   cleanSlateTarget === "all"
                     ? "bg-red-100 text-red-600"
                     : cleanSlateTarget === "orders_only"
+                    ? "bg-slate-100 text-slate-800"
+                    : cleanSlateTarget === "zero_transactions"
                     ? "bg-amber-100 text-amber-600"
                     : "bg-blue-100 text-blue-600"
                 }`}>
                   {cleanSlateTarget === "all" ? (
                     <Trash2 className="w-5 h-5" />
+                  ) : cleanSlateTarget === "zero_transactions" ? (
+                    <RotateCcw className="w-5 h-5" />
                   ) : cleanSlateTarget === "orders_only" ? (
                     <RotateCcw className="w-5 h-5" />
                   ) : (
@@ -2318,6 +2332,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div>
                   <h4 className="font-black text-slate-900 text-sm sm:text-base">
                     {cleanSlateTarget === "all" && "تأكيد تصفير الأمثلة والبدء على نظافة 🧹"}
+                    {cleanSlateTarget === "zero_transactions" && "تأكيد تصفير النشاط والإحصائيات 0️⃣"}
                     {cleanSlateTarget === "orders_only" && "تأكيد تفريغ سجل الطلبات التجريبية 📦"}
                     {cleanSlateTarget === "restore_defaults" && "تأكيد استعادة الأمثلة الافتراضية 🔄"}
                   </h4>
@@ -2352,13 +2367,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               )}
 
-              {cleanSlateTarget === "orders_only" && (
+              {cleanSlateTarget === "zero_transactions" && (
                 <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
                   <div className="flex items-center gap-1.5 font-black text-amber-900">
                     <Info className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>تفريغ أرشيف وسجل الطلبات فقط:</span>
+                    <span>تصفير الطلبات والعمليات وإحصائيات النشاط:</span>
                   </div>
                   <p className="text-amber-800 text-[11.5px] leading-relaxed">
+                    سيتم مسح كافة الطلبات والنشاط وإعادة إحصائيات التوصيل للكباتن إلى الصفر، مع بقاء كافة المتاجر، المنتجات، الكباتن، والزبائن، والإعدادات الإدارية محفوظة تماماً.
+                  </p>
+                  <div className="p-2 bg-white/80 rounded-xl text-[10.5px] text-emerald-800 font-bold border border-emerald-200 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>تظل المحلات والوجبات والأسعار وحسابات الدخول كما هي 100%.</span>
+                  </div>
+                </div>
+              )}
+
+              {cleanSlateTarget === "orders_only" && (
+                <div className="p-3.5 bg-slate-100 rounded-2xl border border-slate-200 space-y-2">
+                  <div className="flex items-center gap-1.5 font-black text-slate-800">
+                    <Info className="w-4 h-4 text-slate-600 shrink-0" />
+                    <span>تفريغ أرشيف وسجل الطلبات فقط:</span>
+                  </div>
+                  <p className="text-slate-700 text-[11.5px] leading-relaxed">
                     سيتم مسح كافة الطلبات التجريبية القديمة ليكون سجل الطلبات نظيفاً وجديداً، مع بقاء كافة المتاجر والمنتجات والإعدادات كما هي.
                   </p>
                 </div>
@@ -2412,6 +2443,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 className={`flex-1 py-3 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 ${
                   cleanSlateTarget === "all"
                     ? "bg-red-600 hover:bg-red-700 active:bg-red-800"
+                    : cleanSlateTarget === "zero_transactions"
+                    ? "bg-amber-600 hover:bg-amber-700 active:bg-amber-800"
                     : cleanSlateTarget === "orders_only"
                     ? "bg-slate-800 hover:bg-slate-900"
                     : "bg-blue-600 hover:bg-blue-700"

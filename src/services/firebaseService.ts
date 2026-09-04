@@ -471,13 +471,71 @@ export async function clearFirestoreCollection(collectionName: string): Promise<
   }
 }
 
-// Clean Slate in Firestore: Clears demo stores, products, orders, reviews, broadcasts while preserving settings/schema
-export async function cleanSlateFirestore(target: "all" | "orders_only" = "all"): Promise<boolean> {
+export async function fetchDriversFromFirestore(): Promise<DriverMember[]> {
   try {
-    if (target === "orders_only") {
+    const snap = await getDocs(collection(db, "drivers"));
+    const list: DriverMember[] = [];
+    snap.forEach((d) => {
+      list.push({ ...(d.data() as DriverMember), id: d.id });
+    });
+    return list;
+  } catch (err) {
+    console.warn("Error fetching drivers from Firestore:", err);
+    return [];
+  }
+}
+
+export async function deleteDriverFromFirestore(driverId: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, "drivers", driverId));
+    return true;
+  } catch (err) {
+    console.error("Error deleting driver from Firestore:", err);
+    return false;
+  }
+}
+
+// Clean Slate in Firestore: Clears demo stores, products, orders, reviews, broadcasts while preserving settings/schema
+export async function cleanSlateFirestore(target: "all" | "orders_only" | "zero_transactions" = "all"): Promise<boolean> {
+  try {
+    if (target === "zero_transactions" || target === "orders_only") {
       await clearFirestoreCollection("orders");
+      
+      // Reset driver deliveries and earnings to 0
+      try {
+        const driversSnap = await getDocs(collection(db, "drivers"));
+        const updatePromises: Promise<any>[] = [];
+        driversSnap.forEach((d) => {
+          updatePromises.push(updateDoc(d.ref, {
+            totalDeliveries: 0,
+            earnings: 0,
+            updatedAt: new Date().toISOString()
+          }));
+        });
+        await Promise.all(updatePromises);
+      } catch (err) {
+        console.warn("Error resetting driver stats in Firestore:", err);
+      }
+
+      // Reset customer stats to 0
+      try {
+        const custSnap = await getDocs(collection(db, "customers"));
+        const custPromises: Promise<any>[] = [];
+        custSnap.forEach((c) => {
+          custPromises.push(updateDoc(c.ref, {
+            totalOrdersCount: 0,
+            totalSpent: 0,
+            updatedAt: new Date().toISOString()
+          }));
+        });
+        await Promise.all(custPromises);
+      } catch (err) {
+        console.warn("Error resetting customer stats in Firestore:", err);
+      }
+
       return true;
     }
+
     await Promise.all([
       clearFirestoreCollection("stores"),
       clearFirestoreCollection("products"),
