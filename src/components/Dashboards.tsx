@@ -68,6 +68,10 @@ interface DashboardProps {
   onDeleteBroadcast?: (id: string) => void;
   onResendBroadcast?: (broadcast: StoreBroadcast) => void;
   onCleanSlateData?: (options: { target: "all" | "orders_only" | "restore_defaults" }) => Promise<void> | void;
+  driversList?: DriverMember[];
+  onAddDriver?: (driver: DriverMember) => void;
+  onUpdateDriver?: (driver: DriverMember) => void;
+  onDeleteDriver?: (driverId: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -96,7 +100,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onSendBroadcast = () => {},
   onDeleteBroadcast = () => {},
   onResendBroadcast = () => {},
-  onCleanSlateData
+  onCleanSlateData,
+  driversList: propDriversList,
+  onAddDriver: propOnAddDriver,
+  onUpdateDriver: propOnUpdateDriver,
+  onDeleteDriver: propOnDeleteDriver
 }) => {
   // Persistent Emergency Rush Mode
   const [isEmergencyRush, setIsEmergencyRush] = useState<boolean>(() => {
@@ -191,32 +199,52 @@ export const Dashboard: React.FC<DashboardProps> = ({
     localStorage.setItem("tw_staff_members", JSON.stringify(next));
   };
 
-  // Drivers State
-  const [driversList, setDriversList] = useState<DriverMember[]>(() => {
+  // Drivers Fleet State (Synchronized with App root and local cache)
+  const [localDriversList, setLocalDriversList] = useState<DriverMember[]>(() => {
     try {
-      const saved = localStorage.getItem("tw_drivers");
+      const saved = localStorage.getItem("tw_drivers_list") || localStorage.getItem("tw_drivers");
       return saved ? JSON.parse(saved) : initialDrivers;
     } catch {
       return initialDrivers;
     }
   });
 
+  const driversList = propDriversList && propDriversList.length > 0 ? propDriversList : localDriversList;
+
   const handleAddDriver = (driver: DriverMember) => {
-    const next = [...driversList, driver];
-    setDriversList(next);
-    localStorage.setItem("tw_drivers", JSON.stringify(next));
+    const next = [...driversList.filter((d) => d.id !== driver.id), driver];
+    setLocalDriversList(next);
+    try {
+      localStorage.setItem("tw_drivers", JSON.stringify(next));
+      localStorage.setItem("tw_drivers_list", JSON.stringify(next));
+    } catch {}
+    if (propOnAddDriver) {
+      propOnAddDriver(driver);
+    }
   };
 
   const handleUpdateDriver = (driver: DriverMember) => {
-    const next = driversList.map(d => d.id === driver.id ? driver : d);
-    setDriversList(next);
-    localStorage.setItem("tw_drivers", JSON.stringify(next));
+    const next = driversList.map((d) => (d.id === driver.id ? driver : d));
+    setLocalDriversList(next);
+    try {
+      localStorage.setItem("tw_drivers", JSON.stringify(next));
+      localStorage.setItem("tw_drivers_list", JSON.stringify(next));
+    } catch {}
+    if (propOnUpdateDriver) {
+      propOnUpdateDriver(driver);
+    }
   };
 
   const handleDeleteDriver = (driverId: string) => {
-    const next = driversList.filter(d => d.id !== driverId);
-    setDriversList(next);
-    localStorage.setItem("tw_drivers", JSON.stringify(next));
+    const next = driversList.filter((d) => d.id !== driverId);
+    setLocalDriversList(next);
+    try {
+      localStorage.setItem("tw_drivers", JSON.stringify(next));
+      localStorage.setItem("tw_drivers_list", JSON.stringify(next));
+    } catch {}
+    if (propOnDeleteDriver) {
+      propOnDeleteDriver(driverId);
+    }
   };
 
   // Craftsmen State
@@ -338,6 +366,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
 
   const [showAccountModal, setShowAccountModal] = useState(false);
+
+  // Close internal modal on mobile back button tap without leaving admin dashboard
+  useEffect(() => {
+    const handleBack = (e: Event) => {
+      if (showAccountModal) {
+        setShowAccountModal(false);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("tw_back_button_pressed", handleBack);
+    return () => window.removeEventListener("tw_back_button_pressed", handleBack);
+  }, [showAccountModal]);
 
   const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
     if (currentStaff?.role === "manager" || userRole === "admin") {

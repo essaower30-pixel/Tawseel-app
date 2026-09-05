@@ -22,6 +22,7 @@ import { DriverMember } from "../../types";
 import { ContactActions } from "../ContactActions";
 import { openWhatsApp } from "../../utils/whatsapp";
 import { getAppUrl } from "../../utils/appUrl";
+import { cleanPhoneNumber, normalizeDigits } from "../../utils/driverAuth";
 
 interface DriversTabProps {
   driversList: DriverMember[];
@@ -71,25 +72,28 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     e.preventDefault();
     if (!name.trim() || !phone.trim()) return;
 
-    const generatedUsername = username.trim() || phone.trim();
+    const normalizedPhone = cleanPhoneNumber(phone.trim()) || normalizeDigits(phone.trim());
+    const normalizedPin = normalizeDigits(pin.trim()) || "1111";
+    const cleanName = name.trim();
+    const cleanUsername = username.trim() || normalizedPhone;
 
     if (editingDriver) {
       onUpdateDriver({
         ...editingDriver,
-        name: name.trim(),
-        username: generatedUsername,
-        phone: phone.trim(),
+        name: cleanName,
+        username: cleanUsername,
+        phone: normalizedPhone,
         vehicle: vehicle.trim(),
-        pin: pin.trim() || "1111"
+        pin: normalizedPin
       });
     } else {
       onAddDriver({
         id: "driver_" + Date.now(),
-        name: name.trim(),
-        username: generatedUsername,
-        phone: phone.trim(),
+        name: cleanName,
+        username: cleanUsername,
+        phone: normalizedPhone,
         vehicle: vehicle.trim(),
-        pin: pin.trim() || "1111",
+        pin: normalizedPin,
         status: "available",
         totalDeliveries: 0,
         earnings: 0,
@@ -104,7 +108,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
   const handleCopyCredentials = (driver: DriverMember) => {
     const appUrl = getAppUrl();
-    const text = `🛵 بيانات حساب كابتن التوصيل (تطبيق توصيل):\n👤 اسم الكابتن: ${driver.name}\n🔑 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور (PIN): ${driver.pin || "1111"}\n📱 رقم الهاتف: ${driver.phone}\n🌐 رابط التطبيق المباشر:\n${appUrl}`;
+    const text = `🛵 بيانات حساب كابتن التوصيل (منصة توصيل):\n👤 اسم الكابتن: ${driver.name}\n📱 رقم الموبايل للدخول: ${driver.phone}\n👤 أو الاسم للدخول: ${driver.name}\n🔑 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور (PIN): ${driver.pin || "1111"}\n\n🌐 رابط المنصة المباشر:\n${appUrl}`;
     navigator.clipboard.writeText(text);
     setCopiedId(driver.id);
     setTimeout(() => setCopiedId(null), 2500);
@@ -112,7 +116,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
   const handleSendCredentialsWhatsApp = (driver: DriverMember, type: "regular" | "business" = "regular") => {
     const appUrl = getAppUrl();
-    const text = `مرحباً كابتن ${driver.name} 🛵\nتم إنشاء وتفعيل حسابك في منصة "توصيل".\n\n📌 بيانات الدخول الخاصة بك:\n👤 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور / PIN: ${driver.pin || "1111"}\n\n🌐 يمكنك الدخول مباشرة عبر تبويب "دخول كابتن توصيل 🛵" من خلال الرابط التالي:\n${appUrl}\n\nبالتوفيق، إدارة منصة توصيل 🚀`;
+    const text = `مرحباً كابتن ${driver.name} 🛵\nتم إنشاء وتفعيل حسابك في منصة "توصيل".\n\n📌 بيانات الدخول المعتمدة:\n📱 رقم الهاتف: ${driver.phone}\n👤 أو الاسم: ${driver.name}\n🔑 اسم المستخدم: ${driver.username || driver.phone}\n🔒 رمز المرور السري (PIN): ${driver.pin || "1111"}\n\n💡 ملاحظة هامة: يمكنك الدخول بسهولة عبر رقم موبايلك أو اسمك مع الرمز السري أعلاه.\n\n🌐 رابط التطبيق المباشر:\n${appUrl}\n\nبالتوفيق، إدارة منصة توصيل 🚀`;
     openWhatsApp({
       phone: driver.phone,
       message: text,
@@ -361,16 +365,15 @@ export const DriversTab: React.FC<DriversTabProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold mb-1">اسم المستخدم للدخول: *</label>
+                  <label className="block font-bold mb-1">معرف أو اسم المستخدم: (اختياري)</label>
                   <input
                     type="text"
-                    required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    placeholder="capt_alaa"
+                    placeholder="مثال: capt_alaa أو اتركه فارغاً"
                     className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-mono font-bold focus:outline-hidden focus:border-orange-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">يدخل به الكابتن</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">يمكن للكابتن الدخول برقم موبايله أو اسمه مباشرة</span>
                 </div>
 
                 <div>
@@ -379,24 +382,26 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                     type="text"
                     required
                     value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="1234"
+                    onChange={(e) => setPin(normalizeDigits(e.target.value))}
+                    placeholder="1111"
                     className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-mono text-center tracking-widest text-sm font-black focus:outline-hidden focus:border-orange-500"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">4 أرقام أو كلمة سر</span>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">الرمز الافتراضي: 1111</span>
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold mb-1">رقم الموبايل (واتساب): *</label>
+                <label className="block font-bold mb-1">رقم الموبايل (للدخول والتواصل): *</label>
                 <input
                   type="tel"
                   required
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(normalizeDigits(e.target.value))}
                   placeholder="0951854257"
-                  className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                  className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500 text-left"
+                  dir="ltr"
                 />
+                <span className="text-[10px] text-emerald-600 font-bold mt-0.5 block">✓ يستطيع الكابتن الدخول بهذا الرقم مباشرة</span>
               </div>
 
               <div>

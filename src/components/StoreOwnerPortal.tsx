@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Store as StoreIcon, 
   Package, 
@@ -125,6 +125,24 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   // Product Modal State
   const [showProductModal, setShowProductModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  // Close internal modals or zoomed image on mobile back button tap without leaving store owner portal
+  useEffect(() => {
+    const handleBack = (e: Event) => {
+      if (zoomedImage) {
+        setZoomedImage(null);
+        e.preventDefault();
+      } else if (showProductModal) {
+        setShowProductModal(false);
+        e.preventDefault();
+      } else if (showAccountModal) {
+        setShowAccountModal(false);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("tw_back_button_pressed", handleBack);
+    return () => window.removeEventListener("tw_back_button_pressed", handleBack);
+  }, [zoomedImage, showProductModal, showAccountModal]);
 
   // Product Form Fields
   const [productName, setProductName] = useState("");
@@ -300,6 +318,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     if (!productName.trim() || isNaN(priceNum)) return;
 
     const stockNum = productStock.trim() !== "" && !isNaN(Number(productStock)) ? Number(productStock) : undefined;
+    const isDepleted = stockNum !== undefined && stockNum <= 0;
 
     if (editingProduct) {
       // Keep existing approval status or reset to pending if major changes
@@ -309,6 +328,8 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
         price: priceNum,
         unit: productUnit.trim() || "قطعة",
         stock: stockNum,
+        inStock: !isDepleted,
+        isAvailable: !isDepleted,
         category: productCategory,
         description: productDescription,
         image: productImage || editingProduct.image,
@@ -329,6 +350,9 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
         price: priceNum,
         unit: productUnit.trim() || "قطعة",
         stock: stockNum,
+        inStock: !isDepleted,
+        isAvailable: !isDepleted,
+        soldCount: 0,
         category: productCategory,
         description: productDescription,
         image: productImage || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
@@ -348,6 +372,25 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     }
 
     setShowProductModal(false);
+  };
+
+  const handleQuickRestock = (prod: Product) => {
+    const current = prod.stock !== undefined ? prod.stock : 0;
+    const input = window.prompt(
+      `تحديث مخزون "${prod.name}":\nالمخزون المعروض الحالي: ${current} ${prod.unit || "قطعة"}\nإجمالي الكمية المباعة: ${prod.soldCount || 0} ${prod.unit || "قطعة"}\n\nأدخل كمية المخزون المعروضة الجديدة:`,
+      (current > 0 ? current + 20 : 50).toString()
+    );
+    if (input !== null && input.trim() !== "") {
+      const newQty = parseInt(input.trim(), 10);
+      if (!isNaN(newQty) && newQty >= 0) {
+        onUpdateProduct({
+          ...prod,
+          stock: newQty,
+          inStock: newQty > 0,
+          isAvailable: newQty > 0
+        });
+      }
+    }
   };
 
   return (
@@ -1106,6 +1149,33 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                           )}
                         </div>
                       )}
+                      {/* Stock & Sales Synchronization Bar */}
+                      <div className="flex items-center justify-between text-[11px] font-bold p-2 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`flex items-center gap-1 ${
+                            prod.stock !== undefined && prod.stock <= 0 
+                              ? "text-red-600 font-black" 
+                              : prod.stock !== undefined && prod.stock <= 5 
+                              ? "text-amber-600 font-black" 
+                              : "text-emerald-700 font-bold"
+                          }`}>
+                            <span className={`w-2 h-2 rounded-full ${prod.stock !== undefined && prod.stock <= 0 ? "bg-red-500" : prod.stock !== undefined && prod.stock <= 5 ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                            المعروض: {prod.stock !== undefined ? `${prod.stock} ${prod.unit || "قطعة"}` : "غير محدد"}
+                          </span>
+                          {prod.soldCount && prod.soldCount > 0 ? (
+                            <span className="text-slate-500 border-r pr-2 border-slate-300">
+                              🔥 المباع: {prod.soldCount}
+                            </span>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickRestock(prod)}
+                          className="text-[10px] text-orange-600 hover:text-orange-700 bg-white border border-orange-200 px-2 py-1 rounded-lg font-black transition-all shadow-2xs hover:bg-orange-50 cursor-pointer"
+                        >
+                          + تجديد الكمية
+                        </button>
+                      </div>
                     </div>
 
                     {/* Product Action Buttons */}

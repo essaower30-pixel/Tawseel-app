@@ -174,6 +174,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
 
     const matchedStore = stores.find((s) => s.id === storeId);
     const stockNum = stock.trim() !== "" && !isNaN(Number(stock)) ? Number(stock) : undefined;
+    const isDepleted = stockNum !== undefined && stockNum <= 0;
 
     const prodData: Product = {
       id: editingProduct ? editingProduct.id : "prod_" + Date.now(),
@@ -181,6 +182,8 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
       price: priceNum,
       unit: unit.trim() || "قطعة",
       stock: stockNum,
+      inStock: !isDepleted,
+      isAvailable: !isDepleted,
       storeId,
       storeName: matchedStore?.name || "متجر عام",
       category,
@@ -204,6 +207,25 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
     }
 
     setShowModal(false);
+  };
+
+  const handleQuickRestock = (prod: Product) => {
+    const current = prod.stock !== undefined ? prod.stock : 0;
+    const input = window.prompt(
+      `تحديث مخزون "${prod.name}":\nالمخزون المعروض الحالي: ${current} ${prod.unit || "قطعة"}\nإجمالي الكمية المباعة: ${prod.soldCount || 0} ${prod.unit || "قطعة"}\n\nأدخل كمية المخزون المعروضة الجديدة:`,
+      (current > 0 ? current + 20 : 50).toString()
+    );
+    if (input !== null && input.trim() !== "") {
+      const newQty = parseInt(input.trim(), 10);
+      if (!isNaN(newQty) && newQty >= 0) {
+        onUpdateProduct({
+          ...prod,
+          stock: newQty,
+          inStock: newQty > 0,
+          isAvailable: newQty > 0
+        });
+      }
+    }
   };
 
   const filteredProducts = useMemo(() => {
@@ -484,6 +506,34 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
                       )}
                     </div>
                   )}
+
+                  {/* Stock & Sales Synchronization Bar */}
+                  <div className="flex items-center justify-between text-[11px] font-bold p-2 bg-slate-50 rounded-xl border border-slate-200/80 mt-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`flex items-center gap-1 ${
+                        prod.stock !== undefined && prod.stock <= 0 
+                          ? "text-red-600 font-black" 
+                          : prod.stock !== undefined && prod.stock <= 5 
+                          ? "text-amber-600 font-black" 
+                          : "text-emerald-700 font-bold"
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${prod.stock !== undefined && prod.stock <= 0 ? "bg-red-500" : prod.stock !== undefined && prod.stock <= 5 ? "bg-amber-500 animate-pulse" : "bg-emerald-500"}`} />
+                        المعروض: {prod.stock !== undefined ? `${prod.stock} ${prod.unit || "قطعة"}` : "غير محدد"}
+                      </span>
+                      {prod.soldCount && prod.soldCount > 0 ? (
+                        <span className="text-slate-500 border-r pr-2 border-slate-300">
+                          🔥 المباع: {prod.soldCount}
+                        </span>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickRestock(prod)}
+                      className="text-[10px] text-orange-600 hover:text-orange-700 bg-white border border-orange-200 px-2 py-0.5 rounded-lg font-black transition-all shadow-2xs hover:bg-orange-50 cursor-pointer"
+                    >
+                      + تعبئة المخزون
+                    </button>
+                  </div>
                 </div>
 
                 {/* Actions & Approval buttons */}

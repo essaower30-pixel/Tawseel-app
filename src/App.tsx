@@ -121,6 +121,7 @@ import {
   cleanSlateFirestore,
   reseedFirestoreDemoData
 } from "./services/firebaseService";
+import { testFirestoreConnection } from "./firebase";
 import { CategoryIcon } from "./components/CategoryIcon";
 import { getAppUrl, getShareTemplates } from "./utils/appUrl";
 
@@ -329,7 +330,7 @@ export default function App() {
   // Drivers Fleet State
   const [driversList, setDriversList] = useState<DriverMember[]>(() => {
     try {
-      const raw = localStorage.getItem("tw_drivers_list");
+      const raw = localStorage.getItem("tw_drivers_list") || localStorage.getItem("tw_drivers");
       return raw ? JSON.parse(raw) : initialDrivers;
     } catch {
       return initialDrivers;
@@ -675,13 +676,21 @@ export default function App() {
     initHistoryProtection();
 
     const onPopState = () => {
-      const hasOpenModal = showAuthModal || showCustomerArchiveModal || showAdminPinModal || showSoundModal || showUpdateModal;
+      const hasOpenModal = 
+        showAuthModal || 
+        showCustomerArchiveModal || 
+        showAdminPinModal || 
+        showSoundModal || 
+        showUpdateModal ||
+        showHomeCustomOrderModal;
+
       const closeModal = () => {
         setShowAuthModal(false);
         setShowCustomerArchiveModal(false);
         setShowAdminPinModal(false);
         setShowSoundModal(false);
         setShowUpdateModal(false);
+        setShowHomeCustomOrderModal(false);
       };
 
       handleAppBackButton({
@@ -694,17 +703,14 @@ export default function App() {
         hasActiveOrder: !!activeOrder,
         closeActiveOrder: () => setActiveOrder(null),
         isAdminMode,
-        exitAdmin: () => setIsAdminMode(false),
         isDriverMode,
-        exitDriver: () => setIsDriverMode(false),
         currentStoreOwnerId: currentStoreId,
-        exitStoreOwner: () => setCurrentStoreId(null),
         selectedCategory,
         resetCategory: () => setSelectedCategory("all"),
       }, (msg) => {
         addToastNotification({
           order: { id: "tw-live", storeId: "", storeName: "توصيل القرية", items: [], subtotal: 0, deliveryFee: 0, total: 0, status: "pending", createdAt: new Date().toISOString(), customerName: "", customerPhone: "", addressLandmark: "" },
-          title: "التطبيق يعمل بنشاط في الخلفية 🔔",
+          title: "تطبيق توصيل القرية 🛵",
           message: msg,
           type: "info"
         });
@@ -718,6 +724,8 @@ export default function App() {
     showCustomerArchiveModal,
     showAdminPinModal,
     showSoundModal,
+    showUpdateModal,
+    showHomeCustomOrderModal,
     activeOrder,
     isViewingCart,
     selectedStore,
@@ -847,7 +855,10 @@ export default function App() {
   }, [cartItems]);
 
   useEffect(() => {
-    localStorage.setItem("tw_drivers_list", JSON.stringify(driversList));
+    try {
+      localStorage.setItem("tw_drivers_list", JSON.stringify(driversList));
+      localStorage.setItem("tw_drivers", JSON.stringify(driversList));
+    } catch {}
   }, [driversList]);
 
   useEffect(() => {
@@ -980,6 +991,9 @@ export default function App() {
 
   // Firebase Firestore Real-Time Subscriptions (Synchronize Orders, Stores, Products, Drivers, Reviews across all users)
   useEffect(() => {
+    // 0. Test connection safely according to Firebase skill
+    testFirestoreConnection().catch(() => {});
+
     // 1. Seed initial sample data to Firestore if not already present
     seedInitialFirestoreData().catch((err) => console.warn("Firestore seed notice:", err));
 
@@ -1335,6 +1349,60 @@ export default function App() {
       updateOrderStatusInFirestore(orderId, { status }),
       updateOrderOnServer(orderId, { status })
     ]);
+
+    // If order is cancelled, restore reserved stock and reduce soldCount
+    if (status === "cancelled") {
+      const targetOrder = allOrders.find((o) => o.id === orderId);
+      if (targetOrder && targetOrder.status !== "cancelled" && targetOrder.items && targetOrder.items.length > 0) {
+        const itemsMap = new Map<string, number>();
+        for (const item of targetOrder.items) {
+          if (item.product && item.product.id) {
+            itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + item.quantity);
+          }
+        }
+
+        if (itemsMap.size > 0) {
+          const restoredProductsToSync: Product[] = [];
+          setProducts((prevProducts) => {
+            const nextProducts = prevProducts.map((p) => {
+              const qtyToRestore = itemsMap.get(p.id);
+              if (qtyToRestore && qtyToRestore > 0) {
+                const currentStock = p.stock !== undefined ? p.stock : 0;
+                const newStock = currentStock + qtyToRestore;
+                const currentSold = p.soldCount || 0;
+                const newSold = Math.max(0, currentSold - qtyToRestore);
+
+                const restoredProd: Product = {
+                  ...p,
+                  stock: newStock,
+                  soldCount: newSold,
+                  inStock: newStock > 0,
+                  isAvailable: newStock > 0
+                };
+                restoredProductsToSync.push(restoredProd);
+                return restoredProd;
+              }
+              return p;
+            });
+
+            try {
+              localStorage.setItem("tw_products", JSON.stringify(nextProducts));
+            } catch (err) {}
+
+            return nextProducts;
+          });
+
+          if (restoredProductsToSync.length > 0) {
+            Promise.allSettled(
+              restoredProductsToSync.flatMap((prod) => [
+                saveProductToFirestore(prod),
+                updateProductOnServer(prod)
+              ])
+            ).catch(() => {});
+          }
+        }
+      }
+    }
   };
 
   const handleAssignDriverToOrder = async (orderId: string, driver: DriverMember | null) => {
@@ -1394,6 +1462,31 @@ export default function App() {
 
   // Handlers for Cart
   const handleAddToCart = (product: Product, selectedSize?: StoreSize, selectedAdditions: StoreAddition[] = []) => {
+    // 1. Check if product is out of stock
+    const isOutOfStock = product.isAvailable === false || product.inStock === false || (product.stock !== undefined && product.stock <= 0);
+    if (isOutOfStock) {
+      addToastNotification({
+        title: "عذراً، نفذت الكمية ❌",
+        message: `الصنف "${product.name}" غير متوفر حالياً في المخزون حتى يتم تجديده.`,
+        type: "warning"
+      });
+      return;
+    }
+
+    // 2. Check if user already reached maximum available stock in cart
+    const currentQtyInCart = cartItems
+      .filter((item) => item.product.id === product.id)
+      .reduce((sum, item) => sum + item.quantity, 0);
+
+    if (product.stock !== undefined && currentQtyInCart >= product.stock) {
+      addToastNotification({
+        title: "وصلت للحد الأقصى المتوفر ⚠️",
+        message: `المخزون المتوفر من "${product.name}" هو ${product.stock} ${product.unit || "قطعة"} فقط.`,
+        type: "warning"
+      });
+      return;
+    }
+
     if (cartItems.length > 0 && cartItems[0].product.storeId !== product.storeId) {
       const confirmClear = window.confirm(
         "لقد قمت بإضافة منتج من متجر مختلف. هل تود إفراغ السلة وتحديثها بمنتجات المتجر الجديد؟"
@@ -1489,10 +1582,58 @@ export default function App() {
     setCartItems([]);
     setIsViewingCart(false);
 
-    // Save order to Firebase Firestore & server storage for multi-device sync
+    // Synchronize sold quantities with displayed stock:
+    // With every sale, decrease the displayed quantity and increase soldCount until out of stock
+    const updatedProductsToSync: Product[] = [];
+    setProducts((prevProducts) => {
+      const itemsMap = new Map<string, number>();
+      for (const item of newOrder.items || []) {
+        if (item.product && item.product.id) {
+          itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + item.quantity);
+        }
+      }
+
+      if (itemsMap.size === 0) return prevProducts;
+
+      const nextProducts = prevProducts.map((p) => {
+        const qtySold = itemsMap.get(p.id);
+        if (qtySold && qtySold > 0) {
+          const currentStock = p.stock !== undefined ? p.stock : 50;
+          const newStock = Math.max(0, currentStock - qtySold);
+          const currentSold = p.soldCount || 0;
+          const newSold = currentSold + qtySold;
+          const isDepleted = newStock <= 0;
+
+          const updatedProd: Product = {
+            ...p,
+            stock: newStock,
+            soldCount: newSold,
+            inStock: !isDepleted,
+            isAvailable: !isDepleted
+          };
+          updatedProductsToSync.push(updatedProd);
+          return updatedProd;
+        }
+        return p;
+      });
+
+      try {
+        localStorage.setItem("tw_products", JSON.stringify(nextProducts));
+      } catch (err) {
+        console.warn("Failed saving products to localStorage:", err);
+      }
+
+      return nextProducts;
+    });
+
+    // Save order & updated products to Firebase Firestore & server storage for multi-device sync
     await Promise.allSettled([
       saveOrderToFirestore(newOrder),
-      saveOrderOnServer(newOrder)
+      saveOrderOnServer(newOrder),
+      ...updatedProductsToSync.flatMap((prod) => [
+        saveProductToFirestore(prod),
+        updateProductOnServer(prod)
+      ])
     ]);
 
     // Play ringing alert sound & dispatch real-time notifications to Admin & Store
@@ -2297,33 +2438,63 @@ export default function App() {
                     const storeOfProduct = stores.find((s) => s.id === offer.storeId);
                     const inCart = cartItems.find((ci) => ci.product.id === offer.id);
                     const qty = inCart ? inCart.quantity : 0;
+                    const isOutOfStock = offer.isAvailable === false || offer.inStock === false || (offer.stock !== undefined && offer.stock <= 0);
+                    const isMaxStock = offer.stock !== undefined && qty >= offer.stock;
 
                     return (
                       <div
                         key={offer.id}
-                        className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs flex gap-4 relative overflow-hidden hover:shadow-md transition-all text-right"
+                        className={`bg-white rounded-3xl p-4 border shadow-xs flex gap-4 relative overflow-hidden hover:shadow-md transition-all text-right ${
+                          isOutOfStock ? "border-slate-200 bg-slate-50/70 opacity-80" : "border-slate-200"
+                        }`}
                       >
-                        <div className="absolute top-3 left-3 bg-red-500 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
-                          <Flame className="w-3 h-3 fill-white" />
-                          <span>{offer.offerLabel || "تخفيض خاص"}</span>
+                        <div className="absolute top-3 left-3 flex flex-col gap-1 items-end z-10">
+                          {isOutOfStock ? (
+                            <span className="bg-red-600 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full shadow-xs">
+                              نفذت الكمية ❌
+                            </span>
+                          ) : (
+                            <div className="bg-red-500 text-white font-extrabold text-[10px] px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                              <Flame className="w-3 h-3 fill-white" />
+                              <span>{offer.offerLabel || "تخفيض خاص"}</span>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-50 shrink-0 border border-slate-100">
+                        <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-50 shrink-0 border border-slate-100 relative">
                           <img
                             src={offer.image}
                             alt={offer.name}
-                            className="w-full h-full object-cover"
+                            className={`w-full h-full object-cover ${isOutOfStock ? "grayscale-[60%]" : ""}`}
                             referrerPolicy="no-referrer"
                           />
+                          {offer.stock !== undefined && (
+                            <span className={`absolute bottom-1 right-1 text-[9px] font-black px-1.5 py-0.5 rounded-md ${
+                              isOutOfStock 
+                                ? "bg-red-600 text-white" 
+                                : offer.stock <= 5 
+                                ? "bg-amber-500 text-white animate-pulse" 
+                                : "bg-slate-900/80 text-white backdrop-blur-xs"
+                            }`}>
+                              {isOutOfStock ? "نفذ" : `باقي ${offer.stock}`}
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex-1 flex flex-col justify-between py-1">
                           <div>
-                            {storeOfProduct && (
-                              <span className="text-[10px] text-slate-400 font-extrabold block mb-0.5">
-                                متوفر في: {storeOfProduct.name}
-                              </span>
-                            )}
+                            <div className="flex items-center justify-between gap-1 mb-0.5">
+                              {storeOfProduct && (
+                                <span className="text-[10px] text-slate-400 font-extrabold block">
+                                  متوفر في: {storeOfProduct.name}
+                                </span>
+                              )}
+                              {offer.soldCount && offer.soldCount > 0 ? (
+                                <span className="text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-sm">
+                                  🔥 بِيع {offer.soldCount}
+                                </span>
+                              ) : null}
+                            </div>
                             <h4 className="font-extrabold text-slate-800 text-sm leading-tight">
                               {offer.name}
                             </h4>
@@ -2344,7 +2515,11 @@ export default function App() {
                               )}
                             </div>
 
-                            {qty === 0 ? (
+                            {isOutOfStock ? (
+                              <span className="bg-slate-100 text-slate-400 border border-slate-200 font-bold text-xs py-1.5 px-3 rounded-xl cursor-not-allowed">
+                                غير متوفر
+                              </span>
+                            ) : qty === 0 ? (
                               <button
                                 type="button"
                                 onClick={() => handleAddToCart(offer)}
@@ -2366,8 +2541,14 @@ export default function App() {
                                 </span>
                                 <button
                                   type="button"
+                                  disabled={isMaxStock}
                                   onClick={() => handleAddToCart(offer)}
-                                  className="w-6 h-6 flex items-center justify-center rounded-lg bg-slate-900 text-white font-bold text-xs cursor-pointer"
+                                  className={`w-6 h-6 flex items-center justify-center rounded-lg font-bold text-xs ${
+                                    isMaxStock
+                                      ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                                      : "bg-slate-900 text-white cursor-pointer"
+                                  }`}
+                                  title={isMaxStock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "زيادة الكمية"}
                                 >
                                   +
                                 </button>
@@ -2641,6 +2822,7 @@ export default function App() {
             setShowAuthModal(false);
           }}
           onClose={() => setShowAuthModal(false)}
+          driversList={driversList}
         />
       )}
 

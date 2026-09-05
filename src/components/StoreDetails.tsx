@@ -243,8 +243,48 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
   const isPharmacy = store.category === "pharmacies" || store.id === "store_shifa" || store.name.includes("صيدل");
   const isDoctor = store.category === "doctors" || store.name.includes("طبيب") || store.name.includes("دكتور") || store.name.includes("عيادة");
-  const isDriver = store.category === "drivers" || store.category === "taxi" || store.id.includes("taxi") || store.id.includes("driver") || store.name.includes("سائق") || store.name.includes("توصيل") || store.name.includes("كابتن") || store.name.includes("تكسي") || store.name.includes("تاكسي");
-  const isCraftsman = store.category === "crafts" || store.category === "services" || store.category === "maintenance" || store.id.includes("blacksmith") || store.id.includes("painter") || store.id.includes("plumber") || store.id.includes("carpenter") || store.id.includes("electrician") || store.id.includes("gypsum") || store.name.includes("حدادة") || store.name.includes("دهان") || store.name.includes("نجارة") || store.name.includes("سباكة") || store.name.includes("كهربا") || store.name.includes("صيانة") || store.name.includes("ديكور") || store.name.includes("ورشة") || store.name.includes("جبس") || (store.isService && !isPharmacy && !isDoctor && !isDriver);
+  const isDriver =
+    store.category === "drivers" ||
+    store.category === "taxi" ||
+    store.category?.includes("سائق") ||
+    store.category?.includes("تكسي") ||
+    store.category?.includes("تاكسي") ||
+    store.category?.includes("توصيل") ||
+    store.id.includes("taxi") ||
+    store.id.includes("driver") ||
+    store.name.includes("سائق") ||
+    store.name.includes("توصيل") ||
+    store.name.includes("كابتن") ||
+    store.name.includes("تكسي") ||
+    store.name.includes("تاكسي");
+  const isCraftsman =
+    store.category === "crafts" ||
+    store.category === "craftsmen" ||
+    store.category === "craftsman" ||
+    store.category === "services" ||
+    store.category === "maintenance" ||
+    store.category?.includes("مهن") ||
+    store.category?.includes("حرف") ||
+    store.category?.includes("صيان") ||
+    store.category?.includes("خدم") ||
+    store.id.includes("blacksmith") ||
+    store.id.includes("painter") ||
+    store.id.includes("plumber") ||
+    store.id.includes("carpenter") ||
+    store.id.includes("electrician") ||
+    store.id.includes("gypsum") ||
+    store.name.includes("حدادة") ||
+    store.name.includes("دهان") ||
+    store.name.includes("نجارة") ||
+    store.name.includes("سباكة") ||
+    store.name.includes("كهربا") ||
+    store.name.includes("صيانة") ||
+    store.name.includes("ديكور") ||
+    store.name.includes("ورشة") ||
+    store.name.includes("جبس") ||
+    store.name.includes("تصليح") ||
+    store.name.includes("فني") ||
+    (store.isService && !isPharmacy && !isDoctor && !isDriver);
   const isDriverOrCraft = isDriver || isCraftsman;
 
   const contactPhone = store.contactPhone || store.ownerPhone || "0966778899";
@@ -268,7 +308,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           className="flex items-center gap-1.5 text-xs font-black text-slate-700 bg-white hover:bg-slate-50 py-2.5 px-4 rounded-xl border border-slate-200 shadow-xs cursor-pointer transition-all active:scale-95"
         >
           <ArrowRight className="w-4 h-4 text-orange-500" />
-          <span>الرجوع للمتاجر</span>
+          <span>
+            {isCraftsman ? "الرجوع للمهن والخدمات" : isDriver ? "الرجوع لخدمات التوصيل" : "الرجوع للمتاجر"}
+          </span>
         </button>
 
         {totalCartCount > 0 && (
@@ -283,86 +325,68 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         )}
       </div>
 
-      {/* Store Header Banner */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden text-right">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-20"
-          style={{ backgroundImage: `url('${store.image}')` }}
-        />
-        <div className="relative z-10 space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full text-[11px] font-black">
-            {isDriver ? (
-              <>
-                <Car className="w-3.5 h-3.5 text-amber-400" />
-                <span>خدمة سائق وتوصيل خاص موثوق</span>
-              </>
-            ) : isCraftsman ? (
-              <>
-                <Wrench className="w-3.5 h-3.5 text-amber-400" />
-                <span>خدمات مهنية وحرفية وصيانة</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>متجر محلي موثوق ومفعل</span>
-              </>
-            )}
-          </div>
-
-          <h2 className="text-2xl sm:text-3xl font-black">{store.name}</h2>
-          <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
-            {store.description || (isDriver ? "خدمة توصيل ركاب ومشاوير ونقل مقاضي بسيارة خاصة مكيفة داخل وخارج القرية." : "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع.")}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3 text-xs pt-2">
-            <button
-              type="button"
-              onClick={() => setActiveMainTab("reviews")}
-              className="flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-800 hover:border-amber-400/60 px-3.5 py-1.5 rounded-xl border border-slate-700 transition-all cursor-pointer group select-none active:scale-95"
-              title="انقر لعرض آراء وتقييمات الزبائن"
-            >
-              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 group-hover:scale-115 transition-transform" />
-              <span className="font-black text-amber-300">{ratingStats.average}</span>
-              <span className="text-slate-400 text-[11px]">
-                ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
-              </span>
-            </button>
-
-            <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>{store.deliveryTime || (isDriver ? "طلب فوري" : "تواصل مباشر")}</span>
+      {/* Store Header Banner (Only shown for standard stores, hidden for craftsmen & direct contact services to eliminate duplication) */}
+      {!isDriverOrCraft && (
+        <div className="bg-slate-900 text-white rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-xl relative overflow-hidden text-right">
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-20"
+            style={{ backgroundImage: `url('${store.image}')` }}
+          />
+          <div className="relative z-10 space-y-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full text-[11px] font-black">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>متجر محلي موثوق ومفعل</span>
             </div>
 
-            {!isDriverOrCraft && (
+            <h2 className="text-2xl sm:text-3xl font-black">{store.name}</h2>
+            <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
+              {store.description || "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع."}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs pt-2">
+              <button
+                type="button"
+                onClick={() => setActiveMainTab("reviews")}
+                className="flex items-center gap-1.5 bg-slate-800/90 hover:bg-slate-800 hover:border-amber-400/60 px-3.5 py-1.5 rounded-xl border border-slate-700 transition-all cursor-pointer group select-none active:scale-95"
+                title="انقر لعرض آراء وتقييمات الزبائن"
+              >
+                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 group-hover:scale-115 transition-transform" />
+                <span className="font-black text-amber-300">{ratingStats.average}</span>
+                <span className="text-slate-400 text-[11px]">
+                  ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
+                </span>
+              </button>
+
+              <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                <span>{store.deliveryTime || "تواصل مباشر"}</span>
+              </div>
+
               <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
                 <span className="text-orange-400 font-bold">أجور التوصيل: {store.deliveryFee} ل.س</span>
               </div>
-            )}
 
-            {store.workingHours && (
-              <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300">
-                <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                <span>الدوام: {store.workingHours}</span>
-              </div>
-            )}
+              {store.workingHours && (
+                <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700 text-slate-300">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  <span>الدوام: {store.workingHours}</span>
+                </div>
+              )}
 
-            {contactPhone && (
-              <div className="flex items-center gap-2">
-                <ContactActions
-                  phone={contactPhone}
-                  name={store.name}
-                  defaultMessage={
-                    isDriver
-                      ? `مرحباً كابتن (${store.name})، أود الاستفسار عن حجز مشوار وتوصيل ركاب.`
-                      : `مرحباً أستاذ (${store.name})، أود الاستفسار عن تنفيذ أعمال صيانة وخدمة.`
-                  }
-                  variant="pills"
-                />
-              </div>
-            )}
+              {contactPhone && (
+                <div className="flex items-center gap-2">
+                  <ContactActions
+                    phone={contactPhone}
+                    name={store.name}
+                    defaultMessage={`مرحباً أستاذ (${store.name})، أود الاستفسار عن منتجاتكم وخدماتكم.`}
+                    variant="pills"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main View Selector Tabs (Menu/Contact vs Reviews) */}
       <div className="flex items-center p-1.5 bg-slate-200/70 backdrop-blur-xs rounded-2xl border border-slate-200 gap-1.5 select-none">
@@ -429,9 +453,31 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                   </div>
 
                   <div className="flex-1 text-center sm:text-right space-y-2">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200/70 rounded-full text-xs font-black">
-                      {isDriver ? <Car className="w-3.5 h-3.5 text-orange-600" /> : <Wrench className="w-3.5 h-3.5 text-orange-600" />}
-                      <span>{isDriver ? "سائق توصيل وتكاسي خاص" : "صاحب مهنة وحرفي محلي موثوق"}</span>
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200/70 rounded-full text-xs font-black">
+                        {isDriver ? <Car className="w-3.5 h-3.5 text-orange-600" /> : <Wrench className="w-3.5 h-3.5 text-orange-600" />}
+                        <span>{isDriver ? "سائق توصيل وتكاسي خاص" : "صاحب مهنة وحرفي محلي موثوق"}</span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveMainTab("reviews")}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-full text-xs font-black transition-all cursor-pointer active:scale-95"
+                        title="انقر لعرض آراء وتقييمات الزبائن"
+                      >
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        <span>{ratingStats.average}</span>
+                        <span className="text-amber-700 text-[10px]">
+                          ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
+                        </span>
+                      </button>
+
+                      {store.deliveryTime && (
+                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded-full text-xs font-bold">
+                          <Clock className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{store.deliveryTime}</span>
+                        </div>
+                      )}
                     </div>
 
                     <h3 className="text-xl sm:text-2xl font-black text-slate-900">
@@ -1006,9 +1052,29 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                         isOutOfStock ? "grayscale-[60%] opacity-80" : ""
                       }`}
                     />
+                    {product.stock !== undefined && (
+                      <span className={`absolute bottom-2 right-2 text-[10px] font-black px-2 py-0.5 rounded-lg shadow-xs ${
+                        isOutOfStock 
+                          ? "bg-red-600 text-white" 
+                          : product.stock <= 5 
+                          ? "bg-amber-500 text-white animate-pulse" 
+                          : "bg-slate-900/80 text-white backdrop-blur-xs"
+                      }`}>
+                        {isOutOfStock ? "نفذت الكمية" : `المتوفر: ${product.stock} ${product.unit || "قطعة"}`}
+                      </span>
+                    )}
                   </div>
-                  <h3 className="font-black text-slate-800 text-sm">{product.name}</h3>
-                  <p className="text-slate-500 text-xs leading-relaxed line-clamp-2">{product.description}</p>
+                  <div>
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className="font-black text-slate-800 text-sm">{product.name}</h3>
+                      {product.soldCount && product.soldCount > 0 ? (
+                        <span className="text-[9px] font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-md shrink-0">
+                          🔥 بِيع {product.soldCount}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mt-0.5">{product.description}</p>
+                  </div>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
@@ -1051,8 +1117,14 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                       <span className="text-xs font-black text-slate-800 min-w-4 text-center">{count}</span>
                       <button
                         type="button"
+                        disabled={product.stock !== undefined && count >= product.stock}
                         onClick={() => onAddToCart(product)}
-                        className="w-7 h-7 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center shadow-xs font-bold transition-all"
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center shadow-xs font-bold transition-all ${
+                          product.stock !== undefined && count >= product.stock
+                            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                            : "bg-orange-500 hover:bg-orange-600 text-white"
+                        }`}
+                        title={product.stock !== undefined && count >= product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "إضافة قطعة"}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -1376,7 +1448,14 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               <div className="flex items-center justify-between border-b pb-3">
                 <div>
                   <h3 className="font-black text-slate-800 text-base">{selectedProduct.name}</h3>
-                  <p className="text-slate-400 text-xs font-bold">اختر الحجم والإضافات المفضلة</p>
+                  <p className="text-slate-400 text-xs font-bold">
+                    اختر الحجم والإضافات المفضلة
+                    {selectedProduct.stock !== undefined && (
+                      <span className="text-orange-600 mr-1.5 font-black">
+                        (المتوفر بالمخزون: {selectedProduct.stock} {selectedProduct.unit || "قطعة"})
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <button
                   type="button"

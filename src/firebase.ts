@@ -1,5 +1,11 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, Firestore } from "firebase/firestore";
+import { 
+  initializeFirestore, 
+  getFirestore, 
+  Firestore, 
+  doc, 
+  getDocFromServer 
+} from "firebase/firestore";
 import firebaseConfigData from "../firebase-applet-config.json";
 
 export const firebaseConfig = {
@@ -15,17 +21,44 @@ export const firebaseConfig = {
 // Initialize Firebase App safely
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore
+const dbId =
+  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)"
+    ? firebaseConfig.firestoreDatabaseId
+    : undefined;
+
+// Initialize Firestore with robust auto-detect long polling for browser & iframe environments
 let firestoreDb: Firestore;
 try {
-  if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)") {
-    firestoreDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-  } else {
+  firestoreDb = initializeFirestore(
+    app,
+    {
+      experimentalAutoDetectLongPolling: true
+    },
+    dbId
+  );
+} catch (e) {
+  try {
+    firestoreDb = dbId ? getFirestore(app, dbId) : getFirestore(app);
+  } catch (fallbackErr) {
+    console.warn("Firestore fallback init error:", fallbackErr);
     firestoreDb = getFirestore(app);
   }
-} catch (e) {
-  console.warn("Firestore custom database init error, falling back to default:", e);
-  firestoreDb = getFirestore(app);
 }
 
 export const db = firestoreDb;
+
+/**
+ * Validates connection to Firestore according to Firebase Integration Skill
+ */
+export async function testFirestoreConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, "settings", "connection"));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("the client is offline")) {
+      console.warn("Firestore running in offline mode. Operating locally until connection is re-established.");
+    }
+    return false;
+  }
+}
+

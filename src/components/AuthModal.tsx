@@ -26,6 +26,13 @@ import { Store, UserProfile, DriverMember } from "../types";
 import { initialDrivers, initialStaff } from "../data/adminInitialData";
 import { openWhatsApp } from "../utils/whatsapp";
 import { 
+  normalizeDigits, 
+  cleanPhoneNumber, 
+  validateDriverCredentials 
+} from "../utils/driverAuth";
+import { fetchDriversFromFirestore } from "../services/firebaseService";
+import { fetchDriversFromServer } from "../utils/apiSync";
+import { 
   getLatestUpdate, 
   hasPendingUpdate, 
   acknowledgeUpdate, 
@@ -43,6 +50,7 @@ interface AuthModalProps {
   onTrackOrder?: () => void;
   onClose?: () => void;
   initialRole?: "customer" | "driver" | "store" | "staff";
+  driversList?: DriverMember[];
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -52,7 +60,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   activeOrder,
   onTrackOrder,
   onClose,
-  initialRole = "customer"
+  initialRole = "customer",
+  driversList: propDriversList
 }) => {
   // Determine initial role from parameter or localStorage
   const [role, setRole] = useState<"customer" | "driver" | "store" | "staff">(() => {
@@ -107,6 +116,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [driverUser, setDriverUser] = useState(savedDriverUser);
   const [driverPin, setDriverPin] = useState("");
   const [showDriverPin, setShowDriverPin] = useState(false);
+  const [isAuthenticatingDriver, setIsAuthenticatingDriver] = useState(false);
 
   // ==========================================
   // 4. STAFF / ADMIN AUTH STATE & DUAL-FACTOR SECURITY
@@ -288,17 +298,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   };
 
   // ==========================================
-  // 2. DRIVER / CAPTAIN SUBMIT HANDLER (PIN ONLY for returning)
   // ==========================================
-  const handleDriverSubmit = (e: React.FormEvent) => {
+  // 2. DRIVER / CAPTAIN SUBMIT HANDLER
+  // ==========================================
+  const handleDriverSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+    setSuccessMsg("");
 
-    const enteredUser = driverUser.trim().toLowerCase();
-    const enteredPin = driverPin.trim();
+    const enteredUser = driverUser.trim();
+    const enteredPin = normalizeDigits(driverPin.trim());
 
     if (!enteredUser) {
-      setErrorMsg("الرجاء إدخال اسم المستخدم أو رقم الموبايل الخاص بك ككابتن.");
+      setErrorMsg("الرجاء إدخال رقم الموبايل أو اسم الكابتن أو اسم المستخدم.");
       return;
     }
 
@@ -322,37 +334,77 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }));
     } catch {}
 
-    let driversList: DriverMember[] = [];
+    setIsAuthenticatingDriver(true);
+
+    // 1. Gather all drivers from props, localStorage, and default list
+    let allDrivers: DriverMember[] = [];
     try {
-      const raw = localStorage.getItem("tw_drivers_list") || localStorage.getItem("tw_drivers");
-      driversList = raw ? JSON.parse(raw) : initialDrivers;
+      const raw1 = localStorage.getItem("tw_drivers_list");
+      const raw2 = localStorage.getItem("tw_drivers");
+      const list1 = raw1 ? JSON.parse(raw1) : [];
+      const list2 = raw2 ? JSON.parse(raw2) : [];
+      const propList = propDriversList || [];
+
+      const map = new Map<string, DriverMember>();
+      initialDrivers.forEach((d) => map.set(d.id, d));
+      list2.forEach((d: DriverMember) => map.set(d.id, d));
+      list1.forEach((d: DriverMember) => map.set(d.id, d));
+      propList.forEach((d) => map.set(d.id, d));
+      allDrivers = Array.from(map.values());
     } catch {
-      driversList = initialDrivers;
+      allDrivers = propDriversList || initialDrivers;
     }
 
-    // Match captain by username OR phone OR ID, and PIN/password
-    const matchedDriver = driversList.find((dr) => {
-      const u = (dr.username || "").toLowerCase();
-      const p = cleanPhone(dr.phone || "").toLowerCase();
-      const id = (dr.id || "").toLowerCase();
-      const n = (dr.name || "").toLowerCase();
-      const cleanInput = cleanPhone(enteredUser);
+    // 2. Validate against current local fleet
+    let validation = validateDriverCredentials(allDrivers, enteredUser, enteredPin);
 
-      const userMatch = (u && u === enteredUser) || p === cleanInput || id === enteredUser || n.includes(enteredUser);
-      const pinMatch = dr.pin === enteredPin || dr.password === enteredPin;
-      return userMatch && pinMatch;
-    });
+    // 3. If local matching failed, live-query Firestore and Server API in case driver was just added!
+    if (!validation.success) {
+      try {
+        const [cloudRes, serverRes] = await Promise.allSettled([
+          fetchDriversFromFirestore(),
+          fetchDriversFromServer()
+        ]);
 
-    const legacyDriverPins = ["1111", "2222", "3333", "5555", "6666", "7777", "1234"];
+        const freshDrivers: DriverMember[] = [];
+        if (cloudRes.status === "fulfilled" && Array.isArray(cloudRes.value)) {
+          freshDrivers.push(...cloudRes.value);
+        }
+        if (serverRes.status === "fulfilled" && Array.isArray(serverRes.value)) {
+          freshDrivers.push(...serverRes.value);
+        }
 
-    if (matchedDriver) {
+        if (freshDrivers.length > 0) {
+          const map = new Map<string, DriverMember>();
+          allDrivers.forEach((d) => map.set(d.id, d));
+          freshDrivers.forEach((d) => map.set(d.id, d));
+          allDrivers = Array.from(map.values());
+
+          try {
+            localStorage.setItem("tw_drivers_list", JSON.stringify(allDrivers));
+            localStorage.setItem("tw_drivers", JSON.stringify(allDrivers));
+          } catch {}
+
+          // Re-validate against fresh fleet
+          validation = validateDriverCredentials(allDrivers, enteredUser, enteredPin);
+        }
+      } catch (fetchErr) {
+        console.warn("Live driver auth fetch note:", fetchErr);
+      }
+    }
+
+    setIsAuthenticatingDriver(false);
+
+    if (validation.success && validation.driver) {
+      const matchedDriver = validation.driver;
+
       // Save captain credentials for PIN-only fast login
-      localStorage.setItem("tw_saved_driver_user", matchedDriver.username || matchedDriver.phone);
+      localStorage.setItem("tw_saved_driver_user", matchedDriver.phone || matchedDriver.username || matchedDriver.name);
       localStorage.setItem("tw_saved_driver_name", matchedDriver.name);
       localStorage.setItem("tw_saved_driver_phone", matchedDriver.phone);
       localStorage.setItem("tw_saved_driver_pin", enteredPin);
 
-      setSuccessMsg(`🛵 مرحباً بك يا ${matchedDriver.name}. تم تسجيل الدخول للوحة الكابتن!`);
+      setSuccessMsg(`🛵 مرحباً بك يا ${matchedDriver.name}. تم التحقق بنجاح وجارٍ فتح لوحة الكابتن!`);
       setIsSuccess(true);
       setTimeout(() => {
         onRegister({
@@ -360,13 +412,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           phone: matchedDriver.phone,
           pin: matchedDriver.pin || enteredPin
         }, "driver");
-      }, 500);
-    } else if (legacyDriverPins.includes(enteredPin) && (enteredUser.includes("capt") || enteredUser.includes("كابتن") || enteredUser.startsWith("09"))) {
-      const fallbackName = enteredUser.startsWith("09") ? "كابتن التوصيل" : enteredUser;
-      
+      }, 400);
+      return;
+    }
+
+    // Legacy fallback for demo accounts
+    const legacyDriverPins = ["1111", "2222", "3333", "5555", "6666", "7777", "1234"];
+    const normDigitsInput = normalizeDigits(enteredPin);
+    const cleanPhoneInput = cleanPhoneNumber(enteredUser);
+
+    if (legacyDriverPins.includes(normDigitsInput) && (enteredUser.includes("capt") || enteredUser.includes("كابتن") || cleanPhoneInput.startsWith("09"))) {
+      const fallbackName = cleanPhoneInput.startsWith("09") ? "كابتن التوصيل" : enteredUser;
+      const fallbackPhone = cleanPhoneInput.startsWith("09") ? cleanPhoneInput : "0991112233";
+
       localStorage.setItem("tw_saved_driver_user", enteredUser);
       localStorage.setItem("tw_saved_driver_name", fallbackName);
-      localStorage.setItem("tw_saved_driver_phone", enteredUser.startsWith("09") ? enteredUser : "0991112233");
+      localStorage.setItem("tw_saved_driver_phone", fallbackPhone);
       localStorage.setItem("tw_saved_driver_pin", enteredPin);
 
       setSuccessMsg(`🛵 مرحباً بالكابتن. تم الدخول بنجاح!`);
@@ -374,12 +435,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setTimeout(() => {
         onRegister({
           name: fallbackName,
-          phone: enteredUser.startsWith("09") ? enteredUser : "0991112233",
+          phone: fallbackPhone,
           pin: enteredPin
         }, "driver");
-      }, 500);
+      }, 400);
+      return;
+    }
+
+    // Helpful, specific error messaging
+    if (validation.reason === "invalid_pin" && validation.matchedDriverName) {
+      setErrorMsg(`⚠️ تم العثور على حساب (${validation.matchedDriverName})، لكن رمز المرور (PIN) المدخل غير صحيح! الرمز الافتراضي هو 1111 أو يرجى مراجعة إدارة المنصة.`);
     } else {
-      setErrorMsg("⛔ بيانات الكابتن غير صحيحة! يرجى التحقق من اسم المستخدم والرمز السري.");
+      setErrorMsg(`⛔ لم يتم العثور على كابتن مسجل باسم أو رقم (${enteredUser})! يرجى التأكد من كتابة رقم الموبايل أو الاسم بشكل صحيح، أو مراجعة إدارة المنصة لتفعيل حسابك أولاً.`);
     }
   };
 
@@ -1545,8 +1612,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           required
                           autoFocus
                           value={driverPin}
-                          onChange={(e) => setDriverPin(e.target.value)}
-                          placeholder="••••"
+                          onChange={(e) => setDriverPin(normalizeDigits(e.target.value))}
+                          placeholder="1111"
                           className="w-full bg-white border-2 border-orange-500 focus:border-orange-600 focus:ring-2 focus:ring-orange-200 rounded-2xl py-3 px-10 text-center text-xl font-black tracking-widest outline-none text-slate-900 shadow-sm"
                         />
                         <button
@@ -1561,10 +1628,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                     <button
                       type="submit"
-                      className="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+                      disabled={isAuthenticatingDriver}
+                      className="w-full bg-orange-500 hover:bg-orange-600 active:scale-98 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-60"
                     >
-                      <Bike className="w-4 h-4" />
-                      <span>دخول لوحة الكابتن واستلام الطلبات 🛵</span>
+                      {isAuthenticatingDriver ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                          <span>جارٍ التحقق...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bike className="w-4 h-4" />
+                          <span>دخول لوحة الكابتن واستلام الطلبات 🛵</span>
+                        </>
+                      )}
                     </button>
 
                     {/* Switch Captain Account */}
@@ -1592,36 +1669,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         <span>تسجيل دخول كباتن التوصيل 🛵</span>
                       </div>
                       <p className="text-[11px] text-slate-600 leading-relaxed">
-                        يتم تزويد الكابتن باسم المستخدم ورمز المرور السري (PIN) من قبل إدارة المنصة عند التفعيل الأول.
+                        أهلاً بك! يمكنك تسجيل الدخول بسهولة باستخدام <strong>رقم موبايلك</strong> أو <strong>اسمك</strong> مع رمز الـ PIN المعتمد (الافتراضي 1111).
                       </p>
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs font-extrabold text-slate-700 block">
-                        اسم المستخدم أو رقم الموبايل:
+                        رقم موبايل الكابتن أو الاسم أو اسم المستخدم:
                       </label>
                       <input
                         type="text"
                         required
                         value={driverUser}
                         onChange={(e) => setDriverUser(e.target.value)}
-                        placeholder="مثال: capt_mahmoud أو 0991112233"
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all font-mono text-left"
-                        dir="ltr"
+                        placeholder="مثال: 0951854257 أو كابتن أحمد"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-4 text-xs font-bold outline-none text-slate-800 transition-all text-right"
+                        dir="auto"
                       />
+                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                        💡 يمكنك كتابة رقم الموبايل (مثل 09xxxxxxxx) أو اسمك كما سجله المشرف.
+                      </p>
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-extrabold text-slate-700 block">
-                        رمز المرور السري (PIN):
+                      <label className="text-xs font-extrabold text-slate-700 flex items-center justify-between">
+                        <span>رمز المرور السري (PIN):</span>
+                        <span className="text-[10px] text-orange-600 font-bold">الافتراضي 1111</span>
                       </label>
                       <div className="relative">
                         <input
                           type={showDriverPin ? "text" : "password"}
                           required
                           value={driverPin}
-                          onChange={(e) => setDriverPin(e.target.value)}
-                          placeholder="••••"
+                          onChange={(e) => setDriverPin(normalizeDigits(e.target.value))}
+                          placeholder="1111"
                           className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-2xl py-3 px-10 text-center text-base font-black tracking-widest outline-none text-slate-900 transition-all font-mono"
                         />
                         <button
@@ -1662,10 +1743,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                     <button
                       type="submit"
-                      className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center flex items-center justify-center gap-2"
+                      disabled={isAuthenticatingDriver}
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 rounded-2xl shadow-lg shadow-orange-500/25 active:scale-98 transition-all cursor-pointer text-center flex items-center justify-center gap-2 disabled:opacity-60"
                     >
-                      <Bike className="w-4 h-4" />
-                      <span>دخول وتثبيت حساب الكابتن 🛵</span>
+                      {isAuthenticatingDriver ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                          <span>جارٍ التحقق وتحديث البيانات...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bike className="w-4 h-4" />
+                          <span>دخول وتثبيت حساب الكابتن 🛵</span>
+                        </>
+                      )}
                     </button>
 
                     {savedDriverUser && (

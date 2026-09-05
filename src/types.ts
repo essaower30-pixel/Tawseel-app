@@ -14,6 +14,7 @@ export interface Product {
   price: number;
   unit?: string;
   stock?: number;
+  soldCount?: number;
   description: string;
   image: string;
   category: string;

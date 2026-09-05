@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Bike, 
   MapPin, 
@@ -78,6 +78,21 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
+
+  // Close internal modal or zoomed image on mobile back button tap without leaving driver portal
+  useEffect(() => {
+    const handleBack = (e: Event) => {
+      if (zoomedImage) {
+        setZoomedImage(null);
+        e.preventDefault();
+      } else if (showAccountModal) {
+        setShowAccountModal(false);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("tw_back_button_pressed", handleBack);
+    return () => window.removeEventListener("tw_back_button_pressed", handleBack);
+  }, [zoomedImage, showAccountModal]);
 
   const handleProfileUpdate = async (updatedProfile: UserProfile, extraData?: any) => {
     const updatedDriver: DriverMember = {
