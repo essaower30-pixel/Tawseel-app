@@ -160,7 +160,15 @@ export function subscribeToStores(
         if (snapshot.empty) return;
         const list: Store[] = [];
         snapshot.forEach((d) => {
-          list.push({ ...(d.data() as Store), id: d.id });
+          let st = { ...(d.data() as Store), id: d.id };
+          if (st.isApproved !== false && st.description && (st.description.includes("بانتظار اعتماد") || st.description.includes("بانتظار الاعتماد"))) {
+            const isFood = st.category === "food" || (st.name && (st.name.includes("مواد") || st.name.includes("سوبرماركت")));
+            st = {
+              ...st,
+              description: isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة"
+            };
+          }
+          list.push(st);
         });
         onStoresUpdated(list);
       },
@@ -364,9 +372,14 @@ export async function updateOrderStatusInFirestore(
 
 export async function saveStoreToFirestore(store: Store): Promise<boolean> {
   try {
-    const docRef = doc(db, "stores", store.id);
+    let storeToSave = { ...store };
+    if (storeToSave.isApproved !== false && storeToSave.description && (storeToSave.description.includes("بانتظار اعتماد") || storeToSave.description.includes("بانتظار الاعتماد"))) {
+      const isFood = storeToSave.category === "food" || (storeToSave.name && (storeToSave.name.includes("مواد") || storeToSave.name.includes("سوبرماركت")));
+      storeToSave.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
+    }
+    const docRef = doc(db, "stores", storeToSave.id);
     await setDoc(docRef, sanitizeForFirestore({
-      ...store,
+      ...storeToSave,
       updatedAt: new Date().toISOString()
     }), { merge: true });
     return true;

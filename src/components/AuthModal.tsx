@@ -566,7 +566,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       ownerPin: pin,
       isApproved: false,
       status: "closed",
-      description: newStoreDesc || "متجر محلي مسجل بانتظار اعتماد الإدارة",
+      description: newStoreDesc || (newStoreCategory === "food" || name.includes("مواد") || name.includes("سوبرماركت") ? "متجر مواد غذائية وتموينية طازجة لخدمة أهالي القرية" : "متجر محلي لخدمة أهالي القرية"),
       workingHours: "10:00 ص - 11:00 م",
       priority: 1,
       maxRegularProducts: 20,

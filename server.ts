@@ -268,8 +268,17 @@ function readServerData() {
           if (p) seenDriverPhones.add(p);
         }
 
-        seenStoreIds.add(s.id);
-        dedupedStores.push(s);
+        let storeObj = s;
+        if (storeObj.isApproved !== false && storeObj.description && (storeObj.description.includes("بانتظار اعتماد") || storeObj.description.includes("بانتظار الاعتماد"))) {
+          const isFood = storeObj.category === "food" || (storeObj.name && (storeObj.name.includes("مواد") || storeObj.name.includes("سوبرماركت")));
+          storeObj = {
+            ...storeObj,
+            description: isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة"
+          };
+        }
+
+        seenStoreIds.add(storeObj.id);
+        dedupedStores.push(storeObj);
       }
       parsed.stores = dedupedStores;
 
@@ -372,6 +381,10 @@ app.post("/api/stores/:id/approve", (req, res) => {
 
   store.isApproved = true;
   store.status = "open";
+  if (!store.description || store.description.includes("بانتظار اعتماد") || store.description.includes("بانتظار الاعتماد")) {
+    const isFood = store.category === "food" || (store.name && (store.name.includes("مواد") || store.name.includes("سوبرماركت")));
+    store.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
+  }
 
   // Add approval broadcast notification
   data.notifications = [
@@ -398,7 +411,12 @@ app.put("/api/stores/:id", (req, res) => {
   const idx = data.stores.findIndex((s: any) => s.id === storeId);
 
   if (idx >= 0) {
-    data.stores[idx] = { ...data.stores[idx], ...updates };
+    let mergedStore = { ...data.stores[idx], ...updates };
+    if (mergedStore.isApproved !== false && mergedStore.description && (mergedStore.description.includes("بانتظار اعتماد") || mergedStore.description.includes("بانتظار الاعتماد"))) {
+      const isFood = mergedStore.category === "food" || (mergedStore.name && (mergedStore.name.includes("مواد") || mergedStore.name.includes("سوبرماركت")));
+      mergedStore.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
+    }
+    data.stores[idx] = mergedStore;
     writeServerData(data);
     return res.json({ success: true, store: data.stores[idx] });
   }

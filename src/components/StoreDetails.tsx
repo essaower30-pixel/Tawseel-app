@@ -340,7 +340,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
             <h2 className="text-2xl sm:text-3xl font-black">{store.name}</h2>
             <p className="text-slate-300 text-xs sm:text-sm max-w-xl font-medium">
-              {store.description || "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع."}
+              {store.description && !store.description.includes("بانتظار اعتماد") && !store.description.includes("بانتظار الاعتماد")
+                ? store.description
+                : (store.isApproved !== false ? "أفضل وأجود المنتجات والخدمات المحلية مع تواصل فوري وسريع." : "متجر محلي مسجل قيد مراجعة واعتماد الإدارة.")}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 text-xs pt-2">

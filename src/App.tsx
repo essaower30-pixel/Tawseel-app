@@ -929,10 +929,15 @@ export default function App() {
   };
 
   const handleUpdateStore = async (updatedStore: Store) => {
-    setStores((prev) => prev.map((item) => (item.id === updatedStore.id ? updatedStore : item)));
+    let sanitizedStore = { ...updatedStore };
+    if (sanitizedStore.isApproved !== false && sanitizedStore.description && (sanitizedStore.description.includes("بانتظار اعتماد") || sanitizedStore.description.includes("بانتظار الاعتماد"))) {
+      const isFood = sanitizedStore.category === "food" || (sanitizedStore.name && (sanitizedStore.name.includes("مواد") || sanitizedStore.name.includes("سوبرماركت")));
+      sanitizedStore.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
+    }
+    setStores((prev) => prev.map((item) => (item.id === sanitizedStore.id ? sanitizedStore : item)));
     await Promise.allSettled([
-      saveStoreToFirestore(updatedStore),
-      updateStoreOnServer(updatedStore)
+      saveStoreToFirestore(sanitizedStore),
+      updateStoreOnServer(sanitizedStore)
     ]);
   };
 

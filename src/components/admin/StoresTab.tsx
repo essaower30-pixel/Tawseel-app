@@ -138,7 +138,10 @@ export const StoresTab: React.FC<StoresTabProps> = ({
     setDeliveryTime(st.deliveryTime || "20-30 دقيقة");
     setDeliveryFee(st.deliveryFee || 5000);
     setContactPhone(st.contactPhone || st.ownerPhone || "");
-    setDescription(st.description || "");
+    const cleanDesc = (st.description && (st.description.includes("بانتظار اعتماد") || st.description.includes("بانتظار الاعتماد")))
+      ? (st.category === "food" || st.name.includes("مواد") || st.name.includes("سوبرماركت") ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة")
+      : (st.description || "");
+    setDescription(cleanDesc);
     setWorkingHours(st.workingHours || "09:00 ص - 11:00 م");
     setStatus(st.status || "open");
     setFeaturedProduct(st.featuredProduct || "");
@@ -153,6 +156,13 @@ export const StoresTab: React.FC<StoresTabProps> = ({
     e.preventDefault();
     if (!name.trim()) return;
 
+    let finalDesc = description.trim();
+    if (!finalDesc || finalDesc.includes("بانتظار اعتماد") || finalDesc.includes("بانتظار الاعتماد")) {
+      finalDesc = (category === "food" || name.includes("مواد") || name.includes("سوبرماركت"))
+        ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة"
+        : "متجر معتمد ونشط في المنصة";
+    }
+
     const storePayload: Store = {
       id: editingStore ? editingStore.id : "store_" + Date.now(),
       name: name.trim(),
@@ -163,7 +173,7 @@ export const StoresTab: React.FC<StoresTabProps> = ({
       deliveryFee: Number(deliveryFee),
       locationNode: "center",
       contactPhone: contactPhone || ownerPhone || "0991234567",
-      description,
+      description: finalDesc,
       workingHours,
       status,
       featuredProduct,
@@ -208,10 +218,16 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
   // Approve a pending store (One-click approval)
   const handleApproveStore = async (st: Store) => {
+    const isFood = st.category === "food" || st.name.includes("مواد") || st.name.includes("سوبرماركت");
+    const updatedDesc = (!st.description || st.description.includes("بانتظار اعتماد") || st.description.includes("بانتظار الاعتماد"))
+      ? (isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة")
+      : st.description;
+
     const updated: Store = {
       ...st,
       isApproved: true,
-      status: "open"
+      status: "open",
+      description: updatedDesc
     };
     onUpdateStore(updated);
     await approveStoreOnServer(st.id);
@@ -569,7 +585,15 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                       )}
                     </div>
 
-                    <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{st.description || "متجر معتمد في القرية"}</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">
+                      {st.description && !st.description.includes("بانتظار اعتماد") && !st.description.includes("بانتظار الاعتماد")
+                        ? st.description
+                        : (st.isApproved !== false
+                            ? (st.category === "food" || st.name.includes("مواد") || st.name.includes("سوبرماركت")
+                                ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة"
+                                : "متجر معتمد ونشط في المنصة")
+                            : "متجر محلي مسجل بانتظار اعتماد الإدارة")}
+                    </p>
 
                     {st.isApproved === false && (
                       <div className="mt-2 bg-amber-50/90 border border-amber-300/80 rounded-xl p-2 space-y-1.5">

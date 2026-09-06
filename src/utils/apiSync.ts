@@ -46,17 +46,27 @@ export function ensureInitialStoresPreserved(currentStores: Store[]): Store[] {
   const seenDriverPhones = new Set<string>();
   const result: Store[] = [];
 
-  for (const s of currentStores) {
-    if (deletedIds.includes(s.id)) continue;
-    if (seenIds.has(s.id)) continue;
+  for (const rawS of currentStores) {
+    if (deletedIds.includes(rawS.id)) continue;
+    if (seenIds.has(rawS.id)) continue;
 
     // For driver services, prevent multiple store cards with the same phone number
-    if (s.category === "drivers" && s.contactPhone) {
-      const p = cleanP(s.contactPhone);
+    if (rawS.category === "drivers" && rawS.contactPhone) {
+      const p = cleanP(rawS.contactPhone);
       if (p && seenDriverPhones.has(p)) {
         continue;
       }
       if (p) seenDriverPhones.add(p);
+    }
+
+    // Auto-clean description if store is approved but description still has pending note
+    let s = rawS;
+    if (s.isApproved !== false && s.description && (s.description.includes("بانتظار اعتماد") || s.description.includes("بانتظار الاعتماد"))) {
+      const isFood = s.category === "food" || s.name.includes("مواد") || s.name.includes("سوبرماركت");
+      s = {
+        ...s,
+        description: isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة"
+      };
     }
 
     seenIds.add(s.id);
