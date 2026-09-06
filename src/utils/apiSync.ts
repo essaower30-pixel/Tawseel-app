@@ -24,37 +24,88 @@ export interface ServerSyncData {
 
 const API_BASE = "";
 
-// Ensure gypsum decor and hamza oweir delivery service are in initial list if missing from local cache (unless clean slate is active)
+// Ensure stores are preserved without duplicating driver service cards and respecting deletions
 export function ensureInitialStoresPreserved(currentStores: Store[]): Store[] {
   if (typeof window !== "undefined" && localStorage.getItem("tw_clean_slate_active") === "true") {
     return currentStores;
   }
-  let result = [...(currentStores || [])];
 
-  const gypsumStore = initialStores.find(s => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215");
-  if (gypsumStore && !result.some(s => s.id === gypsumStore.id || s.ownerPhone === gypsumStore.ownerPhone)) {
-    result.unshift(gypsumStore);
+  let deletedIds: string[] = [];
+  try {
+    deletedIds = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+  } catch {}
+
+  const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+
+  if (!currentStores || currentStores.length === 0) {
+    return initialStores.filter(s => !deletedIds.includes(s.id));
   }
 
-  const hamzaStore = initialStores.find(s => s.id === "service_hamza_oweir" || s.ownerPhone === "0951854257");
-  if (hamzaStore && !result.some(s => s.id === hamzaStore.id || (s.name && s.name.includes("حمزة")))) {
-    result.unshift(hamzaStore);
+  // Deduplicate and filter deleted stores
+  const seenIds = new Set<string>();
+  const seenDriverPhones = new Set<string>();
+  const result: Store[] = [];
+
+  for (const s of currentStores) {
+    if (deletedIds.includes(s.id)) continue;
+    if (seenIds.has(s.id)) continue;
+
+    // For driver services, prevent multiple store cards with the same phone number
+    if (s.category === "drivers" && s.contactPhone) {
+      const p = cleanP(s.contactPhone);
+      if (p && seenDriverPhones.has(p)) {
+        continue;
+      }
+      if (p) seenDriverPhones.add(p);
+    }
+
+    seenIds.add(s.id);
+    result.push(s);
+  }
+
+  // Only seed gypsum if not explicitly deleted and not present
+  const gypsumStore = initialStores.find(s => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215");
+  if (gypsumStore && !deletedIds.includes(gypsumStore.id) && !result.some(s => s.id === gypsumStore.id || s.ownerPhone === gypsumStore.ownerPhone)) {
+    result.unshift(gypsumStore);
   }
 
   return result;
 }
 
-// Ensure Captain Hamza Oweir and fleet drivers are preserved in local cache and syncs
+// Ensure fleet drivers are preserved without resurrecting deleted drivers
 export function ensureInitialDriversPreserved(currentDrivers: DriverMember[]): DriverMember[] {
   if (typeof window !== "undefined" && localStorage.getItem("tw_clean_slate_active") === "true") {
     return currentDrivers;
   }
-  const map = new Map<string, DriverMember>();
-  initialDrivers.forEach(d => map.set(d.id, d));
-  (currentDrivers || []).forEach(d => {
-    map.set(d.id, d);
-  });
-  return Array.from(map.values());
+
+  let deletedIds: string[] = [];
+  try {
+    deletedIds = JSON.parse(localStorage.getItem("tw_deleted_driver_ids") || "[]");
+  } catch {}
+
+  const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+
+  if (!currentDrivers || currentDrivers.length === 0) {
+    return initialDrivers.filter(d => !deletedIds.includes(d.id));
+  }
+
+  const seenIds = new Set<string>();
+  const seenPhones = new Set<string>();
+  const result: DriverMember[] = [];
+
+  for (const d of currentDrivers) {
+    if (deletedIds.includes(d.id)) continue;
+    if (seenIds.has(d.id)) continue;
+
+    const p = cleanP(d.phone);
+    if (p && seenPhones.has(p)) continue;
+    if (p) seenPhones.add(p);
+
+    seenIds.add(d.id);
+    result.push(d);
+  }
+
+  return result;
 }
 
 // Fetch unified data from central server

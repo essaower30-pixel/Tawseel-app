@@ -233,19 +233,18 @@ function readServerData() {
       if (!parsed.stores) parsed.stores = defaultInitialStores;
       if (!parsed.orders) parsed.orders = [];
       if (!parsed.products) parsed.products = [];
+      if (!parsed.deletedDriverIds) parsed.deletedDriverIds = [];
+      if (!parsed.deletedStoreIds) parsed.deletedStoreIds = [];
+
       if (!parsed.drivers || !Array.isArray(parsed.drivers) || parsed.drivers.length === 0) {
-        parsed.drivers = defaultFleetDrivers;
+        parsed.drivers = defaultFleetDrivers.filter((d: any) => !parsed.deletedDriverIds.includes(d.id));
       } else {
-        // Ensure driver_hamza exists
-        if (!parsed.drivers.some((d: any) => d.id === "driver_hamza" || (d.name && d.name.includes("حمزة")))) {
-          parsed.drivers.unshift(defaultFleetDrivers[0]);
-          writeServerData(parsed);
-        }
+        parsed.drivers = parsed.drivers.filter((d: any) => !parsed.deletedDriverIds.includes(d.id));
       }
       if (!parsed.notifications) parsed.notifications = [];
       
-      // Ensure gypsum decor store exists if not clean slate
-      if (!parsed.stores.some((s: any) => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215")) {
+      // Ensure gypsum decor store exists if not explicitly deleted
+      if (!parsed.deletedStoreIds.includes("store_gypsum_decor") && !parsed.stores.some((s: any) => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215")) {
         const gypsum = defaultInitialStores.find((s) => s.id === "store_gypsum_decor");
         if (gypsum) {
           parsed.stores.unshift(gypsum);
@@ -253,14 +252,27 @@ function readServerData() {
         }
       }
 
-      // Ensure captain hamza oweir delivery service exists in stores if not clean slate
-      if (!parsed.stores.some((s: any) => s.id === "service_hamza_oweir" || (s.name && s.name.includes("حمزة")))) {
-        const hamzaStore = defaultInitialStores.find((s) => s.id === "service_hamza_oweir");
-        if (hamzaStore) {
-          parsed.stores.unshift(hamzaStore);
-          writeServerData(parsed);
+      // Filter out deleted stores and deduplicate driver service stores
+      const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+      const seenStoreIds = new Set<string>();
+      const seenDriverPhones = new Set<string>();
+      const dedupedStores: any[] = [];
+
+      for (const s of (parsed.stores || [])) {
+        if (parsed.deletedStoreIds.includes(s.id)) continue;
+        if (seenStoreIds.has(s.id)) continue;
+
+        if (s.category === "drivers" && s.contactPhone) {
+          const p = cleanPhone(s.contactPhone);
+          if (p && seenDriverPhones.has(p)) continue;
+          if (p) seenDriverPhones.add(p);
         }
+
+        seenStoreIds.add(s.id);
+        dedupedStores.push(s);
       }
+      parsed.stores = dedupedStores;
+
       return parsed;
     }
   } catch (err) {
@@ -398,7 +410,11 @@ app.put("/api/stores/:id", (req, res) => {
 app.delete("/api/stores/:id", (req, res) => {
   const storeId = req.params.id;
   const data = readServerData();
-  data.stores = data.stores.filter((s: any) => s.id !== storeId);
+  if (!data.deletedStoreIds) data.deletedStoreIds = [];
+  if (!data.deletedStoreIds.includes(storeId)) {
+    data.deletedStoreIds.push(storeId);
+  }
+  data.stores = (data.stores || []).filter((s: any) => s.id !== storeId);
   writeServerData(data);
   res.json({ success: true });
 });
@@ -413,6 +429,32 @@ app.post("/api/orders", (req, res) => {
   const newOrder = req.body;
   const data = readServerData();
   data.orders = [newOrder, ...(data.orders || []).filter((o: any) => o.id !== newOrder.id)];
+
+  // Deduct product stock on server with each sale until out of stock
+  if (data.products && Array.isArray(data.products) && newOrder.items && Array.isArray(newOrder.items)) {
+    const itemQtyMap = new Map<string, number>();
+    for (const item of newOrder.items) {
+      if (item.product && item.product.id) {
+        itemQtyMap.set(item.product.id, (itemQtyMap.get(item.product.id) || 0) + (item.quantity || 1));
+      }
+    }
+    data.products = data.products.map((p: any) => {
+      const soldQty = itemQtyMap.get(p.id);
+      if (soldQty && soldQty > 0) {
+        const currentStock = p.stock !== undefined ? p.stock : 50;
+        const newStock = Math.max(0, currentStock - soldQty);
+        const currentSold = p.soldCount || 0;
+        return {
+          ...p,
+          stock: newStock,
+          soldCount: currentSold + soldQty,
+          inStock: newStock > 0,
+          isAvailable: newStock > 0
+        };
+      }
+      return p;
+    });
+  }
 
   // Record new order notification
   data.notifications = [
@@ -536,8 +578,53 @@ app.put("/api/drivers/:id", (req, res) => {
   const idx = data.drivers.findIndex((d: any) => d.id === driverId);
   if (idx >= 0) {
     data.drivers[idx] = { ...data.drivers[idx], ...updates };
+    const updatedDriver = data.drivers[idx];
+
+    // Also update and deduplicate any associated service store in data.stores
+    if (data.stores) {
+      const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+      const targetPhone = cleanP(updatedDriver.phone);
+      const storeName = updatedDriver.name.startsWith("الكابتن") || updatedDriver.name.startsWith("كابتن") ? updatedDriver.name : `الكابتن ${updatedDriver.name}`;
+
+      let storeUpdated = false;
+      data.stores = data.stores.map((s: any) => {
+        const isMatch =
+          s.id === `service_driver_${driverId}` ||
+          (driverId === "driver_hamza" && s.id === "service_hamza_oweir") ||
+          (s.category === "drivers" && ((targetPhone && cleanP(s.contactPhone) === targetPhone) || (s.name && s.name.includes(updatedDriver.name))));
+        
+        if (isMatch && !storeUpdated) {
+          storeUpdated = true;
+          return {
+            ...s,
+            name: storeName,
+            contactPhone: updatedDriver.phone,
+            ownerPhone: updatedDriver.phone,
+            ownerName: updatedDriver.name,
+            ownerPin: updatedDriver.pin || s.ownerPin || "1111",
+            featuredProduct: updatedDriver.vehicle ? `توصيل سريع (${updatedDriver.vehicle})` : s.featuredProduct,
+            description: `كابتن توصيل سريع معتمد في القرية (${updatedDriver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`
+          };
+        }
+        return s;
+      });
+
+      // Filter out any duplicate store for this driver
+      const seenDriverStore = new Set<string>();
+      data.stores = data.stores.filter((s: any) => {
+        if (s.category === "drivers") {
+          const p = cleanP(s.contactPhone);
+          if (p === targetPhone) {
+            if (seenDriverStore.has(p)) return false;
+            seenDriverStore.add(p);
+          }
+        }
+        return true;
+      });
+    }
+
     writeServerData(data);
-    return res.json({ success: true, driver: data.drivers[idx] });
+    return res.json({ success: true, driver: updatedDriver });
   }
   res.status(404).json({ error: "الكابتن غير موجود" });
 });
@@ -545,7 +632,28 @@ app.put("/api/drivers/:id", (req, res) => {
 app.delete("/api/drivers/:id", (req, res) => {
   const driverId = req.params.id;
   const data = readServerData();
+  if (!data.deletedDriverIds) data.deletedDriverIds = [];
+  if (!data.deletedDriverIds.includes(driverId)) {
+    data.deletedDriverIds.push(driverId);
+  }
   data.drivers = (data.drivers || []).filter((d: any) => d.id !== driverId);
+
+  // Also remove and mark as deleted any associated driver service store
+  if (!data.deletedStoreIds) data.deletedStoreIds = [];
+  data.stores = (data.stores || []).filter((s: any) => {
+    const isMatch =
+      s.id === `service_driver_${driverId}` ||
+      (driverId === "driver_hamza" && s.id === "service_hamza_oweir") ||
+      (s.category === "drivers" && s.id.includes(driverId));
+    if (isMatch) {
+      if (!data.deletedStoreIds.includes(s.id)) {
+        data.deletedStoreIds.push(s.id);
+      }
+      return false;
+    }
+    return true;
+  });
+
   writeServerData(data);
   res.json({ success: true });
 });

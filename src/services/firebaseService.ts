@@ -54,21 +54,21 @@ function sanitizeForFirestore<T>(data: T): Record<string, any> {
 // -------------------------------------------------------------
 export async function seedInitialFirestoreData(): Promise<void> {
   try {
+    let deletedStoreIds: string[] = [];
+    let deletedDriverIds: string[] = [];
+    try {
+      if (typeof window !== "undefined") {
+        deletedStoreIds = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+        deletedDriverIds = JSON.parse(localStorage.getItem("tw_deleted_driver_ids") || "[]");
+      }
+    } catch {}
+
     // 1. Check if stores exist
     const storesSnap = await getDocs(collection(db, "stores"));
     if (storesSnap.empty) {
       console.log("Seeding initial stores to Firestore...");
       for (const store of initialStores) {
-        await setDoc(doc(db, "stores", store.id), sanitizeForFirestore({
-          ...store,
-          updatedAt: new Date().toISOString()
-        }));
-      }
-    } else {
-      // Ensure any newly added initial stores (e.g. service_hamza_oweir, store_gypsum_decor) exist
-      const existingStoreIds = new Set(storesSnap.docs.map(d => d.id));
-      for (const store of initialStores) {
-        if (!existingStoreIds.has(store.id)) {
+        if (!deletedStoreIds.includes(store.id)) {
           await setDoc(doc(db, "stores", store.id), sanitizeForFirestore({
             ...store,
             updatedAt: new Date().toISOString()
@@ -94,16 +94,7 @@ export async function seedInitialFirestoreData(): Promise<void> {
     if (driversSnap.empty) {
       console.log("Seeding initial drivers to Firestore...");
       for (const driver of initialDrivers) {
-        await setDoc(doc(db, "drivers", driver.id), sanitizeForFirestore({
-          ...driver,
-          updatedAt: new Date().toISOString()
-        }));
-      }
-    } else {
-      // Ensure all fleet drivers (including driver_hamza) exist in Firestore
-      const existingDriverIds = new Set(driversSnap.docs.map(d => d.id));
-      for (const driver of initialDrivers) {
-        if (!existingDriverIds.has(driver.id)) {
+        if (!deletedDriverIds.includes(driver.id)) {
           await setDoc(doc(db, "drivers", driver.id), sanitizeForFirestore({
             ...driver,
             updatedAt: new Date().toISOString()

@@ -434,67 +434,39 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
         <>
           {isDriverOrCraft ? (
             /* Dedicated Driver / Craftsman Direct Contact Profile Card */
-            <div className="space-y-5 text-right">
-              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-md space-y-6">
+            <div className="space-y-4 text-right">
+              <div className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/80 shadow-md space-y-4">
                 
-                {/* Profile Header */}
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 pb-6 border-b border-slate-100">
-                  <div className="relative shrink-0">
-                    <img
-                      src={store.image}
-                      alt={store.name}
-                      className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl sm:rounded-3xl object-cover border-2 border-orange-500/20 shadow-md"
-                      referrerPolicy="no-referrer"
-                    />
-                    <span className="absolute -bottom-1.5 -left-1.5 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow border-2 border-white flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                      متاح الآن
-                    </span>
-                  </div>
-
-                  <div className="flex-1 text-center sm:text-right space-y-2">
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                {/* Compact Direct Header: Name, Profession Badge & Rating (No scrolling needed) */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
                       <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200/70 rounded-full text-xs font-black">
                         {isDriver ? <Car className="w-3.5 h-3.5 text-orange-600" /> : <Wrench className="w-3.5 h-3.5 text-orange-600" />}
                         <span>{isDriver ? "سائق توصيل وتكاسي خاص" : "صاحب مهنة وحرفي محلي موثوق"}</span>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setActiveMainTab("reviews")}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-full text-xs font-black transition-all cursor-pointer active:scale-95"
-                        title="انقر لعرض آراء وتقييمات الزبائن"
-                      >
-                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        <span>{ratingStats.average}</span>
-                        <span className="text-amber-700 text-[10px]">
-                          ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
-                        </span>
-                      </button>
-
-                      {store.deliveryTime && (
-                        <div className="inline-flex items-center gap-1 px-3 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded-full text-xs font-bold">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{store.deliveryTime}</span>
-                        </div>
-                      )}
+                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        متاح الآن للتواصل المباشر
+                      </span>
                     </div>
-
                     <h3 className="text-xl sm:text-2xl font-black text-slate-900">
                       {store.name}
                     </h3>
-
-                    <p className="text-slate-600 text-xs sm:text-sm leading-relaxed max-w-2xl font-medium">
-                      {store.description || (isDriver ? "توصيل ركاب ومشاوير خاصة ونقل مقاضي بسيارة حديثة ومكيفة داخل وخارج القرية." : "تنفيذ كافة أعمال الصيانة والمهن الحرفية بأعلى جودة ودقة بالمواعيد.")}
-                    </p>
-
-                    {store.featuredProduct && (
-                      <div className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 px-3 py-1 rounded-xl text-xs font-bold border border-slate-200">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                        <span>الخدمة المميزة: <b>{store.featuredProduct}</b></span>
-                      </div>
-                    )}
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveMainTab("reviews")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/80 rounded-xl text-xs font-black transition-all cursor-pointer active:scale-95"
+                    title="انقر لعرض آراء وتقييمات الزبائن"
+                  >
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>{ratingStats.average}</span>
+                    <span className="text-amber-700 text-[10px]">
+                      ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
+                    </span>
+                  </button>
                 </div>
 
                 {/* Direct Phone Highlight Box */}

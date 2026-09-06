@@ -997,6 +997,12 @@ export default function App() {
 
   // Driver Fleet Management Handlers
   const handleAddNewDriver = async (driver: DriverMember) => {
+    // Unmark from deleted list if previously deleted
+    try {
+      const deletedDrivers: string[] = JSON.parse(localStorage.getItem("tw_deleted_driver_ids") || "[]");
+      localStorage.setItem("tw_deleted_driver_ids", JSON.stringify(deletedDrivers.filter(id => id !== driver.id)));
+    } catch {}
+
     setDriversList((prev) => {
       const updated = [...prev.filter((d) => d.id !== driver.id), driver];
       try {
@@ -1013,8 +1019,12 @@ export default function App() {
     });
 
     // Also automatically create/update a corresponding service card in stores under category 'drivers'
-    // so he appears for customers in "خدمات وسائقين"
-    const driverStoreId = "service_driver_" + driver.id.replace(/[^a-zA-Z0-9_]/g, "_");
+    const driverStoreId = driver.id === "driver_hamza" ? "service_hamza_oweir" : "service_driver_" + driver.id.replace(/[^a-zA-Z0-9_]/g, "_");
+    try {
+      const deletedStores: string[] = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+      localStorage.setItem("tw_deleted_store_ids", JSON.stringify(deletedStores.filter(id => id !== driverStoreId && id !== "service_hamza_oweir")));
+    } catch {}
+
     const driverServiceStore: Store = {
       id: driverStoreId,
       name: driver.name.startsWith("الكابتن") || driver.name.startsWith("كابتن") ? driver.name : `الكابتن ${driver.name}`,
@@ -1038,11 +1048,19 @@ export default function App() {
 
     setStores((prev) => {
       const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
-      const exists = prev.some(s => s.id === driverStoreId || (cleanP(s.contactPhone) === cleanP(driver.phone) && s.category === "drivers"));
-      if (!exists) {
-        return [driverServiceStore, ...prev];
-      }
-      return prev.map(s => (s.id === driverStoreId || cleanP(s.contactPhone) === cleanP(driver.phone) ? { ...s, ...driverServiceStore } : s));
+      const targetPhone = cleanP(driver.phone);
+      // Remove any existing duplicate store for this driver/phone
+      const filtered = prev.filter(s => {
+        if (s.id === driverStoreId) return false;
+        if (driver.id === "driver_hamza" && s.id === "service_hamza_oweir") return false;
+        if (s.category === "drivers" && targetPhone && cleanP(s.contactPhone) === targetPhone) return false;
+        return true;
+      });
+      const updatedStores = [driverServiceStore, ...filtered];
+      try {
+        localStorage.setItem("tw_stores", JSON.stringify(updatedStores));
+      } catch {}
+      return updatedStores;
     });
 
     await Promise.allSettled([
@@ -1063,19 +1081,98 @@ export default function App() {
       return updated;
     });
 
+    // Also update and deduplicate corresponding service store
+    const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+    const targetPhone = cleanP(driver.phone);
+    const driverStoreId = driver.id === "driver_hamza" ? "service_hamza_oweir" : "service_driver_" + driver.id.replace(/[^a-zA-Z0-9_]/g, "_");
+    const storeName = driver.name.startsWith("الكابتن") || driver.name.startsWith("كابتن") ? driver.name : `الكابتن ${driver.name}`;
+
+    let storeToSave: Store | null = null;
+    setStores((prev) => {
+      const matchingStore = prev.find(s =>
+        s.id === driverStoreId ||
+        (driver.id === "driver_hamza" && s.id === "service_hamza_oweir") ||
+        s.id === `service_driver_${driver.id}` ||
+        (s.category === "drivers" && ((targetPhone && cleanP(s.contactPhone) === targetPhone) || (s.name && s.name.includes(driver.name))))
+      );
+
+      if (matchingStore) {
+        storeToSave = {
+          ...matchingStore,
+          name: storeName,
+          contactPhone: driver.phone,
+          ownerPhone: driver.phone,
+          ownerName: driver.name,
+          ownerPin: driver.pin || matchingStore.ownerPin || "1111",
+          featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : matchingStore.featuredProduct,
+          description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`
+        };
+      } else {
+        storeToSave = {
+          id: driverStoreId,
+          name: storeName,
+          category: "drivers",
+          image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
+          rating: driver.rating || 5.0,
+          deliveryTime: "طلب فوري",
+          deliveryFee: 0,
+          locationNode: "center",
+          featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : "توصيل طلبات ومشاوير فورية",
+          contactPhone: driver.phone,
+          ownerPhone: driver.phone,
+          ownerName: driver.name,
+          ownerPin: driver.pin || "1111",
+          status: "open",
+          isApproved: true,
+          isService: true,
+          description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`,
+          priority: 1
+        };
+      }
+
+      // Filter out all previous instances of this driver's store to eliminate duplicates
+      const nextStores = prev.filter(s => {
+        if (s.id === driverStoreId || (driver.id === "driver_hamza" && s.id === "service_hamza_oweir")) return false;
+        if (s.id === `service_driver_${driver.id}`) return false;
+        if (s.category === "drivers" && targetPhone && cleanP(s.contactPhone) === targetPhone) return false;
+        return true;
+      });
+
+      const finalStores = [storeToSave, ...nextStores];
+      try {
+        localStorage.setItem("tw_stores", JSON.stringify(finalStores));
+      } catch {}
+      return finalStores;
+    });
+
     addToastNotification({
       title: "تم تحديث بيانات الكابتن ✅",
-      message: `تم حفظ تعديلات الكابتن "${driver.name}" بنجاح.`,
+      message: `تم حفظ تعديلات الكابتن "${driver.name}" وتحديث بطاقته في قائمة الخدمات دون تكرار.`,
       type: "info"
     });
 
-    await Promise.allSettled([
+    const tasks: Promise<any>[] = [
       saveDriverToFirestore(driver),
       updateDriverOnServer(driver)
-    ]);
+    ];
+    if (storeToSave) {
+      tasks.push(saveStoreToFirestore(storeToSave));
+      tasks.push(registerStoreOnServer(storeToSave));
+    }
+    await Promise.allSettled(tasks);
   };
 
   const handleDeleteDriver = async (driverId: string) => {
+    // 1. Mark driverId as deleted
+    try {
+      const deletedDrivers: string[] = JSON.parse(localStorage.getItem("tw_deleted_driver_ids") || "[]");
+      if (!deletedDrivers.includes(driverId)) {
+        deletedDrivers.push(driverId);
+        localStorage.setItem("tw_deleted_driver_ids", JSON.stringify(deletedDrivers));
+      }
+    } catch {}
+
+    // 2. Remove from driversList
     setDriversList((prev) => {
       const updated = prev.filter((d) => d.id !== driverId);
       try {
@@ -1085,10 +1182,58 @@ export default function App() {
       return updated;
     });
 
-    await Promise.allSettled([
+    // 3. Remove associated store from stores state and localStorage
+    const removedStoreIds: string[] = [];
+    setStores((prev) => {
+      const nextStores = prev.filter((s) => {
+        const isMatch =
+          s.id === `service_driver_${driverId}` ||
+          (driverId === "driver_hamza" && s.id === "service_hamza_oweir") ||
+          (s.category === "drivers" && s.id.includes(driverId));
+        if (isMatch) {
+          removedStoreIds.push(s.id);
+          return false;
+        }
+        return true;
+      });
+
+      try {
+        localStorage.setItem("tw_stores", JSON.stringify(nextStores));
+      } catch {}
+      return nextStores;
+    });
+
+    // 4. Mark removed store IDs as deleted
+    try {
+      const deletedStores: string[] = JSON.parse(localStorage.getItem("tw_deleted_store_ids") || "[]");
+      removedStoreIds.forEach(id => {
+        if (!deletedStores.includes(id)) deletedStores.push(id);
+      });
+      if (driverId === "driver_hamza" && !deletedStores.includes("service_hamza_oweir")) {
+        deletedStores.push("service_hamza_oweir");
+      }
+      localStorage.setItem("tw_deleted_store_ids", JSON.stringify(deletedStores));
+    } catch {}
+
+    addToastNotification({
+      title: "تم حذف الكابتن بنجاح 🗑️",
+      message: "تم حذف الكابتن نهائياً وإزالة بطاقة خدمته من المنصة.",
+      type: "info"
+    });
+
+    const tasks: Promise<any>[] = [
       deleteDriverFromFirestore(driverId),
       deleteDriverOnServer(driverId)
-    ]);
+    ];
+    removedStoreIds.forEach(id => {
+      tasks.push(deleteStoreFromFirestore(id));
+      tasks.push(deleteStoreOnServer(id));
+    });
+    if (driverId === "driver_hamza") {
+      tasks.push(deleteStoreFromFirestore("service_hamza_oweir"));
+      tasks.push(deleteStoreOnServer("service_hamza_oweir"));
+    }
+    await Promise.allSettled(tasks);
   };
 
   // Firebase Firestore Real-Time Subscriptions (Synchronize Orders, Stores, Products, Drivers, Reviews across all users)
