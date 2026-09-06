@@ -64,6 +64,17 @@ export async function seedInitialFirestoreData(): Promise<void> {
           updatedAt: new Date().toISOString()
         }));
       }
+    } else {
+      // Ensure any newly added initial stores (e.g. service_hamza_oweir, store_gypsum_decor) exist
+      const existingStoreIds = new Set(storesSnap.docs.map(d => d.id));
+      for (const store of initialStores) {
+        if (!existingStoreIds.has(store.id)) {
+          await setDoc(doc(db, "stores", store.id), sanitizeForFirestore({
+            ...store,
+            updatedAt: new Date().toISOString()
+          }));
+        }
+      }
     }
 
     // 2. Check if products exist
@@ -87,6 +98,17 @@ export async function seedInitialFirestoreData(): Promise<void> {
           ...driver,
           updatedAt: new Date().toISOString()
         }));
+      }
+    } else {
+      // Ensure all fleet drivers (including driver_hamza) exist in Firestore
+      const existingDriverIds = new Set(driversSnap.docs.map(d => d.id));
+      for (const driver of initialDrivers) {
+        if (!existingDriverIds.has(driver.id)) {
+          await setDoc(doc(db, "drivers", driver.id), sanitizeForFirestore({
+            ...driver,
+            updatedAt: new Date().toISOString()
+          }));
+        }
       }
     }
 

@@ -211,6 +211,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const driversList = propDriversList && propDriversList.length > 0 ? propDriversList : localDriversList;
 
+  useEffect(() => {
+    if (propDriversList && propDriversList.length > 0) {
+      setLocalDriversList(propDriversList);
+    }
+  }, [propDriversList]);
+
   const handleAddDriver = (driver: DriverMember) => {
     const next = [...driversList.filter((d) => d.id !== driver.id), driver];
     setLocalDriversList(next);

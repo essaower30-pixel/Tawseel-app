@@ -88,6 +88,7 @@ import { AppUpdateModal } from "./components/AppUpdateModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import {
   ensureInitialStoresPreserved,
+  ensureInitialDriversPreserved,
   fetchServerSync,
   registerStoreOnServer,
   approveStoreOnServer,
@@ -98,6 +99,9 @@ import {
   saveProductOnServer,
   updateProductOnServer,
   deleteProductOnServer,
+  saveDriverOnServer,
+  updateDriverOnServer,
+  deleteDriverOnServer,
   cleanSlateOnServer,
   restoreDefaultsOnServer
 } from "./utils/apiSync";
@@ -116,6 +120,7 @@ import {
   saveProductToFirestore,
   deleteProductFromFirestore,
   saveDriverToFirestore,
+  deleteDriverFromFirestore,
   saveReviewToFirestore,
   saveBroadcastToFirestore,
   cleanSlateFirestore,
@@ -331,7 +336,8 @@ export default function App() {
   const [driversList, setDriversList] = useState<DriverMember[]>(() => {
     try {
       const raw = localStorage.getItem("tw_drivers_list") || localStorage.getItem("tw_drivers");
-      return raw ? JSON.parse(raw) : initialDrivers;
+      const parsed = raw ? JSON.parse(raw) : initialDrivers;
+      return ensureInitialDriversPreserved(parsed);
     } catch {
       return initialDrivers;
     }
@@ -989,6 +995,102 @@ export default function App() {
     ]);
   };
 
+  // Driver Fleet Management Handlers
+  const handleAddNewDriver = async (driver: DriverMember) => {
+    setDriversList((prev) => {
+      const updated = [...prev.filter((d) => d.id !== driver.id), driver];
+      try {
+        localStorage.setItem("tw_drivers_list", JSON.stringify(updated));
+        localStorage.setItem("tw_drivers", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    addToastNotification({
+      title: "تمت إضافة وتفعيل الكابتن بنجاح 🛵",
+      message: `تم تسجيل الكابتن "${driver.name}" في الأسطول وتفعيله فوراً لتسجيل الدخول واستقبال الطلبات.`,
+      type: "success"
+    });
+
+    // Also automatically create/update a corresponding service card in stores under category 'drivers'
+    // so he appears for customers in "خدمات وسائقين"
+    const driverStoreId = "service_driver_" + driver.id.replace(/[^a-zA-Z0-9_]/g, "_");
+    const driverServiceStore: Store = {
+      id: driverStoreId,
+      name: driver.name.startsWith("الكابتن") || driver.name.startsWith("كابتن") ? driver.name : `الكابتن ${driver.name}`,
+      category: "drivers",
+      image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
+      rating: driver.rating || 5.0,
+      deliveryTime: "طلب فوري",
+      deliveryFee: 0,
+      locationNode: "center",
+      featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : "توصيل طلبات ومشاوير فورية",
+      contactPhone: driver.phone,
+      ownerPhone: driver.phone,
+      ownerName: driver.name,
+      ownerPin: driver.pin || "1111",
+      status: "open",
+      isApproved: true,
+      isService: true,
+      description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`,
+      priority: 1
+    };
+
+    setStores((prev) => {
+      const cleanP = (p?: string) => (p || "").replace(/[^0-9]/g, "");
+      const exists = prev.some(s => s.id === driverStoreId || (cleanP(s.contactPhone) === cleanP(driver.phone) && s.category === "drivers"));
+      if (!exists) {
+        return [driverServiceStore, ...prev];
+      }
+      return prev.map(s => (s.id === driverStoreId || cleanP(s.contactPhone) === cleanP(driver.phone) ? { ...s, ...driverServiceStore } : s));
+    });
+
+    await Promise.allSettled([
+      saveDriverToFirestore(driver),
+      saveDriverOnServer(driver),
+      saveStoreToFirestore(driverServiceStore),
+      registerStoreOnServer(driverServiceStore)
+    ]);
+  };
+
+  const handleUpdateDriver = async (driver: DriverMember) => {
+    setDriversList((prev) => {
+      const updated = prev.map((d) => (d.id === driver.id ? driver : d));
+      try {
+        localStorage.setItem("tw_drivers_list", JSON.stringify(updated));
+        localStorage.setItem("tw_drivers", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    addToastNotification({
+      title: "تم تحديث بيانات الكابتن ✅",
+      message: `تم حفظ تعديلات الكابتن "${driver.name}" بنجاح.`,
+      type: "info"
+    });
+
+    await Promise.allSettled([
+      saveDriverToFirestore(driver),
+      updateDriverOnServer(driver)
+    ]);
+  };
+
+  const handleDeleteDriver = async (driverId: string) => {
+    setDriversList((prev) => {
+      const updated = prev.filter((d) => d.id !== driverId);
+      try {
+        localStorage.setItem("tw_drivers_list", JSON.stringify(updated));
+        localStorage.setItem("tw_drivers", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    await Promise.allSettled([
+      deleteDriverFromFirestore(driverId),
+      deleteDriverOnServer(driverId)
+    ]);
+  };
+
   // Firebase Firestore Real-Time Subscriptions (Synchronize Orders, Stores, Products, Drivers, Reviews across all users)
   useEffect(() => {
     // 0. Test connection safely according to Firebase skill
@@ -1114,8 +1216,13 @@ export default function App() {
 
     // 5. Real-time drivers listener
     const unsubDrivers = subscribeToDrivers((cloudDrivers) => {
-      if (!cloudDrivers || cloudDrivers.length === 0) return;
-      setDriversList(cloudDrivers);
+      setDriversList((prev) => {
+        const merged = ensureInitialDriversPreserved(cloudDrivers || []);
+        if (merged.length !== prev.length || JSON.stringify(merged) !== JSON.stringify(prev)) {
+          return merged;
+        }
+        return prev;
+      });
     });
 
     // 6. Real-time reviews listener
@@ -1292,6 +1399,17 @@ export default function App() {
         setProducts((currentLocal) => {
           if (serverData.products.length !== currentLocal.length) {
             return serverData.products;
+          }
+          return currentLocal;
+        });
+      }
+
+      // 4. Sync Drivers Fleet
+      if (serverData.drivers && Array.isArray(serverData.drivers) && serverData.drivers.length > 0) {
+        setDriversList((currentLocal) => {
+          const merged = ensureInitialDriversPreserved(serverData.drivers!);
+          if (merged.length !== currentLocal.length || JSON.stringify(merged) !== JSON.stringify(currentLocal)) {
+            return merged;
           }
           return currentLocal;
         });
@@ -2122,6 +2240,10 @@ export default function App() {
                 categories={categories}
                 mapNodes={mapNodes}
                 broadcasts={storeBroadcasts}
+                driversList={driversList}
+                onAddDriver={handleAddNewDriver}
+                onUpdateDriver={handleUpdateDriver}
+                onDeleteDriver={handleDeleteDriver}
                 onAddStore={handleAddNewStore}
                 onUpdateStore={handleUpdateStore}
                 onDeleteStore={handleDeleteStore}

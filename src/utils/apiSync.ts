@@ -1,6 +1,6 @@
 import { Store, Order, Product, Category, DriverMember } from "../types";
 import { initialStores, initialProducts, initialCategories, initialMapNodes } from "../data/initialData";
-import { initialOrders } from "../data/adminInitialData";
+import { initialOrders, initialDrivers } from "../data/adminInitialData";
 
 export interface ServerNotification {
   id: string;
@@ -24,19 +24,37 @@ export interface ServerSyncData {
 
 const API_BASE = "";
 
-// Ensure gypsum decor store is in initial list if missing from local cache (unless clean slate is active)
+// Ensure gypsum decor and hamza oweir delivery service are in initial list if missing from local cache (unless clean slate is active)
 export function ensureInitialStoresPreserved(currentStores: Store[]): Store[] {
   if (typeof window !== "undefined" && localStorage.getItem("tw_clean_slate_active") === "true") {
     return currentStores;
   }
-  const gypsumStore = initialStores.find(s => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215");
-  if (!gypsumStore) return currentStores;
+  let result = [...(currentStores || [])];
 
-  const exists = currentStores.some(s => s.id === gypsumStore.id || s.ownerPhone === gypsumStore.ownerPhone);
-  if (!exists) {
-    return [gypsumStore, ...currentStores];
+  const gypsumStore = initialStores.find(s => s.id === "store_gypsum_decor" || s.ownerPhone === "0961141215");
+  if (gypsumStore && !result.some(s => s.id === gypsumStore.id || s.ownerPhone === gypsumStore.ownerPhone)) {
+    result.unshift(gypsumStore);
   }
-  return currentStores;
+
+  const hamzaStore = initialStores.find(s => s.id === "service_hamza_oweir" || s.ownerPhone === "0951854257");
+  if (hamzaStore && !result.some(s => s.id === hamzaStore.id || (s.name && s.name.includes("حمزة")))) {
+    result.unshift(hamzaStore);
+  }
+
+  return result;
+}
+
+// Ensure Captain Hamza Oweir and fleet drivers are preserved in local cache and syncs
+export function ensureInitialDriversPreserved(currentDrivers: DriverMember[]): DriverMember[] {
+  if (typeof window !== "undefined" && localStorage.getItem("tw_clean_slate_active") === "true") {
+    return currentDrivers;
+  }
+  const map = new Map<string, DriverMember>();
+  initialDrivers.forEach(d => map.set(d.id, d));
+  (currentDrivers || []).forEach(d => {
+    map.set(d.id, d);
+  });
+  return Array.from(map.values());
 }
 
 // Fetch unified data from central server

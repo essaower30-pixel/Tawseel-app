@@ -152,6 +152,26 @@ const defaultInitialStores = [
     description: "دهان منازل، ديكورات جصية وورق جدران"
   },
   {
+    id: "service_hamza_oweir",
+    name: "الكابتن حمزة عوير للتوصيل السريع",
+    category: "drivers",
+    image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
+    rating: 5.0,
+    deliveryTime: "طلب فوري",
+    deliveryFee: 0,
+    locationNode: "center",
+    featuredProduct: "توصيل ركاب وطلبات ومهمات سريعة بدراجة نارية",
+    contactPhone: "0951854257",
+    ownerPhone: "0951854257",
+    ownerName: "الكابتن حمزة عوير",
+    ownerPin: "1111",
+    status: "open",
+    isApproved: true,
+    isService: true,
+    description: "خدمات توصيل ركاب وطلبات ومهمات سريعة داخل وخارج القرية بدراجة نارية سوزوكي حديثة على مدار الساعة",
+    priority: 1
+  },
+  {
     id: "service_taxi",
     name: "كابتن تيسير للتوصيل الخاص",
     category: "drivers",
@@ -190,6 +210,13 @@ const defaultInitialStores = [
   }
 ];
 
+const defaultFleetDrivers = [
+  { id: "driver_hamza", name: "الكابتن حمزة عوير", username: "capt_hamza", phone: "0951854257", pin: "1111", status: "available", totalDeliveries: 15, earnings: 60000, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
+  { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
+  { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "سكوتر كهربائي" },
+  { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية" }
+];
+
 function readServerData() {
   try {
     if (fs.existsSync(STORAGE_FILE)) {
@@ -206,11 +233,15 @@ function readServerData() {
       if (!parsed.stores) parsed.stores = defaultInitialStores;
       if (!parsed.orders) parsed.orders = [];
       if (!parsed.products) parsed.products = [];
-      if (!parsed.drivers) parsed.drivers = [
-        { id: "driver_1", name: "الكابتن أبو محمود", username: "capt_mahmoud", phone: "0991112233", pin: "1111", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية سوزوكي" },
-        { id: "driver_2", name: "الكابتن طارق السريع", username: "capt_tarek", phone: "0992223344", pin: "2222", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "سكوتر كهربائي" },
-        { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية" }
-      ];
+      if (!parsed.drivers || !Array.isArray(parsed.drivers) || parsed.drivers.length === 0) {
+        parsed.drivers = defaultFleetDrivers;
+      } else {
+        // Ensure driver_hamza exists
+        if (!parsed.drivers.some((d: any) => d.id === "driver_hamza" || (d.name && d.name.includes("حمزة")))) {
+          parsed.drivers.unshift(defaultFleetDrivers[0]);
+          writeServerData(parsed);
+        }
+      }
       if (!parsed.notifications) parsed.notifications = [];
       
       // Ensure gypsum decor store exists if not clean slate
@@ -218,6 +249,15 @@ function readServerData() {
         const gypsum = defaultInitialStores.find((s) => s.id === "store_gypsum_decor");
         if (gypsum) {
           parsed.stores.unshift(gypsum);
+          writeServerData(parsed);
+        }
+      }
+
+      // Ensure captain hamza oweir delivery service exists in stores if not clean slate
+      if (!parsed.stores.some((s: any) => s.id === "service_hamza_oweir" || (s.name && s.name.includes("حمزة")))) {
+        const hamzaStore = defaultInitialStores.find((s) => s.id === "service_hamza_oweir");
+        if (hamzaStore) {
+          parsed.stores.unshift(hamzaStore);
           writeServerData(parsed);
         }
       }
@@ -232,6 +272,7 @@ function readServerData() {
     stores: defaultInitialStores,
     orders: [],
     products: [],
+    drivers: defaultFleetDrivers,
     notifications: [],
     lastUpdated: Date.now()
   };
