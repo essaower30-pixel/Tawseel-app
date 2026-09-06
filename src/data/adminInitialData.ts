@@ -170,6 +170,7 @@ export const initialOrders: Order[] = [
     subtotal: 35000,
     deliveryFee: 5000,
     total: 40000,
+    stockDeducted: true,
     items: [
       {
         product: {
@@ -212,6 +213,7 @@ export const initialOrders: Order[] = [
     subtotal: 48000,
     deliveryFee: 5000,
     total: 53000,
+    stockDeducted: true,
     items: [
       {
         product: {

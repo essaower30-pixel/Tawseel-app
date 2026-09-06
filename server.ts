@@ -451,13 +451,25 @@ app.post("/api/orders", (req, res) => {
   // Deduct product stock on server with each sale until out of stock
   if (data.products && Array.isArray(data.products) && newOrder.items && Array.isArray(newOrder.items)) {
     const itemQtyMap = new Map<string, number>();
+    const itemByNameMap = new Map<string, number>();
     for (const item of newOrder.items) {
-      if (item.product && item.product.id) {
-        itemQtyMap.set(item.product.id, (itemQtyMap.get(item.product.id) || 0) + (item.quantity || 1));
+      if (item.product) {
+        const qty = Number(item.quantity) || 1;
+        if (item.product.id) {
+          itemQtyMap.set(item.product.id, (itemQtyMap.get(item.product.id) || 0) + qty);
+        }
+        if (item.product.name) {
+          const key = `${newOrder.storeId || item.product.storeId}_${item.product.name.trim().toLowerCase()}`;
+          itemByNameMap.set(key, (itemByNameMap.get(key) || 0) + qty);
+        }
       }
     }
     data.products = data.products.map((p: any) => {
-      const soldQty = itemQtyMap.get(p.id);
+      let soldQty = itemQtyMap.get(p.id);
+      if (!soldQty && p.name) {
+        const key = `${p.storeId}_${p.name.trim().toLowerCase()}`;
+        soldQty = itemByNameMap.get(key);
+      }
       if (soldQty && soldQty > 0) {
         const currentStock = p.stock !== undefined ? p.stock : 50;
         const newStock = Math.max(0, currentStock - soldQty);
@@ -498,7 +510,49 @@ app.put("/api/orders/:id", (req, res) => {
   const data = readServerData();
   const idx = data.orders.findIndex((o: any) => o.id === orderId);
   if (idx >= 0) {
-    data.orders[idx] = { ...data.orders[idx], ...updates };
+    const prevOrder = data.orders[idx];
+    data.orders[idx] = { ...prevOrder, ...updates };
+
+    // If order is cancelled, restore stock if previously deducted
+    if (updates.status === "cancelled" && prevOrder.status !== "cancelled" && prevOrder.items && Array.isArray(prevOrder.items) && data.products) {
+      for (const item of prevOrder.items) {
+        if (item.product) {
+          const qty = Number(item.quantity) || 1;
+          const target = data.products.find((p: any) => 
+            p.id === item.product.id || 
+            (p.storeId === prevOrder.storeId && p.name && item.product.name && p.name.trim().toLowerCase() === item.product.name.trim().toLowerCase())
+          );
+          if (target) {
+            target.stock = (target.stock !== undefined ? target.stock : 0) + qty;
+            target.soldCount = Math.max(0, (target.soldCount || 0) - qty);
+            target.inStock = target.stock > 0;
+            target.isAvailable = target.stock > 0;
+          }
+        }
+      }
+      data.orders[idx].stockDeducted = false;
+    }
+
+    // If order is delivered or active and stock was not yet deducted, deduct it
+    if ((updates.status === "delivered" || updates.status === "accepted" || updates.status === "preparing" || updates.status === "picked_up") && !prevOrder.stockDeducted && prevOrder.items && Array.isArray(prevOrder.items) && data.products) {
+      for (const item of prevOrder.items) {
+        if (item.product) {
+          const qty = Number(item.quantity) || 1;
+          const target = data.products.find((p: any) => 
+            p.id === item.product.id || 
+            (p.storeId === prevOrder.storeId && p.name && item.product.name && p.name.trim().toLowerCase() === item.product.name.trim().toLowerCase())
+          );
+          if (target) {
+            const currentStock = target.stock !== undefined ? target.stock : 50;
+            target.stock = Math.max(0, currentStock - qty);
+            target.soldCount = (target.soldCount || 0) + qty;
+            target.inStock = target.stock > 0;
+            target.isAvailable = target.stock > 0;
+          }
+        }
+      }
+      data.orders[idx].stockDeducted = true;
+    }
 
     // Record order status update notification
     data.notifications = [

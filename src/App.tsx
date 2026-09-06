@@ -1547,7 +1547,20 @@ export default function App() {
       // 3. Sync Products
       if (serverData.products && Array.isArray(serverData.products) && serverData.products.length > 0) {
         setProducts((currentLocal) => {
+          const remoteMap = new Map(serverData.products.map((p: any) => [p.id, p]));
+          let hasDiff = false;
           if (serverData.products.length !== currentLocal.length) {
+            hasDiff = true;
+          } else {
+            for (const local of currentLocal) {
+              const remote = remoteMap.get(local.id);
+              if (!remote || remote.stock !== local.stock || remote.soldCount !== local.soldCount || remote.inStock !== local.inStock || remote.isAvailable !== local.isAvailable) {
+                hasDiff = true;
+                break;
+              }
+            }
+          }
+          if (hasDiff) {
             return serverData.products;
           }
           return currentLocal;
@@ -1584,6 +1597,111 @@ export default function App() {
       window.removeEventListener("focus", performSync);
     };
   }, [isAdminMode, isDriverMode, userRole, userProfile?.phone, userProfile?.name, currentStoreId, addToastNotification]);
+
+  // Automatic inventory & stock reconciliation effect:
+  // Detects any customer orders whose purchased products have not yet had their stock deducted,
+  // deducts the exact purchased quantities (e.g. 5kg sugar from Abu Muhammad) from product stock,
+  // increments soldCount, marks the order with stockDeducted: true, and persists to Firestore, localStorage, and server!
+  const reconciledOrderIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Find un-deducted non-cancelled orders that are not sample initial orders
+    const pendingDeductionOrders = allOrders.filter(
+      (o) =>
+        !o.stockDeducted &&
+        o.status !== "cancelled" &&
+        o.items &&
+        o.items.length > 0 &&
+        !initialOrders.some((init) => init.id === o.id) &&
+        !reconciledOrderIdsRef.current.has(o.id)
+    );
+
+    if (pendingDeductionOrders.length === 0) return;
+
+    // Mark as being reconciled
+    pendingDeductionOrders.forEach((o) => reconciledOrderIdsRef.current.add(o.id));
+
+    const qtyToDeductByProdId = new Map<string, number>();
+    const qtyToDeductByNameAndStore = new Map<string, number>();
+
+    for (const ord of pendingDeductionOrders) {
+      for (const it of ord.items) {
+        if (it.product) {
+          const qty = Number(it.quantity) || 1;
+          if (it.product.id) {
+            qtyToDeductByProdId.set(it.product.id, (qtyToDeductByProdId.get(it.product.id) || 0) + qty);
+          }
+          if (it.product.name) {
+            const key = `${ord.storeId || it.product.storeId}_${it.product.name.trim().toLowerCase()}`;
+            qtyToDeductByNameAndStore.set(key, (qtyToDeductByNameAndStore.get(key) || 0) + qty);
+          }
+        }
+      }
+    }
+
+    const updatedProducts: Product[] = [];
+    const nextProducts = products.map((p) => {
+      let deductQty = qtyToDeductByProdId.get(p.id);
+      if (!deductQty && p.name) {
+        const key = `${p.storeId}_${p.name.trim().toLowerCase()}`;
+        deductQty = qtyToDeductByNameAndStore.get(key);
+      }
+
+      if (deductQty && deductQty > 0) {
+        const currentStock = p.stock !== undefined ? p.stock : 50;
+        const newStock = Math.max(0, currentStock - deductQty);
+        const currentSold = p.soldCount || 0;
+        const newSold = currentSold + deductQty;
+        const isDepleted = newStock <= 0;
+
+        const updated: Product = {
+          ...p,
+          stock: newStock,
+          soldCount: newSold,
+          inStock: !isDepleted,
+          isAvailable: !isDepleted
+        };
+        updatedProducts.push(updated);
+        return updated;
+      }
+      return p;
+    });
+
+    const reconciledIds = new Set(pendingDeductionOrders.map((o) => o.id));
+    const nextOrders = allOrders.map((o) => {
+      if (reconciledIds.has(o.id)) {
+        return { ...o, stockDeducted: true };
+      }
+      return o;
+    });
+
+    if (updatedProducts.length > 0) {
+      setProducts(nextProducts);
+      try {
+        localStorage.setItem("tw_products", JSON.stringify(nextProducts));
+      } catch (err) {}
+    }
+
+    setAllOrders(nextOrders);
+    try {
+      localStorage.setItem("tw_orders_list", JSON.stringify(nextOrders));
+    } catch (err) {}
+
+    // Persist to Firestore & Server
+    Promise.allSettled([
+      ...updatedProducts.flatMap((prod) => [
+        saveProductToFirestore(prod),
+        updateProductOnServer(prod)
+      ]),
+      ...pendingDeductionOrders.map((ord) => {
+        const updatedOrd = { ...ord, stockDeducted: true };
+        return Promise.allSettled([
+          saveOrderToFirestore(updatedOrd),
+          saveOrderOnServer(updatedOrd)
+        ]);
+      })
+    ]).catch((err) => console.warn("Error reconciling inventory with orders:", err));
+  }, [allOrders, products]);
 
   const handleUpdateOrderStatus = async (orderId: string, status: any) => {
     setAllOrders((prev) =>
@@ -1623,50 +1741,133 @@ export default function App() {
       const targetOrder = allOrders.find((o) => o.id === orderId);
       if (targetOrder && targetOrder.status !== "cancelled" && targetOrder.items && targetOrder.items.length > 0) {
         const itemsMap = new Map<string, number>();
+        const itemsByNameMap = new Map<string, number>();
         for (const item of targetOrder.items) {
-          if (item.product && item.product.id) {
-            itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + item.quantity);
+          if (item.product) {
+            const qty = Number(item.quantity) || 1;
+            if (item.product.id) {
+              itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + qty);
+            }
+            if (item.product.name) {
+              const key = `${targetOrder.storeId || item.product.storeId}_${item.product.name.trim().toLowerCase()}`;
+              itemsByNameMap.set(key, (itemsByNameMap.get(key) || 0) + qty);
+            }
           }
         }
 
-        if (itemsMap.size > 0) {
+        if (itemsMap.size > 0 || itemsByNameMap.size > 0) {
           const restoredProductsToSync: Product[] = [];
-          setProducts((prevProducts) => {
-            const nextProducts = prevProducts.map((p) => {
-              const qtyToRestore = itemsMap.get(p.id);
-              if (qtyToRestore && qtyToRestore > 0) {
-                const currentStock = p.stock !== undefined ? p.stock : 0;
-                const newStock = currentStock + qtyToRestore;
-                const currentSold = p.soldCount || 0;
-                const newSold = Math.max(0, currentSold - qtyToRestore);
+          const nextProducts = products.map((p) => {
+            let qtyToRestore = itemsMap.get(p.id);
+            if (!qtyToRestore && p.name) {
+              const key = `${p.storeId}_${p.name.trim().toLowerCase()}`;
+              qtyToRestore = itemsByNameMap.get(key);
+            }
+            if (qtyToRestore && qtyToRestore > 0) {
+              const currentStock = p.stock !== undefined ? p.stock : 0;
+              const newStock = currentStock + qtyToRestore;
+              const currentSold = p.soldCount || 0;
+              const newSold = Math.max(0, currentSold - qtyToRestore);
 
-                const restoredProd: Product = {
-                  ...p,
-                  stock: newStock,
-                  soldCount: newSold,
-                  inStock: newStock > 0,
-                  isAvailable: newStock > 0
-                };
-                restoredProductsToSync.push(restoredProd);
-                return restoredProd;
-              }
-              return p;
-            });
+              const restoredProd: Product = {
+                ...p,
+                stock: newStock,
+                soldCount: newSold,
+                inStock: newStock > 0,
+                isAvailable: newStock > 0
+              };
+              restoredProductsToSync.push(restoredProd);
+              return restoredProd;
+            }
+            return p;
+          });
 
+          if (restoredProductsToSync.length > 0) {
+            setProducts(nextProducts);
+            setAllOrders((prev) =>
+              prev.map((o) => (o.id === orderId ? { ...o, stockDeducted: false } : o))
+            );
             try {
               localStorage.setItem("tw_products", JSON.stringify(nextProducts));
             } catch (err) {}
 
-            return nextProducts;
-          });
-
-          if (restoredProductsToSync.length > 0) {
-            Promise.allSettled(
-              restoredProductsToSync.flatMap((prod) => [
+            Promise.allSettled([
+              updateOrderStatusInFirestore(orderId, { status: "cancelled", stockDeducted: false } as any),
+              updateOrderOnServer(orderId, { status: "cancelled", stockDeducted: false }),
+              ...restoredProductsToSync.flatMap((prod) => [
                 saveProductToFirestore(prod),
                 updateProductOnServer(prod)
               ])
-            ).catch(() => {});
+            ]).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // If order is delivered or completed, ensure stock was deducted
+    if (status === "delivered") {
+      const targetOrder = allOrders.find((o) => o.id === orderId);
+      if (targetOrder && !targetOrder.stockDeducted && targetOrder.items && targetOrder.items.length > 0) {
+        const itemsMap = new Map<string, number>();
+        const itemsByNameMap = new Map<string, number>();
+        for (const item of targetOrder.items) {
+          if (item.product) {
+            const qty = Number(item.quantity) || 1;
+            if (item.product.id) {
+              itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + qty);
+            }
+            if (item.product.name) {
+              const key = `${targetOrder.storeId || item.product.storeId}_${item.product.name.trim().toLowerCase()}`;
+              itemsByNameMap.set(key, (itemsByNameMap.get(key) || 0) + qty);
+            }
+          }
+        }
+
+        if (itemsMap.size > 0 || itemsByNameMap.size > 0) {
+          const deductedProductsToSync: Product[] = [];
+          const nextProducts = products.map((p) => {
+            let qtyToDeduct = itemsMap.get(p.id);
+            if (!qtyToDeduct && p.name) {
+              const key = `${p.storeId}_${p.name.trim().toLowerCase()}`;
+              qtyToDeduct = itemsByNameMap.get(key);
+            }
+            if (qtyToDeduct && qtyToDeduct > 0) {
+              const currentStock = p.stock !== undefined ? p.stock : 50;
+              const newStock = Math.max(0, currentStock - qtyToDeduct);
+              const currentSold = p.soldCount || 0;
+              const newSold = currentSold + qtyToDeduct;
+              const isDepleted = newStock <= 0;
+
+              const updatedProd: Product = {
+                ...p,
+                stock: newStock,
+                soldCount: newSold,
+                inStock: !isDepleted,
+                isAvailable: !isDepleted
+              };
+              deductedProductsToSync.push(updatedProd);
+              return updatedProd;
+            }
+            return p;
+          });
+
+          if (deductedProductsToSync.length > 0) {
+            setProducts(nextProducts);
+            setAllOrders((prev) =>
+              prev.map((o) => (o.id === orderId ? { ...o, stockDeducted: true } : o))
+            );
+            try {
+              localStorage.setItem("tw_products", JSON.stringify(nextProducts));
+            } catch (err) {}
+
+            Promise.allSettled([
+              updateOrderStatusInFirestore(orderId, { status: "delivered", stockDeducted: true } as any),
+              updateOrderOnServer(orderId, { status: "delivered", stockDeducted: true }),
+              ...deductedProductsToSync.flatMap((prod) => [
+                saveProductToFirestore(prod),
+                updateProductOnServer(prod)
+              ])
+            ]).catch(() => {});
           }
         }
       }
@@ -1842,6 +2043,7 @@ export default function App() {
       deliveryFee,
       total,
       storeName: store ? store.name : "متجر القرية",
+      stockDeducted: true,
       ...orderData
     };
 
@@ -1850,21 +2052,33 @@ export default function App() {
     setCartItems([]);
     setIsViewingCart(false);
 
-    // Synchronize sold quantities with displayed stock:
+    // Synchronize sold quantities with displayed stock synchronously:
     // With every sale, decrease the displayed quantity and increase soldCount until out of stock
-    const updatedProductsToSync: Product[] = [];
-    setProducts((prevProducts) => {
-      const itemsMap = new Map<string, number>();
-      for (const item of newOrder.items || []) {
-        if (item.product && item.product.id) {
-          itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + item.quantity);
+    const itemsMap = new Map<string, number>();
+    const itemsByNameMap = new Map<string, number>();
+    for (const item of newOrder.items || []) {
+      if (item.product) {
+        const qty = Number(item.quantity) || 1;
+        if (item.product.id) {
+          itemsMap.set(item.product.id, (itemsMap.get(item.product.id) || 0) + qty);
+        }
+        if (item.product.name) {
+          const key = `${newOrder.storeId || item.product.storeId}_${item.product.name.trim().toLowerCase()}`;
+          itemsByNameMap.set(key, (itemsByNameMap.get(key) || 0) + qty);
         }
       }
+    }
 
-      if (itemsMap.size === 0) return prevProducts;
+    const updatedProductsToSync: Product[] = [];
+    let nextProducts = products;
+    if (itemsMap.size > 0 || itemsByNameMap.size > 0) {
+      nextProducts = products.map((p) => {
+        let qtySold = itemsMap.get(p.id);
+        if (!qtySold && p.name) {
+          const key = `${p.storeId}_${p.name.trim().toLowerCase()}`;
+          qtySold = itemsByNameMap.get(key);
+        }
 
-      const nextProducts = prevProducts.map((p) => {
-        const qtySold = itemsMap.get(p.id);
         if (qtySold && qtySold > 0) {
           const currentStock = p.stock !== undefined ? p.stock : 50;
           const newStock = Math.max(0, currentStock - qtySold);
@@ -1885,14 +2099,15 @@ export default function App() {
         return p;
       });
 
-      try {
-        localStorage.setItem("tw_products", JSON.stringify(nextProducts));
-      } catch (err) {
-        console.warn("Failed saving products to localStorage:", err);
+      if (updatedProductsToSync.length > 0) {
+        setProducts(nextProducts);
+        try {
+          localStorage.setItem("tw_products", JSON.stringify(nextProducts));
+        } catch (err) {
+          console.warn("Failed saving products to localStorage:", err);
+        }
       }
-
-      return nextProducts;
-    });
+    }
 
     // Save order & updated products to Firebase Firestore & server storage for multi-device sync
     await Promise.allSettled([

@@ -182,6 +182,7 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({
       price: priceNum,
       unit: unit.trim() || "قطعة",
       stock: stockNum,
+      soldCount: editingProduct?.soldCount || 0,
       inStock: !isDepleted,
       isAvailable: !isDepleted,
       storeId,
