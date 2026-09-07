@@ -139,8 +139,12 @@ export default function App() {
   });
 
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const raw = localStorage.getItem("tw_cart_items");
-    return raw ? JSON.parse(raw) : [];
+    try {
+      const raw = localStorage.getItem("tw_cart_items");
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
   });
   const [isViewingCart, setIsViewingCart] = useState<boolean>(() => {
     return localStorage.getItem("tw_viewing_cart") === "true";
@@ -232,29 +236,51 @@ export default function App() {
 
   // User & Role State
   const [userRole, setUserRole] = useState<"guest" | "customer" | "store_owner" | "admin" | "driver">(() => {
-    return (localStorage.getItem("tw_user_role") as any) || "customer";
+    try {
+      return (localStorage.getItem("tw_user_role") as any) || "customer";
+    } catch {
+      return "customer";
+    }
   });
 
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showCustomerArchiveModal, setShowCustomerArchiveModal] = useState<boolean>(false);
 
   const [currentStoreId, setCurrentStoreId] = useState<string | null>(() => {
-    return localStorage.getItem("tw_current_store_id") || null;
+    try {
+      return localStorage.getItem("tw_current_store_id") || null;
+    } catch {
+      return null;
+    }
   });
 
   const [isAdminMode, setIsAdminMode] = useState<boolean>(() => {
-    const raw = localStorage.getItem("tw_viewing_admin");
-    return localStorage.getItem("tw_user_role") === "admin" ? raw !== "false" : raw === "true";
+    try {
+      const raw = localStorage.getItem("tw_viewing_admin");
+      const role = localStorage.getItem("tw_user_role");
+      return role === "admin" && raw === "true";
+    } catch {
+      return false;
+    }
   });
 
   const [isDriverMode, setIsDriverMode] = useState<boolean>(() => {
-    const raw = localStorage.getItem("tw_viewing_driver");
-    return localStorage.getItem("tw_user_role") === "driver" ? raw !== "false" : raw === "true";
+    try {
+      const raw = localStorage.getItem("tw_viewing_driver");
+      const role = localStorage.getItem("tw_user_role");
+      return role === "driver" && raw === "true";
+    } catch {
+      return false;
+    }
   });
 
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
-    const raw = localStorage.getItem("tw_customer_user") || localStorage.getItem("tw_user_profile");
-    return raw ? JSON.parse(raw) : { name: "أحمد العلي", phone: "0988776655", pin: "1234" };
+    try {
+      const raw = localStorage.getItem("tw_customer_user") || localStorage.getItem("tw_user_profile");
+      return raw ? JSON.parse(raw) : { name: "زائر متسوق", phone: "09xxxxxxxx", pin: "1234" };
+    } catch {
+      return { name: "زائر متسوق", phone: "09xxxxxxxx", pin: "1234" };
+    }
   });
 
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
@@ -406,12 +432,28 @@ export default function App() {
 
   // Sound & Toast Notifications State
   const [toasts, setToasts] = useState<ToastItem[]>([]);
-  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => isSoundEnabled());
-  const [soundChoice, setSoundChoice] = useState<SoundType>(() => getSoundType());
+  const [soundEnabled, setSoundEnabledState] = useState<boolean>(() => {
+    try {
+      return isSoundEnabled();
+    } catch {
+      return true;
+    }
+  });
+  const [soundChoice, setSoundChoice] = useState<SoundType>(() => {
+    try {
+      return getSoundType();
+    } catch {
+      return "chime";
+    }
+  });
   const [showSoundModal, setShowSoundModal] = useState<boolean>(false);
-  const [hasNotifPermission, setHasNotifPermission] = useState<boolean>(() => 
-    typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted"
-  );
+  const [hasNotifPermission, setHasNotifPermission] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
+    } catch {
+      return false;
+    }
+  });
 
   // Notification deduplication tracking refs to prevent re-alerting or looping
   const notifiedPendingStoresRef = useRef<Set<string>>(new Set(["store-gypsum-board"]));
@@ -2369,12 +2411,13 @@ export default function App() {
 
   // Filtered Stores
   const visibleStores = stores.filter((store) => {
-    if (store.isApproved === false) return false;
+    if (!store || store.isApproved === false) return false;
     const matchesCategory = selectedCategory === "all" || store.category === selectedCategory;
-    const matchesSearch =
-      store.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (store.description && store.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (store.featuredProduct && store.featuredProduct.toLowerCase().includes(searchQuery.toLowerCase()));
+    const sName = (store.name || "").toLowerCase();
+    const sDesc = (store.description || "").toLowerCase();
+    const sFeat = (store.featuredProduct || "").toLowerCase();
+    const q = (searchQuery || "").toLowerCase();
+    const matchesSearch = sName.includes(q) || sDesc.includes(q) || sFeat.includes(q);
     return matchesCategory && matchesSearch;
   });
 

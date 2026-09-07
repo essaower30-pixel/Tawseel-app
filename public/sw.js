@@ -1,5 +1,10 @@
 const CACHE_NAME = 'tawseel-v29-offline';
 
+// Immediate self-cleanup in non-GitHub-Pages / development environments
+if (typeof self !== 'undefined' && self.location && !self.location.hostname.includes('github.io')) {
+  self.registration?.unregister();
+}
+
 const getBasePath = () => {
   if (typeof self !== 'undefined' && self.location) {
     if (self.location.pathname.includes('/Tawseel-app')) {
@@ -88,6 +93,18 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(request.url);
+
+  // Never intercept dev mode, AI studio preview, or Vite module assets
+  if (
+    !url.hostname.includes('github.io') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.includes('/src/') ||
+    url.pathname.includes('node_modules') ||
+    url.search.includes('v=') ||
+    url.search.includes('t=')
+  ) {
+    return;
+  }
 
   // A. Navigation / Document Requests (Opening the app / page load)
   if (request.mode === 'navigate' || request.destination === 'document') {
