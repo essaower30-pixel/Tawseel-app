@@ -348,14 +348,14 @@ export const StoresTab: React.FC<StoresTabProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center flex-wrap gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex items-center flex-wrap gap-2 w-full lg:w-auto">
             <button
               type="button"
               onClick={() => setShowBroadcastModal(true)}
-              className="py-2.5 px-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 border border-orange-400"
+              className="w-full sm:w-auto py-2.5 px-3.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 border border-orange-400"
             >
-              <Megaphone className="w-4 h-4 text-white animate-bounce" />
-              <span>تنبيه جماعي للمتاجر 📢 (Broadcast)</span>
+              <Megaphone className="w-4 h-4 text-white shrink-0" />
+              <span>تنبيه جماعي للمتاجر 📢</span>
               {broadcasts.length > 0 && (
                 <span className="text-[10px] bg-white/30 text-white font-black px-1.5 py-0.2 rounded-full">
                   {broadcasts.length}
@@ -369,11 +369,11 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                 setInitialOpenCatAdd(true);
                 setShowCatModal(true);
               }}
-              className="py-2.5 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 border border-emerald-500"
+              className="w-full sm:w-auto py-2.5 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-95 border border-emerald-500"
               title="إضافة تصنيف عام رئيسي مثل ملابس أو لحوم أو مخابز"
             >
-              <Plus className="w-4 h-4" />
-              <span>إضافة تصنيف رئيسي ➕ (ملابس، لحوم...)</span>
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>إضافة تصنيف رئيسي ➕</span>
             </button>
 
             <button
@@ -382,21 +382,18 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                 setInitialOpenCatAdd(false);
                 setShowCatModal(true);
               }}
-              className="py-2.5 px-3.5 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 text-orange-950 font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer border border-orange-200 shadow-2xs active:scale-95"
+              className="w-full sm:w-auto py-2.5 px-3.5 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 text-orange-950 font-black text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer border border-orange-200 shadow-2xs active:scale-95"
             >
-              <Tag className="w-4 h-4 text-orange-600" />
-              <span>ترتيب وإدارة التصنيفات ({categories.length}) 🖐️</span>
-              <span className="text-[10px] bg-orange-200 text-orange-900 font-extrabold px-1.5 py-0.5 rounded-md">
-                سحب وإفلات
-              </span>
+              <Tag className="w-4 h-4 text-orange-600 shrink-0" />
+              <span>إدارة وترتيب التصنيفات ({categories.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => openAddModal(true)}
-              className="py-2.5 px-4 bg-slate-900 hover:bg-black text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto py-2.5 px-4 bg-slate-900 hover:bg-black text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 shrink-0" />
               <span>تسجيل متجر نيابة عن صاحبه ➕</span>
             </button>
           </div>
