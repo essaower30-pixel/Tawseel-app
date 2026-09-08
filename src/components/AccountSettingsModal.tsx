@@ -38,6 +38,9 @@ interface AccountSettingsModalProps {
   currentDriver?: DriverMember | null;
   currentStaff?: StaffMember | null;
   appSettings?: AppSettings | null;
+  onGoToAdmin?: () => void;
+  onGoToStore?: () => void;
+  onGoToDriver?: () => void;
 }
 
 export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
@@ -50,7 +53,10 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   currentStore,
   currentDriver,
   currentStaff,
-  appSettings
+  appSettings,
+  onGoToAdmin,
+  onGoToStore,
+  onGoToDriver
 }) => {
   const [name, setName] = useState(userProfile?.name || "");
   const [phone, setPhone] = useState(userProfile?.phone || "");
@@ -590,38 +596,85 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full sm:flex-1 py-3 px-4 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-orange-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
-            >
-              {isSaving ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>جارٍ الحفظ والمزامنة...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>حفظ التعديلات ومزامنة الحساب 💾</span>
-                </>
-              )}
-            </button>
+          <div className="pt-2 flex flex-col gap-2.5">
+            <div className="flex flex-col sm:flex-row items-center gap-2">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="w-full sm:flex-1 py-3 px-4 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-md shadow-orange-600/20 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>جارٍ الحفظ والمزامنة...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>حفظ التعديلات ومزامنة الحساب 💾</span>
+                  </>
+                )}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm("هل ترغب بتسجيل الخروج من الحساب الحالي؟")) {
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("هل ترغب بتسجيل الخروج من الحساب الحالي؟")) {
+                    onClose();
+                    onLogout();
+                  }
+                }}
+                className="w-full sm:w-auto py-3 px-4 bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shrink-0"
+              >
+                <LogOut className="w-4 h-4 text-red-500" />
+                <span>تسجيل الخروج</span>
+              </button>
+            </div>
+
+            {/* Direct button to enter Admin Dashboard under Logout button */}
+            {(userRole === "admin" || currentStaff?.role === "manager") && onGoToAdmin && (
+              <button
+                type="button"
+                onClick={() => {
                   onClose();
-                  onLogout();
-                }
-              }}
-              className="w-full sm:w-auto py-3 px-4 bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-600 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200 shrink-0"
-            >
-              <LogOut className="w-4 h-4 text-red-500" />
-              <span>تسجيل الخروج</span>
-            </button>
+                  onGoToAdmin();
+                }}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 hover:from-slate-800 hover:to-slate-700 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-slate-900/25 flex items-center justify-center gap-2.5 cursor-pointer transition-all border border-slate-700"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>الدخول إلى لوحة الإدارة 🛡️</span>
+              </button>
+            )}
+
+            {/* Direct button to enter Store Owner Dashboard under Logout */}
+            {userRole === "store_owner" && onGoToStore && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onGoToStore();
+                }}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-900 hover:from-emerald-800 hover:to-emerald-700 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-2.5 cursor-pointer transition-all border border-emerald-700"
+              >
+                <StoreIcon className="w-4 h-4 text-emerald-300" />
+                <span>الدخول إلى لوحة إدارة متجري 🏪</span>
+              </button>
+            )}
+
+            {/* Direct button to enter Driver Dashboard under Logout */}
+            {userRole === "driver" && onGoToDriver && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onGoToDriver();
+                }}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 hover:from-blue-800 hover:to-blue-700 active:scale-98 text-white rounded-2xl text-xs sm:text-sm font-black shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2.5 cursor-pointer transition-all border border-blue-700"
+              >
+                <Bike className="w-4 h-4 text-blue-300" />
+                <span>الدخول إلى لوحة الكابتن 🚴</span>
+              </button>
+            )}
           </div>
         </form>
 

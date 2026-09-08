@@ -2681,17 +2681,60 @@ export default function App() {
                 <span>تسجيل الدخول</span>
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => setShowAccountModal(true)}
-                className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
-                title="إعدادات الحساب والملف الشخصي وتبديل الحساب"
-              >
-                <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
-                  <User className="w-3.5 h-3.5" />
-                </div>
-                <span className="max-w-[85px] sm:max-w-[130px] truncate">{userProfile.name}</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                {/* Direct quick button to go to Admin Panel if logged in as Admin and browsing as customer */}
+                {userRole === "admin" && !isAdminMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedStore(null);
+                      setIsViewingCart(false);
+                      setIsAdminMode(true);
+                      setIsDriverMode(false);
+                      localStorage.setItem("tw_viewing_admin", "true");
+                      localStorage.setItem("tw_viewing_driver", "false");
+                    }}
+                    className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-sm active:scale-95 whitespace-nowrap animate-fade-in"
+                    title="العودة المباشرة إلى لوحة الإدارة"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="hidden sm:inline">لوحة الإدارة 🛡️</span>
+                    <span className="sm:hidden">الإدارة 🛡️</span>
+                  </button>
+                )}
+
+                {/* Direct quick button for driver if on home view */}
+                {userRole === "driver" && !isDriverMode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedStore(null);
+                      setIsViewingCart(false);
+                      setIsDriverMode(true);
+                      setIsAdminMode(false);
+                      localStorage.setItem("tw_viewing_driver", "true");
+                      localStorage.setItem("tw_viewing_admin", "false");
+                    }}
+                    className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-blue-700 bg-blue-900 hover:bg-blue-800 text-white transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-sm active:scale-95 whitespace-nowrap animate-fade-in"
+                    title="العودة المباشرة إلى لوحة الكابتن"
+                  >
+                    <Bike className="w-3.5 h-3.5 text-blue-300 shrink-0" />
+                    <span>الكابتن 🚴</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowAccountModal(true)}
+                  className="py-1.5 px-2.5 sm:px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-black shadow-xs active:scale-95 whitespace-nowrap"
+                  title="إعدادات الحساب والملف الشخصي وتبديل الحساب"
+                >
+                  <div className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                    <User className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="max-w-[85px] sm:max-w-[130px] truncate">{userProfile.name}</span>
+                </button>
+              </div>
             )}
 
             {/* Back to Home Button */}
@@ -3806,6 +3849,28 @@ export default function App() {
           )}
           onUpdateProfile={handleUpdateUserProfile}
           onLogout={handleLogout}
+          onGoToAdmin={() => {
+            setSelectedStore(null);
+            setIsViewingCart(false);
+            setIsAdminMode(true);
+            setIsDriverMode(false);
+            localStorage.setItem("tw_viewing_admin", "true");
+            localStorage.setItem("tw_viewing_driver", "false");
+          }}
+          onGoToStore={() => {
+            if (currentStoreId) {
+              const matched = stores.find(s => s.id === currentStoreId);
+              if (matched) setSelectedStore(matched);
+            }
+          }}
+          onGoToDriver={() => {
+            setSelectedStore(null);
+            setIsViewingCart(false);
+            setIsDriverMode(true);
+            setIsAdminMode(false);
+            localStorage.setItem("tw_viewing_driver", "true");
+            localStorage.setItem("tw_viewing_admin", "false");
+          }}
         />
       )}
     </div>
