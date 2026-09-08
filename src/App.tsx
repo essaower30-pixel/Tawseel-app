@@ -102,6 +102,9 @@ import {
   saveDriverOnServer,
   updateDriverOnServer,
   deleteDriverOnServer,
+  saveCategoryOnServer,
+  reorderCategoriesOnServer,
+  deleteCategoryOnServer,
   cleanSlateOnServer,
   restoreDefaultsOnServer
 } from "./utils/apiSync";
@@ -121,6 +124,9 @@ import {
   deleteProductFromFirestore,
   saveDriverToFirestore,
   deleteDriverFromFirestore,
+  saveCategoryToFirestore,
+  syncCategoriesToFirestore,
+  deleteCategoryFromFirestore,
   saveReviewToFirestore,
   saveBroadcastToFirestore,
   cleanSlateFirestore,
@@ -1283,6 +1289,72 @@ export default function App() {
     await Promise.allSettled(tasks);
   };
 
+  // Category Management Handlers (Admin dynamic categories: meat, clothes, etc.)
+  const handleAddNewCategory = async (category: Category) => {
+    setCategories((prev) => {
+      if (prev.some((c) => c.id === category.id)) {
+        return prev.map((c) => (c.id === category.id ? category : c));
+      }
+      return [...prev, category];
+    });
+
+    addToastNotification({
+      title: "تمت إضافة التصنيف الرئيسي بنجاح 🏷️",
+      message: `أصبح تصنيف "${category.label}" متاحاً الآن في شريط تصفح القرية والمتاجر.`,
+      type: "success"
+    });
+
+    await Promise.allSettled([
+      saveCategoryToFirestore(category),
+      saveCategoryOnServer(category)
+    ]);
+  };
+
+  const handleUpdateCategory = async (category: Category) => {
+    setCategories((prev) => prev.map((c) => (c.id === category.id ? category : c)));
+
+    addToastNotification({
+      title: "تم تحديث التصنيف ✅",
+      message: `تم حفظ تعديلات تصنيف "${category.label}".`,
+      type: "info"
+    });
+
+    await Promise.allSettled([
+      saveCategoryToFirestore(category),
+      saveCategoryOnServer(category)
+    ]);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+
+    addToastNotification({
+      title: "تم حذف التصنيف 🗑️",
+      message: "تم حذف التصنيف بنجاح من شريط المنصة.",
+      type: "info"
+    });
+
+    await Promise.allSettled([
+      deleteCategoryFromFirestore(categoryId),
+      deleteCategoryOnServer(categoryId)
+    ]);
+  };
+
+  const handleReorderCategories = async (newCategories: Category[]) => {
+    setCategories(newCategories);
+
+    addToastNotification({
+      title: "تم حفظ ترتيب التصنيفات ↕️",
+      message: "تم تحديث ترتيب ظهور التصنيفات في شريط تصفح القرية.",
+      type: "info"
+    });
+
+    await Promise.allSettled([
+      syncCategoriesToFirestore(newCategories),
+      reorderCategoriesOnServer(newCategories)
+    ]);
+  };
+
   // Firebase Firestore Real-Time Subscriptions (Synchronize Orders, Stores, Products, Drivers, Reviews across all users)
   useEffect(() => {
     // 0. Test connection safely according to Firebase skill
@@ -1615,6 +1687,19 @@ export default function App() {
           const merged = ensureInitialDriversPreserved(serverData.drivers!);
           if (merged.length !== currentLocal.length || JSON.stringify(merged) !== JSON.stringify(currentLocal)) {
             return merged;
+          }
+          return currentLocal;
+        });
+      }
+
+      // 5. Sync Categories (meat, clothes, dynamic categories)
+      if (serverData.categories && Array.isArray(serverData.categories) && serverData.categories.length > 0) {
+        setCategories((currentLocal) => {
+          if (
+            currentLocal.length !== serverData.categories!.length ||
+            JSON.stringify(currentLocal) !== JSON.stringify(serverData.categories)
+          ) {
+            return serverData.categories!;
           }
           return currentLocal;
         });
@@ -2658,9 +2743,10 @@ export default function App() {
                 onAddProduct={handleAddNewProduct}
                 onUpdateProduct={handleUpdateProduct}
                 onDeleteProduct={handleDeleteProduct}
-                onAddCategory={(cat) => setCategories((prev) => [...prev, cat])}
-                onDeleteCategory={(catId) => setCategories((prev) => prev.filter((c) => c.id !== catId))}
-                onReorderCategories={(newCats) => setCategories(newCats)}
+                onAddCategory={handleAddNewCategory}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onReorderCategories={handleReorderCategories}
                 onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
                 onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
                 onUpdateOrderStatus={handleUpdateOrderStatus}

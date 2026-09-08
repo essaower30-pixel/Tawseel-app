@@ -479,5 +479,54 @@
     }
   ],
   "notifications": [],
-  "lastUpdated": 1788790437565
+  "lastUpdated": 1788901502481,
+  "deletedDriverIds": [],
+  "deletedStoreIds": [],
+  "categories": [
+    {
+      "id": "offers",
+      "label": "العروض الحالية",
+      "icon": "Flame"
+    },
+    {
+      "id": "restaurants",
+      "label": "مطاعم وجبات",
+      "icon": "Utensils"
+    },
+    {
+      "id": "supermarkets",
+      "label": "سوبرماركت",
+      "icon": "ShoppingBag"
+    },
+    {
+      "id": "pharmacies",
+      "label": "صيدليات",
+      "icon": "Pill"
+    },
+    {
+      "id": "vegetables",
+      "label": "خضار وفواكه",
+      "icon": "Leaf"
+    },
+    {
+      "id": "sweets",
+      "label": "حلويات ومعجنات",
+      "icon": "CakeSlice"
+    },
+    {
+      "id": "doctors",
+      "label": "عيادات وأطباء",
+      "icon": "Stethoscope"
+    },
+    {
+      "id": "crafts",
+      "label": "مهن وصيانة",
+      "icon": "Wrench"
+    },
+    {
+      "id": "drivers",
+      "label": "خدمات وسائقين",
+      "icon": "Car"
+    }
+  ]
 }

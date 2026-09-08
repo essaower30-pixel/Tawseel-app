@@ -22,7 +22,18 @@ import {
   Percent,
   BadgePercent,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Beef,
+  Fish,
+  Croissant,
+  Pizza,
+  Baby,
+  Package,
+  Footprints,
+  Watch,
+  Milk,
+  Apple,
+  Heart
 } from "lucide-react";
 
 interface CategoryIconProps {
@@ -43,6 +54,30 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ name, className = "w
       return <Zap className={className} />;
     case "TrendingUp":
       return <TrendingUp className={className} />;
+    case "Beef":
+      return <Beef className={className} />;
+    case "Shirt":
+      return <Shirt className={className} />;
+    case "Croissant":
+      return <Croissant className={className} />;
+    case "Fish":
+      return <Fish className={className} />;
+    case "Pizza":
+      return <Pizza className={className} />;
+    case "Apple":
+      return <Apple className={className} />;
+    case "Baby":
+      return <Baby className={className} />;
+    case "Milk":
+      return <Milk className={className} />;
+    case "Package":
+      return <Package className={className} />;
+    case "Footprints":
+      return <Footprints className={className} />;
+    case "Watch":
+      return <Watch className={className} />;
+    case "Heart":
+      return <Heart className={className} />;
     case "Utensils":
       return <Utensils className={className} />;
     case "ShoppingBag":
@@ -65,8 +100,6 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ name, className = "w
       return <Sparkles className={className} />;
     case "Gift":
       return <Gift className={className} />;
-    case "Shirt":
-      return <Shirt className={className} />;
     case "Smartphone":
       return <Smartphone className={className} />;
     case "BookOpen":
@@ -81,25 +114,36 @@ export const CategoryIcon: React.FC<CategoryIconProps> = ({ name, className = "w
 };
 
 export const AVAILABLE_CATEGORY_ICONS = [
+  { id: "Beef", label: "لحوم وملاحم وجزارة 🥩" },
+  { id: "Shirt", label: "ألبسة وملابس وأزياء 👕" },
+  { id: "Croissant", label: "مخابز وأفران ومعجنات 🥐" },
+  { id: "Milk", label: "ألبان وأجبان ومشتقاتها 🥛" },
+  { id: "Fish", label: "أسماك ومأكولات بحرية 🐟" },
+  { id: "Apple", label: "فواكه وتمور طازجة 🍎" },
+  { id: "Pizza", label: "بيتزا وفطائر ومعجنات 🍕" },
+  { id: "Baby", label: "مستلزمات أطفال ومواليد 👶" },
+  { id: "Footprints", label: "أحذية وحقائب 👟" },
+  { id: "Watch", label: "ساعات وإكسسوارات ⌚" },
+  { id: "Heart", label: "عناية وجمال ومستحضرات ❤️" },
+  { id: "ShoppingBag", label: "سوبرماركت وبقالة وتسوق 🛒" },
+  { id: "Utensils", label: "مطاعم ووجبات جاهزة 🍽️" },
+  { id: "CakeSlice", label: "حلويات وشوكولا 🍰" },
+  { id: "Coffee", label: "مقاهي ومشروبات وبن ☕" },
+  { id: "Leaf", label: "خضار وفواكه طازجة 🥬" },
+  { id: "Pill", label: "صيدلية وأدوية ومستلزمات 💊" },
+  { id: "Stethoscope", label: "صحة وعيادات واستشارات 🩺" },
+  { id: "Wrench", label: "صيانة ومهن وورش 🔧" },
+  { id: "Car", label: "سيارات وتوصيل وسائقين 🚗" },
+  { id: "Gift", label: "هدايا وزهور وتحف 🎁" },
+  { id: "Smartphone", label: "إلكترونيات وموبايل وشاشات 📱" },
+  { id: "BookOpen", label: "قرطاسية ومكتبات ومطبوعات 📚" },
+  { id: "Scissors", label: "صالونات وحلاقة وتجميل ✂️" },
+  { id: "Home", label: "منزل ومفروشات وديكور 🏠" },
+  { id: "Package", label: "طرود وشحن وتغليف 📦" },
   { id: "Flame", label: "شعلة العروض والتخفيضات 🔥" },
   { id: "Tag", label: "بطاقة أسعار وعروض 🏷️" },
   { id: "Percent", label: "نسبة خصم وتنزيلات ٪" },
-  { id: "Sparkles", label: "عروض مميزة وهدايا ✨" },
-  { id: "Utensils", label: "مطاعم ومأكولات" },
-  { id: "ShoppingBag", label: "سوبرماركت وتسوق" },
-  { id: "Pill", label: "صيدلية وأدوية" },
-  { id: "Leaf", label: "خضار وفواكه" },
-  { id: "CakeSlice", label: "حلويات ومخبوزات" },
-  { id: "Stethoscope", label: "صحة وعيادات" },
-  { id: "Wrench", label: "صيانة وورش" },
-  { id: "Car", label: "سيارات وتوصيل" },
-  { id: "Coffee", label: "مقاهي ومشروبات" },
-  { id: "Gift", label: "هدايا ومناسبات" },
-  { id: "Shirt", label: "ألبسة وأقمشة" },
-  { id: "Smartphone", label: "إلكترونيات وموبايل" },
-  { id: "BookOpen", label: "قرطاسية ومكتبات" },
-  { id: "Scissors", label: "صالونات وحلاقة" },
-  { id: "Home", label: "منزل ومفروشات" },
+  { id: "Sparkles", label: "عروض مميزة وحصرية ✨" },
   { id: "Zap", label: "توصيل سريع وفوري ⚡" },
-  { id: "TrendingUp", label: "الأكثر مبيعاً ورواجاً 📈" }
+  { id: "TrendingUp", label: "الأكثر طلباً ورواجاً 📈" }
 ];

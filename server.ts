@@ -217,6 +217,18 @@ const defaultFleetDrivers = [
   { id: "driver_3", name: "الكابتن وسيم الورد", username: "capt_waseem", phone: "0993334455", pin: "3333", status: "available", totalDeliveries: 0, earnings: 0, rating: 5.0, vehicle: "دراجة نارية هوائية" }
 ];
 
+const defaultInitialCategories = [
+  { id: "offers", label: "العروض الحالية", icon: "Flame" },
+  { id: "restaurants", label: "مطاعم وجبات", icon: "Utensils" },
+  { id: "supermarkets", label: "سوبرماركت", icon: "ShoppingBag" },
+  { id: "pharmacies", label: "صيدليات", icon: "Pill" },
+  { id: "vegetables", label: "خضار وفواكه", icon: "Leaf" },
+  { id: "sweets", label: "حلويات ومعجنات", icon: "CakeSlice" },
+  { id: "doctors", label: "عيادات وأطباء", icon: "Stethoscope" },
+  { id: "crafts", label: "مهن وصيانة", icon: "Wrench" },
+  { id: "drivers", label: "خدمات وسائقين", icon: "Car" }
+];
+
 function readServerData() {
   try {
     if (fs.existsSync(STORAGE_FILE)) {
@@ -228,6 +240,9 @@ function readServerData() {
         if (!parsed.products) parsed.products = [];
         if (!parsed.drivers) parsed.drivers = [];
         if (!parsed.notifications) parsed.notifications = [];
+        if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+          parsed.categories = defaultInitialCategories;
+        }
         return parsed;
       }
       if (!parsed.stores) parsed.stores = defaultInitialStores;
@@ -235,6 +250,9 @@ function readServerData() {
       if (!parsed.products) parsed.products = [];
       if (!parsed.deletedDriverIds) parsed.deletedDriverIds = [];
       if (!parsed.deletedStoreIds) parsed.deletedStoreIds = [];
+      if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
+        parsed.categories = defaultInitialCategories;
+      }
 
       if (!parsed.drivers || !Array.isArray(parsed.drivers) || parsed.drivers.length === 0) {
         parsed.drivers = defaultFleetDrivers.filter((d: any) => !parsed.deletedDriverIds.includes(d.id));
@@ -294,6 +312,7 @@ function readServerData() {
     orders: [],
     products: [],
     drivers: defaultFleetDrivers,
+    categories: defaultInitialCategories,
     notifications: [],
     lastUpdated: Date.now()
   };
@@ -319,6 +338,63 @@ app.get("/api/health", (req, res) => {
 app.get("/api/sync", (req, res) => {
   const data = readServerData();
   res.json(data);
+});
+
+// 2.1 API: Categories Management (Admin / Global)
+app.get("/api/categories", (req, res) => {
+  const data = readServerData();
+  res.json(data.categories || defaultInitialCategories);
+});
+
+app.post("/api/categories", (req, res) => {
+  const newCat = req.body;
+  if (!newCat || !newCat.label) {
+    return res.status(400).json({ error: "اسم التصنيف مطلوب" });
+  }
+  const data = readServerData();
+  if (!data.categories || !Array.isArray(data.categories)) {
+    data.categories = [...defaultInitialCategories];
+  }
+
+  const id = newCat.id || ("cat_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 5));
+  const categoryItem = {
+    id,
+    label: String(newCat.label).trim(),
+    icon: newCat.icon || "ShoppingBag"
+  };
+
+  const existingIdx = data.categories.findIndex((c: any) => c.id === id);
+  if (existingIdx >= 0) {
+    data.categories[existingIdx] = categoryItem;
+  } else {
+    data.categories.push(categoryItem);
+  }
+  writeServerData(data);
+  res.json({ success: true, category: categoryItem, categories: data.categories });
+});
+
+app.put("/api/categories", (req, res) => {
+  const { categories } = req.body;
+  if (!Array.isArray(categories)) {
+    return res.status(400).json({ error: "بيانات التصنيفات غير صالحة" });
+  }
+  const data = readServerData();
+  data.categories = categories;
+  writeServerData(data);
+  res.json({ success: true, categories: data.categories });
+});
+
+app.delete("/api/categories/:id", (req, res) => {
+  const catId = req.params.id;
+  if (catId === "offers") {
+    return res.status(400).json({ error: "لا يمكن حذف تصنيف العروض الحالية الرئيسي" });
+  }
+  const data = readServerData();
+  if (data.categories) {
+    data.categories = data.categories.filter((c: any) => c.id !== catId);
+    writeServerData(data);
+  }
+  res.json({ success: true, categories: data.categories });
 });
 
 // 3. API: Get all stores

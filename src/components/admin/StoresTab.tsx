@@ -36,7 +36,8 @@ import { openWhatsApp } from "../../utils/whatsapp";
 import { getAppUrl } from "../../utils/appUrl";
 import { ImageUploader } from "../ImageUploader";
 import { approveStoreOnServer } from "../../utils/apiSync";
-import { CategoryManagerModal } from "./CategoryManagerModal";
+import { CategoryManagerModal, detectIconFromName, POPULAR_CATEGORY_PRESETS } from "./CategoryManagerModal";
+import { AVAILABLE_CATEGORY_ICONS, CategoryIcon } from "../CategoryIcon";
 import { StoreBroadcastModal } from "./StoreBroadcastModal";
 
 interface StoresTabProps {
@@ -48,6 +49,7 @@ interface StoresTabProps {
   onUpdateStore: (store: Store) => void;
   onDeleteStore: (storeId: string) => void;
   onAddCategory: (category: Category) => void;
+  onUpdateCategory?: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
   onReorderCategories?: (categories: Category[]) => void;
   onSendBroadcast?: (broadcast: StoreBroadcast) => void;
@@ -65,6 +67,7 @@ export const StoresTab: React.FC<StoresTabProps> = ({
   onUpdateStore,
   onDeleteStore,
   onAddCategory,
+  onUpdateCategory,
   onDeleteCategory,
   onReorderCategories = () => {},
   onSendBroadcast = () => {},
@@ -104,8 +107,50 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
   // Categories Modal
   const [showCatModal, setShowCatModal] = useState(false);
+  const [initialOpenCatAdd, setInitialOpenCatAdd] = useState(false);
   const [newCatLabel, setNewCatLabel] = useState("");
   const [newCatIcon, setNewCatIcon] = useState("Store");
+
+  // Quick inline category add inside store modal
+  const [showQuickAddCatInStore, setShowQuickAddCatInStore] = useState(false);
+  const [quickCatName, setQuickCatName] = useState("");
+  const [quickCatIcon, setQuickCatIcon] = useState("ShoppingBag");
+
+  const handleQuickAddCategoryInStore = () => {
+    const clean = quickCatName.trim();
+    if (!clean) return;
+
+    // Generate unique ID
+    const newId = "cat_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+    const newCategory: Category = {
+      id: newId,
+      label: clean,
+      icon: quickCatIcon
+    };
+
+    onAddCategory(newCategory);
+    setCategory(newId);
+    setQuickCatName("");
+    setShowQuickAddCatInStore(false);
+  };
+
+  const handleQuickSelectPresetInStore = (preset: { label: string; icon: string; emoji: string }) => {
+    const existing = categories.find((c) => c.label.includes(preset.label) || preset.label.includes(c.label));
+    if (existing) {
+      setCategory(existing.id);
+      setShowQuickAddCatInStore(false);
+      return;
+    }
+    const newId = "cat_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+    const newCategory: Category = {
+      id: newId,
+      label: preset.label,
+      icon: preset.icon
+    };
+    onAddCategory(newCategory);
+    setCategory(newId);
+    setShowQuickAddCatInStore(false);
+  };
 
   const openAddModal = (assisted = false) => {
     setEditingStore(null);
@@ -320,7 +365,23 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
             <button
               type="button"
-              onClick={() => setShowCatModal(true)}
+              onClick={() => {
+                setInitialOpenCatAdd(true);
+                setShowCatModal(true);
+              }}
+              className="py-2.5 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95 border border-emerald-500"
+              title="إضافة تصنيف عام رئيسي مثل ملابس أو لحوم أو مخابز"
+            >
+              <Plus className="w-4 h-4" />
+              <span>إضافة تصنيف رئيسي ➕ (ملابس، لحوم...)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setInitialOpenCatAdd(false);
+                setShowCatModal(true);
+              }}
               className="py-2.5 px-3.5 bg-gradient-to-r from-orange-50 to-amber-50 hover:from-orange-100 hover:to-amber-100 text-orange-950 font-black text-xs rounded-2xl transition-all flex items-center gap-2 cursor-pointer border border-orange-200 shadow-2xs active:scale-95"
             >
               <Tag className="w-4 h-4 text-orange-600" />
@@ -794,16 +855,124 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1 text-slate-700">التصنيف: *</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-700">التصنيف الرئيسي: *</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddCatInStore(!showQuickAddCatInStore)}
+                      className="text-[11px] font-black text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                      title="إضافة تصنيف عام رئيسي جديد مثل ملابس أو لحوم"
+                    >
+                      <Plus className="w-3 h-3 text-emerald-600" />
+                      <span>+ تصنيف رئيسي جديد (ملابس، لحوم...)</span>
+                    </button>
+                  </div>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
+                    onChange={(e) => {
+                      if (e.target.value === "__add_new_category__") {
+                        setShowQuickAddCatInStore(true);
+                      } else {
+                        setCategory(e.target.value);
+                      }
+                    }}
+                    className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500 text-slate-900"
                   >
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
                     ))}
+                    <option value="__add_new_category__" className="text-emerald-700 font-black">
+                      ➕ + إضافة تصنيف رئيسي جديد (ملابس، لحوم...)
+                    </option>
                   </select>
+
+                  {/* Inline Quick Category Creator Box */}
+                  {showQuickAddCatInStore && (
+                    <div className="mt-2 p-3 bg-emerald-50/90 border border-emerald-300 rounded-2xl space-y-2.5 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                          <Tag className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>إضافة تصنيف رئيسي جديد للمنصة فوراً:</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddCatInStore(false)}
+                          className="text-slate-400 hover:text-slate-700 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div className="flex flex-wrap gap-1">
+                        {POPULAR_CATEGORY_PRESETS.slice(0, 8).map((preset) => (
+                          <button
+                            key={preset.label}
+                            type="button"
+                            onClick={() => handleQuickSelectPresetInStore(preset)}
+                            className="text-[10px] font-bold bg-white hover:bg-emerald-100 text-emerald-950 border border-emerald-200 px-2 py-1 rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <span>{preset.emoji}</span>
+                            <span>{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={quickCatName}
+                          onChange={(e) => {
+                            setQuickCatName(e.target.value);
+                            setQuickCatIcon(detectIconFromName(e.target.value));
+                          }}
+                          placeholder="اكتب اسم التصنيف (مثال: ملابس جاهزة، جزارة ولحوم)"
+                          className="py-1.5 px-2.5 bg-white border border-emerald-300 rounded-xl text-xs font-bold focus:outline-hidden focus:border-emerald-600 text-slate-800"
+                        />
+
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-8 h-8 rounded-lg bg-white border border-emerald-300 flex items-center justify-center shrink-0">
+                            <CategoryIcon name={quickCatIcon} className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <select
+                            value={quickCatIcon}
+                            onChange={(e) => setQuickCatIcon(e.target.value)}
+                            className="w-full py-1.5 px-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold focus:outline-hidden text-slate-800"
+                          >
+                            {AVAILABLE_CATEGORY_ICONS.map((icon) => (
+                              <option key={icon.id} value={icon.id}>
+                                {icon.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddCatInStore(false)}
+                          className="py-1 px-3 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg cursor-pointer"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleQuickAddCategoryInStore}
+                          disabled={!quickCatName.trim()}
+                          className={`py-1 px-4 text-white text-xs font-black rounded-lg cursor-pointer shadow-xs transition-all ${
+                            quickCatName.trim()
+                              ? "bg-emerald-600 hover:bg-emerald-700"
+                              : "bg-slate-300 cursor-not-allowed"
+                          }`}
+                        >
+                          حفظ التصنيف وتحديده لهذا المتجر ✓
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -815,6 +984,8 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                 helperText="التقط صورة لافتة المتجر بالكاميرا أو استورد شعاره من الاستديو"
                 aspectRatio="wide"
                 presets={[
+                  { label: "لحوم وملاحم وجزارة", emoji: "🥩", url: "https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=500&auto=format&fit=crop&q=60" },
+                  { label: "ملابس وأزياء وثياب", emoji: "👕", url: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60" },
                   { label: "مطاعم وشاورما", emoji: "🍔", url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60" },
                   { label: "تموينات وسوبرماركت", emoji: "🛒", url: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500&auto=format&fit=crop&q=60" },
                   { label: "خضار وفواكه طازجة", emoji: "🍎", url: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=500&auto=format&fit=crop&q=60" },
@@ -1034,12 +1205,17 @@ export const StoresTab: React.FC<StoresTabProps> = ({
       {/* Categories Reordering & Management Modal (Drag and Drop) */}
       <CategoryManagerModal
         isOpen={showCatModal}
-        onClose={() => setShowCatModal(false)}
+        onClose={() => {
+          setShowCatModal(false);
+          setInitialOpenCatAdd(false);
+        }}
         categories={categories}
         stores={stores}
         onReorderCategories={onReorderCategories}
         onAddCategory={onAddCategory}
+        onUpdateCategory={onUpdateCategory}
         onDeleteCategory={onDeleteCategory}
+        initialOpenAddForm={initialOpenCatAdd}
       />
 
       {/* Store Broadcasts Management Modal */}

@@ -60,6 +60,7 @@ interface DashboardProps {
   onAssignDriver?: (orderId: string, driver: DriverMember | null) => void;
   onLogout: () => void;
   onAddCategory?: (category: Category) => void;
+  onUpdateCategory?: (category: Category) => void;
   onDeleteCategory?: (categoryId: string) => void;
   onReorderCategories?: (categories: Category[]) => void;
   onAddMapNode?: (node: MapNode) => void;
@@ -93,6 +94,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onAssignDriver,
   onLogout,
   onAddCategory,
+  onUpdateCategory,
   onDeleteCategory,
   onReorderCategories,
   onAddMapNode,
@@ -503,6 +505,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onUpdateStore={onUpdateStore}
                 onDeleteStore={onDeleteStore}
                 onAddCategory={onAddCategory || (() => {})}
+                onUpdateCategory={onUpdateCategory}
                 onDeleteCategory={onDeleteCategory || (() => {})}
                 onReorderCategories={onReorderCategories || (() => {})}
                 onSendBroadcast={onSendBroadcast}

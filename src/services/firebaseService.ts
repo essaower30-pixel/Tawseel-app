@@ -22,7 +22,8 @@ import {
   StoreReview,
   StoreBroadcast,
   Coupon,
-  AppSettings
+  AppSettings,
+  Category
 } from "../types";
 import {
   initialStores,
@@ -601,5 +602,41 @@ export async function reseedFirestoreDemoData(): Promise<boolean> {
   } catch (err) {
     console.error("Error reseeding Firestore demo data:", err);
     return false;
+  }
+}
+
+// Save or update a single category in Firestore
+export async function saveCategoryToFirestore(category: Category): Promise<void> {
+  try {
+    const docRef = doc(db, "categories", category.id);
+    await setDoc(docRef, sanitizeForFirestore({
+      ...category,
+      updatedAt: new Date().toISOString()
+    }), { merge: true });
+  } catch (err) {
+    console.warn("Could not save category to Firestore:", err);
+  }
+}
+
+// Sync all categories to Firestore (for reordering or batch save)
+export async function syncCategoriesToFirestore(categories: Category[]): Promise<void> {
+  try {
+    // Store ordered categories array under settings/categories document
+    const docRef = doc(db, "settings", "categories");
+    await setDoc(docRef, {
+      list: categories,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (err) {
+    console.warn("Could not sync categories list to Firestore:", err);
+  }
+}
+
+// Delete category from Firestore
+export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, "categories", categoryId));
+  } catch (err) {
+    console.warn("Could not delete category from Firestore:", err);
   }
 }

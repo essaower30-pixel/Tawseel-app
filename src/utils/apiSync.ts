@@ -364,3 +364,68 @@ export async function restoreDefaultsOnServer(): Promise<boolean> {
   }
 }
 
+// Fetch categories from central server
+export async function fetchCategoriesFromServer(): Promise<Category[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/categories`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store"
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }
+  } catch (err) {
+    console.warn("Failed to fetch categories from server:", err);
+  }
+  return [];
+}
+
+// Add or save category on central server
+export async function saveCategoryOnServer(category: Category): Promise<Category> {
+  try {
+    const res = await fetch(`${API_BASE}/api/categories`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(category)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.category || category;
+    }
+  } catch (err) {
+    console.warn("Failed to save category on server:", err);
+  }
+  return category;
+}
+
+// Reorder / update all categories on central server
+export async function reorderCategoriesOnServer(categories: Category[]): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/categories`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ categories })
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to update categories on server:", err);
+    return false;
+  }
+}
+
+// Delete category on central server
+export async function deleteCategoryOnServer(categoryId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/categories/${categoryId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" }
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn("Failed to delete category on server:", err);
+    return false;
+  }
+}
+
