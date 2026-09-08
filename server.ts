@@ -221,6 +221,8 @@ const defaultInitialCategories = [
   { id: "offers", label: "العروض الحالية", icon: "Flame" },
   { id: "restaurants", label: "مطاعم وجبات", icon: "Utensils" },
   { id: "supermarkets", label: "سوبرماركت", icon: "ShoppingBag" },
+  { id: "clothes", label: "ألبسة وأزياء", icon: "Shirt" },
+  { id: "butcher", label: "لحوم وملاحم", icon: "Beef" },
   { id: "pharmacies", label: "صيدليات", icon: "Pill" },
   { id: "vegetables", label: "خضار وفواكه", icon: "Leaf" },
   { id: "sweets", label: "حلويات ومعجنات", icon: "CakeSlice" },
@@ -242,6 +244,14 @@ function readServerData() {
         if (!parsed.notifications) parsed.notifications = [];
         if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
           parsed.categories = defaultInitialCategories;
+        } else {
+          const catIds = new Set(parsed.categories.map((c: any) => c.id));
+          for (const defCat of defaultInitialCategories) {
+            if (!catIds.has(defCat.id)) {
+              parsed.categories.push(defCat);
+              catIds.add(defCat.id);
+            }
+          }
         }
         return parsed;
       }
@@ -252,6 +262,14 @@ function readServerData() {
       if (!parsed.deletedStoreIds) parsed.deletedStoreIds = [];
       if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
         parsed.categories = defaultInitialCategories;
+      } else {
+        const catIds = new Set(parsed.categories.map((c: any) => c.id));
+        for (const defCat of defaultInitialCategories) {
+          if (!catIds.has(defCat.id)) {
+            parsed.categories.push(defCat);
+            catIds.add(defCat.id);
+          }
+        }
       }
 
       if (!parsed.drivers || !Array.isArray(parsed.drivers) || parsed.drivers.length === 0) {

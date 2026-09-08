@@ -499,6 +499,16 @@
       "icon": "ShoppingBag"
     },
     {
+      "id": "clothes",
+      "label": "ألبسة وأزياء",
+      "icon": "Shirt"
+    },
+    {
+      "id": "butcher",
+      "label": "لحوم وملاحم",
+      "icon": "Beef"
+    },
+    {
       "id": "pharmacies",
       "label": "صيدليات",
       "icon": "Pill"

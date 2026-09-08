@@ -55,7 +55,7 @@ export const POPULAR_CATEGORY_PRESETS = [
 export const detectIconFromName = (name: string): string => {
   const lower = name.toLowerCase();
   if (lower.includes("لحم") || lower.includes("جزار") || lower.includes("قصاب") || lower.includes("مفروم") || lower.includes("كباب")) return "Beef";
-  if (lower.includes("ملابس") || lower.includes("لباس") || lower.includes("ثياب") || lower.includes("أزياء") || lower.includes("قميص") || lower.includes("فستان")) return "Shirt";
+  if (lower.includes("ملابس") || lower.includes("لباس") || lower.includes("ثياب") || lower.includes("أزياء") || lower.includes("قميص") || lower.includes("فستان") || lower.includes("البسة") || lower.includes("ألبسة") || lower.includes("بسة")) return "Shirt";
   if (lower.includes("مخبز") || lower.includes("أفران") || lower.includes("فرن") || lower.includes("معجنات") || lower.includes("كرواسان") || lower.includes("خبز")) return "Croissant";
   if (lower.includes("لبن") || lower.includes("حليب") || lower.includes("جبن") || lower.includes("ألبان") || lower.includes("مشتقات")) return "Milk";
   if (lower.includes("سمك") || lower.includes("أسماك") || lower.includes("جمبري") || lower.includes("بحري")) return "Fish";
@@ -92,6 +92,7 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
 
   // Editing state
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
@@ -217,20 +218,31 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     onAddCategory(newCategory);
     setNewCatLabel("");
     setNewCatIcon("ShoppingBag");
+    setShowAddForm(false);
+    setNewlyAddedId(id);
+    setTimeout(() => setNewlyAddedId(null), 4000);
     triggerSaveFeedback(`تمت إضافة تصنيف "${clean}" وحفظه سحابياً بنجاح! 🎉`);
   };
 
   const handleQuickAddPreset = (preset: { label: string; icon: string; emoji: string }) => {
     // Check if already exists
-    const exists = categories.some((c) => c.label.includes(preset.label) || preset.label.includes(c.label));
+    const exists = categories.find((c) => c.label.includes(preset.label) || preset.label.includes(c.label));
     if (exists) {
-      alert(`تصنيف (${preset.label}) موجود بالفعل في القائمة!`);
+      triggerSaveFeedback(`تصنيف "${exists.label}" موجود مسبقاً في القائمة`);
       return;
     }
 
-    setNewCatLabel(preset.label);
-    setNewCatIcon(preset.icon);
-    setShowAddForm(true);
+    const id = "cat_" + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+    const newCategory: Category = {
+      id,
+      label: preset.label,
+      icon: preset.icon
+    };
+
+    onAddCategory(newCategory);
+    setNewlyAddedId(id);
+    setTimeout(() => setNewlyAddedId(null), 4000);
+    triggerSaveFeedback(`تمت إضافة وتفعيل تصنيف "${preset.label}" فوراً! 🎉`);
   };
 
   const startEditCategory = (cat: Category) => {
@@ -603,7 +615,9 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                   ) : (
                     <div
                       className={`p-2.5 sm:p-3 rounded-2xl border transition-all ${
-                        index === 0
+                        newlyAddedId === cat.id
+                          ? "ring-2 ring-emerald-500 bg-emerald-50/80 border-emerald-400 shadow-md"
+                          : index === 0
                           ? isOffers
                             ? "bg-red-50/70 border-red-200/90 shadow-2xs"
                             : "bg-orange-50/50 border-orange-200/90 shadow-2xs"
@@ -627,7 +641,9 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           {/* Rank Badge */}
                           <div
                             className={`w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                              index === 0
+                              newlyAddedId === cat.id
+                                ? "bg-emerald-600 text-white shadow-xs"
+                                : index === 0
                                 ? isOffers
                                   ? "bg-red-600 text-white shadow-xs"
                                   : "bg-orange-500 text-white shadow-xs"
@@ -643,9 +659,13 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
 
                           {/* Category Icon */}
                           <div className={`w-8 h-8 rounded-xl bg-white border flex items-center justify-center shrink-0 shadow-2xs ${
-                            isOffers ? "border-red-200 text-red-600" : "border-slate-200 text-orange-600"
+                            newlyAddedId === cat.id
+                              ? "border-emerald-300 text-emerald-600"
+                              : isOffers
+                              ? "border-red-200 text-red-600"
+                              : "border-slate-200 text-orange-600"
                           }`}>
-                            <CategoryIcon name={cat.icon} className={`w-4 h-4 ${isOffers ? "text-red-500" : "text-orange-600"}`} />
+                            <CategoryIcon name={cat.icon} className={`w-4 h-4 ${newlyAddedId === cat.id ? "text-emerald-600" : isOffers ? "text-red-500" : "text-orange-600"}`} />
                           </div>
 
                           {/* Category Title & Store Count */}
@@ -654,6 +674,11 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                               <span className="font-extrabold text-xs sm:text-sm text-slate-900 truncate">
                                 {cat.label}
                               </span>
+                              {newlyAddedId === cat.id && (
+                                <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.5 rounded-full bg-emerald-600 text-white animate-pulse">
+                                  مضاف حديثاً ✨
+                                </span>
+                              )}
                               {index === 0 && (
                                 <span className={`text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap ${
                                   isOffers ? "bg-red-100 text-red-800" : "bg-orange-100 text-orange-800"

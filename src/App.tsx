@@ -126,6 +126,7 @@ import {
   deleteDriverFromFirestore,
   saveCategoryToFirestore,
   syncCategoriesToFirestore,
+  subscribeToCategories,
   deleteCategoryFromFirestore,
   saveReviewToFirestore,
   saveBroadcastToFirestore,
@@ -197,19 +198,21 @@ export default function App() {
 
   const [categories, setCategories] = useState<Category[]>(() => {
     const raw = localStorage.getItem("tw_categories");
+    let baseList = initialCategories;
     if (raw) {
       try {
         const parsed: Category[] = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasOffers = parsed.some((c) => c.id === "offers");
-          if (!hasOffers) {
-            return [{ id: "offers", label: "العروض الحالية", icon: "Flame" }, ...parsed];
-          }
-          return parsed;
+          // Merge parsed categories with initialCategories to ensure clothes & butcher are present
+          // while preserving all existing customized categories
+          const existingIds = new Set(parsed.map((c) => c.id));
+          const missingDefaults = initialCategories.filter((ic) => !existingIds.has(ic.id));
+          baseList = [...parsed, ...missingDefaults];
         }
       } catch (e) {}
     }
-    return initialCategories;
+    const hasOffers = baseList.some((c) => c.id === "offers");
+    return hasOffers ? baseList : [{ id: "offers", label: "العروض الحالية", icon: "Flame" }, ...baseList];
   });
 
   useEffect(() => {
@@ -1291,11 +1294,14 @@ export default function App() {
 
   // Category Management Handlers (Admin dynamic categories: meat, clothes, etc.)
   const handleAddNewCategory = async (category: Category) => {
+    let updatedList: Category[] = [];
     setCategories((prev) => {
       if (prev.some((c) => c.id === category.id)) {
-        return prev.map((c) => (c.id === category.id ? category : c));
+        updatedList = prev.map((c) => (c.id === category.id ? category : c));
+      } else {
+        updatedList = [...prev, category];
       }
-      return [...prev, category];
+      return updatedList;
     });
 
     addToastNotification({
@@ -1306,6 +1312,7 @@ export default function App() {
 
     await Promise.allSettled([
       saveCategoryToFirestore(category),
+      syncCategoriesToFirestore(updatedList.length > 0 ? updatedList : [...categories, category]),
       saveCategoryOnServer(category)
     ]);
   };
@@ -1501,6 +1508,32 @@ export default function App() {
       setStoreBroadcasts(cloudBroadcasts);
     });
 
+    // 8. Real-time categories listener
+    const unsubCategories = subscribeToCategories((cloudCategories) => {
+      if (!cloudCategories || !Array.isArray(cloudCategories) || cloudCategories.length === 0) return;
+      setCategories((currentLocal) => {
+        const cloudMap = new Map(cloudCategories.map((c) => [c.id, c]));
+        const merged: Category[] = [];
+        const seen = new Set<string>();
+        // Preserve local categories, update if present in cloud
+        for (const local of currentLocal) {
+          merged.push(cloudMap.get(local.id) || local);
+          seen.add(local.id);
+        }
+        // Add new cloud categories
+        for (const cloud of cloudCategories) {
+          if (!seen.has(cloud.id)) {
+            merged.push(cloud);
+            seen.add(cloud.id);
+          }
+        }
+        if (currentLocal.length !== merged.length || JSON.stringify(currentLocal) !== JSON.stringify(merged)) {
+          return merged;
+        }
+        return currentLocal;
+      });
+    });
+
     return () => {
       unsubOrders();
       unsubStores();
@@ -1508,6 +1541,7 @@ export default function App() {
       unsubDrivers();
       unsubReviews();
       unsubBroadcasts();
+      unsubCategories();
     };
   }, [isAdminMode, isDriverMode, userRole, userProfile?.phone, userProfile?.name, currentStoreId, addToastNotification]);
 
@@ -1695,11 +1729,26 @@ export default function App() {
       // 5. Sync Categories (meat, clothes, dynamic categories)
       if (serverData.categories && Array.isArray(serverData.categories) && serverData.categories.length > 0) {
         setCategories((currentLocal) => {
+          const serverMap = new Map(serverData.categories!.map((c) => [c.id, c]));
+          const merged: Category[] = [];
+          const seen = new Set<string>();
+          // Preserve all current local categories, updating any edited server properties
+          for (const local of currentLocal) {
+            merged.push(serverMap.get(local.id) || local);
+            seen.add(local.id);
+          }
+          // Include any server categories not currently in local
+          for (const sCat of serverData.categories!) {
+            if (!seen.has(sCat.id)) {
+              merged.push(sCat);
+              seen.add(sCat.id);
+            }
+          }
           if (
-            currentLocal.length !== serverData.categories!.length ||
-            JSON.stringify(currentLocal) !== JSON.stringify(serverData.categories)
+            currentLocal.length !== merged.length ||
+            JSON.stringify(currentLocal) !== JSON.stringify(merged)
           ) {
-            return serverData.categories!;
+            return merged;
           }
           return currentLocal;
         });
@@ -3202,11 +3251,43 @@ export default function App() {
 
                 {/* Stores Listing Grid */}
                 {visibleStores.length === 0 ? (
-                  <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-xs space-y-2">
-                    <p className="text-slate-500 font-bold">عذراً، لم نجد أي متجر مطابق للبحث!</p>
-                    <p className="text-slate-400 text-xs">
-                      جرب تصنيفات أخرى في الأعلى لتكتشف محلات جديدة.
+                  <div className="bg-white rounded-3xl p-8 sm:p-12 text-center border border-slate-100 shadow-xs space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 mx-auto flex items-center justify-center shadow-xs">
+                      <StoreIcon className="w-6 h-6" />
+                    </div>
+                    <p className="text-slate-800 font-extrabold text-sm sm:text-base">
+                      {selectedCategory !== "all"
+                        ? `لا توجد محلات مسجلة حالياً في قسم "${categories.find(c => c.id === selectedCategory)?.label || ''}"`
+                        : "عذراً، لم نجد أي متجر مطابق للبحث!"}
                     </p>
+                    <p className="text-slate-400 text-xs max-w-md mx-auto">
+                      {selectedCategory !== "all"
+                        ? "القسم مفعل ومتاح في المنصة. يمكنك تسجيل المتاجر فيه وتفعيلها لتظهر هنا للزبائن."
+                        : "جرب تصنيفات أخرى في الأعلى لتكتشف محلات جديدة."}
+                    </p>
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCategory("all");
+                          setSearchQuery("");
+                        }}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+                      >
+                        عرض كافة المحلات المتاحة
+                      </button>
+                      {isAdminMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAdminMode(true);
+                          }}
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+                        >
+                          + إضافة متجر جديد من لوحة التحكم
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">

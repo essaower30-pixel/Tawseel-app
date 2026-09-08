@@ -632,6 +632,36 @@ export async function syncCategoriesToFirestore(categories: Category[]): Promise
   }
 }
 
+// Subscribe to categories in real-time
+export function subscribeToCategories(
+  onCategoriesUpdated: (categories: Category[]) => void,
+  onError?: (err: Error) => void
+): () => void {
+  try {
+    // Listen to ordered list stored in settings/categories
+    const docRef = doc(db, "settings", "categories");
+    const unsub = onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data && Array.isArray(data.list) && data.list.length > 0) {
+            onCategoriesUpdated(data.list);
+          }
+        }
+      },
+      (err) => {
+        console.warn("Categories subscription error:", err);
+        if (onError) onError(err);
+      }
+    );
+    return unsub;
+  } catch (err) {
+    console.warn("Failed to attach categories listener:", err);
+    return () => {};
+  }
+}
+
 // Delete category from Firestore
 export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
   try {
