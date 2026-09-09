@@ -61,6 +61,7 @@ export interface Store {
   maxOfferProducts?: number;
   isService?: boolean;
   neighborhood?: string;
+  tickerAnnouncement?: string; // رسالة الشريط الإخباري (مثل: ترقبوا العروض يوم كذا، أو ترقبوا العرض الكبير يوم الخميس)
 }
 
 export interface Category {

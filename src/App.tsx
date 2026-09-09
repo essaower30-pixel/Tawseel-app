@@ -58,6 +58,7 @@ import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveMo
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
 import { BottomNavigation } from "./components/BottomNavigation";
+import { StoreNewsTicker } from "./components/StoreNewsTicker";
 import { AccountSettingsModal } from "./components/AccountSettingsModal";
 import { ToastNotification, ToastItem } from "./components/ToastNotification";
 import { OfflineBanner } from "./components/OfflineBanner";
@@ -165,7 +166,23 @@ export default function App() {
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        return ensureInitialStoresPreserved(parsed);
+        const cleaned = ensureInitialStoresPreserved(parsed).map((st: Store) => {
+          // Clear legacy dummy ticker announcements so only genuine owner-added announcements appear
+          if (
+            st.tickerAnnouncement &&
+            (st.tickerAnnouncement.includes("وجبة شاورما دبل مجانية") ||
+             st.tickerAnnouncement.includes("اشتري 2 بيتزا حجم كبير") ||
+             st.tickerAnnouncement.includes("المواد التموينية والزيوت") ||
+             st.tickerAnnouncement.includes("مستحضرات العناية الطبيعية") ||
+             st.tickerAnnouncement.includes("سلات فواكه الموسم") ||
+             st.tickerAnnouncement.includes("مهرجان الكنافة النابلسية"))
+          ) {
+            const { tickerAnnouncement, ...rest } = st;
+            return rest as Store;
+          }
+          return st;
+        });
+        return cleaned;
       } catch (e) {}
     }
     return initialStores;
@@ -2607,7 +2624,14 @@ export default function App() {
     return matchesCategory && matchesSearch;
   });
 
-  const offerProducts = products.filter((p) => p.isOffer);
+  const offerProducts = products.filter(
+    (p) =>
+      p.isOffer &&
+      !p.isHidden &&
+      p.isApproved !== false &&
+      p.approvalStatus !== "pending" &&
+      p.approvalStatus !== "rejected"
+  );
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // If user is guest and no profile exists
@@ -3033,8 +3057,8 @@ export default function App() {
               </div>
             )}
 
-            {/* 2. Main Hero Banner Card */}
-            <div className="bg-slate-900 text-white rounded-2xl sm:rounded-3xl p-4 sm:p-10 border border-slate-800 shadow-xl relative overflow-hidden select-none">
+            {/* 2. Main Hero Banner Card - Compact & Elevated */}
+            <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-3.5 sm:p-5 border border-slate-700/80 shadow-md relative overflow-hidden select-none -mt-3">
               <div
                 className="absolute inset-0 bg-cover bg-center opacity-10"
                 style={{
@@ -3042,66 +3066,36 @@ export default function App() {
                     "url('https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800')"
                 }}
               />
-              <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -top-6 -right-6 w-36 h-36 bg-orange-500/15 rounded-full blur-2xl pointer-events-none" />
 
-              <div className="relative space-y-1.5 sm:space-y-4 max-w-xl text-right">
-                <span className="text-orange-500 font-extrabold text-[10px] sm:text-sm tracking-wider uppercase flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400 animate-spin-slow" />
-                  <span>توصيل المحافظة والقرى المجاورة</span>
-                </span>
-                <h2 className="text-lg sm:text-4xl font-extrabold tracking-tight leading-snug sm:leading-tight">
-                  اطلب ما تحتاجه وسنصلك فوراً!
-                </h2>
-                <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-                  مأكولات، تموين، صيدليات، خضار فريش. حدد موقعك للتوصيل السريع.
-                </p>
+              <div className="relative flex items-center justify-between gap-3 text-right" dir="rtl">
+                <div className="space-y-0.5 sm:space-y-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-orange-400 font-extrabold text-[10px] sm:text-xs">
+                    <Sparkles className="w-3.5 h-3.5 animate-spin-slow shrink-0" />
+                    <span>توصيل المحافظة والقرى المجاورة ⚡</span>
+                  </div>
+                  <h2 className="text-sm sm:text-lg font-black tracking-tight leading-snug">
+                    اطلب ما تحتاجه وسنصلك فوراً!
+                  </h2>
+                  <p className="text-slate-300 text-[11px] sm:text-xs leading-relaxed truncate">
+                    مأكولات، تموين، صيدليات، خضار فريش بأسرع خدمة وتوصيل.
+                  </p>
+                </div>
+
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center shrink-0 text-orange-400 shadow-inner">
+                  <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
               </div>
             </div>
 
-            {/* 3. Two Quick Action Grid Cards */}
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
-              {/* Card 1: Weekly Hot Offers */}
-              <div
-                onClick={() => setSelectedCategory("offers")}
-                className="bg-red-500 text-white p-3 sm:p-5 rounded-2xl sm:rounded-3xl cursor-pointer hover:bg-red-600 transition-all flex items-center justify-between shadow-xs hover:shadow-md group border border-red-400 min-w-0 text-right"
-              >
-                <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
-                  <span className="bg-white/20 text-white font-extrabold text-[8px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase inline-block">
-                    العروض الأسبوعية
-                  </span>
-                  <h3 className="font-extrabold text-xs sm:text-lg truncate">تخفيضات لـ 30%</h3>
-                  <p className="text-white/85 text-[9px] sm:text-xs font-semibold leading-normal truncate hidden xs:block">
-                    وجبات وتموين غذائي بأرخص الأسعار.
-                  </p>
-                </div>
-                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/15 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mr-2 sm:mr-0">
-                  <Flame className="w-4 h-4 sm:w-6 sm:h-6 text-white fill-white" />
-                </div>
-              </div>
-
-              {/* Card 2: Safe Communication & Fast Contact */}
-              <div
-                onClick={() => {
-                  alert(
-                    "سلامة كابتن التوصيل أولوية! حرصاً على حياته أثناء القيادة، تم توفير قنوات الاتصال الهاتفي والمراسلة عبر نسختي الواتساب (العادي والأعمال) للتنسيق الفوري دون تشتيت انتباهه على الطريق."
-                  );
-                }}
-                className="bg-emerald-600 text-white p-3 sm:p-5 rounded-2xl sm:rounded-3xl cursor-pointer hover:bg-emerald-700 transition-all flex items-center justify-between shadow-xs hover:shadow-md group border border-emerald-500 min-w-0 text-right"
-              >
-                <div className="space-y-0.5 sm:space-y-1 min-w-0 flex-1">
-                  <span className="bg-white/20 text-white font-extrabold text-[8px] sm:text-[10px] px-2 py-0.5 rounded-full uppercase inline-block font-sans">
-                    سلامة وتواصل
-                  </span>
-                  <h3 className="font-extrabold text-xs sm:text-lg truncate">اتصال وواتساب مباشر</h3>
-                  <p className="text-white/85 text-[9px] sm:text-xs font-semibold leading-normal truncate hidden xs:block">
-                    تواصل بالاتصال والواتساب لحماية السائق على الطريق.
-                  </p>
-                </div>
-                <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/15 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform mr-2 sm:mr-0">
-                  <Phone className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                </div>
-              </div>
-            </div>
+            {/* 3. Scrolling News Ticker for Store Owner Announcements */}
+            <StoreNewsTicker
+              stores={stores}
+              onSelectStore={(store) => {
+                setSelectedStore(store);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
 
             {/* 4. Categories Selector */}
             <div className="space-y-3">

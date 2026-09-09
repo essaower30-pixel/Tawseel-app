@@ -34,7 +34,10 @@ import {
   X,
   Layers,
   Sparkles,
-  Info
+  Info,
+  Eye,
+  EyeOff,
+  Megaphone
 } from "lucide-react";
 import { Order, Product, Store, UserProfile, Category, StoreBroadcast, StoreSize, StoreAddition } from "../types";
 import { ContactActions } from "./ContactActions";
@@ -95,8 +98,8 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     contactPhone: userProfile.phone || "0944111222"
   };
 
-  const [activeTab, setActiveTab] = useState<"orders" | "products" | "archive">("orders");
-  const [productFilter, setProductFilter] = useState<"all" | "approved" | "pending" | "offers">("all");
+  const [activeTab, setActiveTab] = useState<"orders" | "products" | "archive" | "ticker">("orders");
+  const [productFilter, setProductFilter] = useState<"all" | "approved" | "pending" | "offers" | "hidden">("all");
   const [archiveDateFilter, setArchiveDateFilter] = useState<"all" | "today" | "yesterday" | "week">("all");
   const [isOpen, setIsOpen] = useState<boolean>(currentStore.status !== "closed");
   const [soundAlerts, setSoundAlerts] = useState<boolean>(() => isSoundEnabled());
@@ -155,6 +158,22 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
   const [isOffer, setIsOffer] = useState(false);
   const [originalPrice, setOriginalPrice] = useState("");
   const [offerLabel, setOfferLabel] = useState("عرض خاص 🔥");
+  const [productIsHidden, setProductIsHidden] = useState(false);
+
+  // Store News Ticker Announcement State
+  const [tickerMessage, setTickerMessage] = useState(currentStore.tickerAnnouncement || "");
+  const [tickerSavedSuccess, setTickerSavedSuccess] = useState(false);
+
+  const handleSaveTickerMessage = (msgToSave?: string) => {
+    const finalMsg = msgToSave !== undefined ? msgToSave : tickerMessage;
+    setTickerMessage(finalMsg);
+    onUpdateStore({
+      ...currentStore,
+      tickerAnnouncement: finalMsg.trim()
+    });
+    setTickerSavedSuccess(true);
+    setTimeout(() => setTickerSavedSuccess(false), 3000);
+  };
 
   // Sizes & Additions for Product
   const [sizes, setSizes] = useState<StoreSize[]>([]);
@@ -232,24 +251,31 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     return storeProducts.filter((p) => p.isApproved === false || p.approvalStatus === "pending");
   }, [storeProducts]);
 
+  const hiddenStoreProducts = useMemo(() => {
+    return storeProducts.filter((p) => Boolean(p.isHidden));
+  }, [storeProducts]);
+
   const approvedStoreProducts = useMemo(() => {
-    return storeProducts.filter((p) => p.isApproved !== false && p.approvalStatus !== "pending");
+    return storeProducts.filter((p) => p.isApproved !== false && p.approvalStatus !== "pending" && !p.isHidden);
   }, [storeProducts]);
 
   const offersStoreProducts = useMemo(() => {
-    return storeProducts.filter((p) => p.isOffer);
+    return storeProducts.filter((p) => p.isOffer && !p.isHidden);
   }, [storeProducts]);
 
   const displayedStoreProducts = useMemo(() => {
     return storeProducts.filter((p) => {
       if (productFilter === "approved") {
-        return p.isApproved !== false && p.approvalStatus !== "pending";
+        return p.isApproved !== false && p.approvalStatus !== "pending" && !p.isHidden;
       }
       if (productFilter === "pending") {
         return p.isApproved === false || p.approvalStatus === "pending";
       }
       if (productFilter === "offers") {
-        return Boolean(p.isOffer);
+        return Boolean(p.isOffer) && !p.isHidden;
+      }
+      if (productFilter === "hidden") {
+        return Boolean(p.isHidden);
       }
       return true;
     });
@@ -268,6 +294,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     setIsOffer(false);
     setOriginalPrice("");
     setOfferLabel("عرض خاص 🔥");
+    setProductIsHidden(false);
     setSizes([]);
     setAdditions([]);
     setShowProductModal(true);
@@ -285,9 +312,18 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
     setIsOffer(Boolean(prod.isOffer));
     setOriginalPrice(prod.originalPrice ? prod.originalPrice.toString() : "");
     setOfferLabel(prod.offerLabel || "عرض خاص 🔥");
+    setProductIsHidden(Boolean(prod.isHidden));
     setSizes(prod.sizes ? [...prod.sizes] : []);
     setAdditions(prod.additions ? [...prod.additions] : []);
     setShowProductModal(true);
+  };
+
+  const handleToggleHideProduct = (prod: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    onUpdateProduct({
+      ...prod,
+      isHidden: !prod.isHidden
+    });
   };
 
   const handleAddSize = () => {
@@ -336,6 +372,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
         isOffer,
         originalPrice: isOffer && originalPrice ? parseFloat(originalPrice) : undefined,
         offerLabel: isOffer ? offerLabel : undefined,
+        isHidden: productIsHidden,
         sizes: sizes.length > 0 ? sizes : undefined,
         additions: additions.length > 0 ? additions : undefined,
         storeId: currentStore.id,
@@ -359,6 +396,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
         isOffer,
         originalPrice: isOffer && originalPrice ? parseFloat(originalPrice) : undefined,
         offerLabel: isOffer ? offerLabel : undefined,
+        isHidden: productIsHidden,
         sizes: sizes.length > 0 ? sizes : undefined,
         additions: additions.length > 0 ? additions : undefined,
         storeId: currentStore.id,
@@ -606,6 +644,24 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
             <span className="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">
               {pendingStoreProducts.length} معلق
             </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("ticker")}
+          className={`py-2.5 px-4 rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "ticker"
+              ? "bg-orange-500 text-white shadow-md shadow-orange-500/20"
+              : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <Megaphone className="w-4 h-4" />
+          <span>شريط العروض الإخباري 📢</span>
+          {currentStore.tickerAnnouncement ? (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          ) : (
+            <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">جديد</span>
           )}
         </button>
       </div>
@@ -1021,6 +1077,21 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
               <Tag className="w-3.5 h-3.5" />
               <span>العروض والتخفيضات ({offersStoreProducts.length})</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setProductFilter("hidden")}
+              className={`py-2 px-3.5 rounded-xl font-black text-xs transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                productFilter === "hidden"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : hiddenStoreProducts.length > 0
+                  ? "bg-amber-50 text-amber-900 border border-amber-300 hover:bg-amber-100 font-black"
+                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              <span>المخفية لوجود إشكالية ({hiddenStoreProducts.length})</span>
+            </button>
           </div>
 
           {/* Notice for Store Owner on approval policy */}
@@ -1076,8 +1147,13 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                           className="w-full h-full object-cover"
                         />
 
-                        {/* Approval and Offer Status Badges */}
-                        {isPending ? (
+                        {/* Approval, Hidden, and Offer Status Badges */}
+                        {prod.isHidden ? (
+                          <span className="absolute top-2 right-2 bg-amber-600 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-amber-400">
+                            <EyeOff className="w-3 h-3" />
+                            <span>مخفي لوجود إشكالية 🙈</span>
+                          </span>
+                        ) : isPending ? (
                           <span className="absolute top-2 right-2 bg-amber-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1 animate-pulse">
                             <Clock className="w-3 h-3" />
                             <span>بانتظار موافقة الإدارة ⏳</span>
@@ -1149,6 +1225,24 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                           )}
                         </div>
                       )}
+
+                      {/* Hidden Product Alert Banner */}
+                      {prod.isHidden && (
+                        <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-300 text-[11px] text-amber-900 font-bold flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1.5">
+                            <EyeOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>الصنف مخفي عن الزبائن لوجود إشكالية.</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleHideProduct(prod, e)}
+                            className="py-1 px-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black cursor-pointer whitespace-nowrap shadow-2xs"
+                          >
+                            إظهار للزبائن 👁️
+                          </button>
+                        </div>
+                      )}
+
                       {/* Stock & Sales Synchronization Bar */}
                       <div className="flex items-center justify-between text-[11px] font-bold p-2 bg-slate-50 rounded-xl border border-slate-200/80">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1188,6 +1282,29 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                           <span>تعديل</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleHideProduct(prod, e)}
+                          className={`py-1.5 px-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-1 cursor-pointer ${
+                            prod.isHidden
+                              ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          }`}
+                          title={prod.isHidden ? "الصنف مخفي حالياً - انقر لإظهاره للزبائن بعد تصحيح الإشكالية" : "إخفاء الصنف مؤقتاً عن الزبائن لوجود إشكالية"}
+                        >
+                          {prod.isHidden ? (
+                            <>
+                              <Eye className="w-3.5 h-3.5 text-amber-800" />
+                              <span>إظهار</span>
+                            </>
+                          ) : (
+                            <>
+                              <EyeOff className="w-3.5 h-3.5 text-slate-600" />
+                              <span>إخفاء</span>
+                            </>
+                          )}
                         </button>
 
                         <button
@@ -1237,6 +1354,137 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Ticker Announcement Management Tab */}
+      {activeTab === "ticker" && (
+        <div className="space-y-5">
+          {/* Header Card */}
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 rounded-xl bg-orange-100 text-orange-600">
+                    <Megaphone className="w-5 h-5" />
+                  </span>
+                  <h3 className="font-black text-slate-900 text-base">
+                    رسالة شريط العروض الإخباري لمتجرك
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
+                  تظهر هذه الرسالة لجميع أهالي القرية والزبائن في الشريط الإخباري المتحرك أعلى الصفحة الرئيسية، مثل: ترقبوا العروض يوم كذا أو ترقبوا العرض الكبير يوم الخميس أو أي صيغة تختارها.
+                </p>
+              </div>
+
+              {currentStore.tickerAnnouncement ? (
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-black shrink-0 flex items-center gap-1.5 self-start">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>معروض حالياً بالشريط 🟢</span>
+                </span>
+              ) : (
+                <span className="px-3 py-1 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-xs font-black shrink-0 self-start">
+                  غير مفعل حالياً ⚪
+                </span>
+              )}
+            </div>
+
+            {/* Live Preview Box */}
+            <div className="bg-slate-950 text-white p-4 rounded-2xl border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold border-b border-slate-800 pb-2">
+                <span>معاينة حية لشكل رسالتك في شريط الأخبار:</span>
+                <span className="text-orange-400">شريط عروض التطبيق ⚡</span>
+              </div>
+              <div className="flex items-center gap-2 py-1 overflow-hidden">
+                <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-lg text-xs font-black shrink-0">
+                  {currentStore.name}
+                </span>
+                <span className="text-xs font-bold text-slate-200 truncate">
+                  {tickerMessage.trim() || currentStore.tickerAnnouncement || "اكتب نص الإعلان الخاص بمتجرك ليظهر هنا في شريط الأخبار المتحرك..."}
+                </span>
+              </div>
+            </div>
+
+            {/* Input & Action Section */}
+            <div className="space-y-3 pt-2">
+              <label className="block text-xs font-black text-slate-800">
+                نص رسالة العرض أو الإعلان الترويجي لمتجرك:
+              </label>
+              <div className="relative">
+                <textarea
+                  value={tickerMessage}
+                  onChange={(e) => setTickerMessage(e.target.value)}
+                  placeholder="مثال: ترقبوا العرض الكبير يوم الخميس: اشتري وجبة عائلية واحصل على الثانية مجاناً!"
+                  rows={3}
+                  maxLength={180}
+                  className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold focus:bg-white focus:outline-hidden focus:border-orange-500 transition-all text-slate-800 leading-relaxed"
+                />
+                <span className="absolute bottom-2.5 left-3 text-[10px] text-slate-400 font-mono">
+                  {tickerMessage.length}/180
+                </span>
+              </div>
+
+              {/* Quick Preset Suggestions */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-500 block">
+                  أو اختر نموذجاً سريعاً بنقرة واحدة:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "ترقبوا العرض الكبير يوم الخميس على كافة الأصناف المميزة! 🔥",
+                    "ترقبوا العروض والتخفيضات الكبرى نهاية الأسبوع! 💥",
+                    "ترقبوا وصول تشكيلة جديدة ومميزة بأسعار خاصة قريباً! ✨",
+                    "اشتري 2 واحصل على الثالثة مجاناً لفترة محدودة! 🏷️",
+                    "خصم خاص 20% لجميع زبائن التطبيق طيلة يوم الجمعة! 🎁"
+                  ].map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setTickerMessage(preset);
+                      }}
+                      className="text-[11px] py-1.5 px-3 bg-slate-100 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-200 border border-slate-200 rounded-xl transition-all cursor-pointer font-bold text-slate-700"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => handleSaveTickerMessage()}
+                  className="py-3 px-6 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Megaphone className="w-4 h-4" />
+                  <span>حفظ وتحديث الشريط الإخباري فوراً 💾</span>
+                </button>
+
+                {currentStore.tickerAnnouncement && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("هل ترغب بمسح رسالتك من الشريط الإخباري؟")) {
+                        handleSaveTickerMessage("");
+                      }
+                    }}
+                    className="py-3 px-4 bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-600 font-black text-xs rounded-xl transition-all cursor-pointer"
+                  >
+                    مسح الرسالة
+                  </button>
+                )}
+
+                {tickerSavedSuccess && (
+                  <span className="text-xs font-black text-emerald-600 flex items-center gap-1 animate-scale-in">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>تم حفظ وتحديث الشريط بنجاح! يظهر الآن لجميع الزبائن.</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1408,6 +1656,25 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Product Visibility / Hide Option for Store Owner */}
+              <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/80 space-y-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={productIsHidden}
+                    onChange={(e) => setProductIsHidden(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 rounded"
+                  />
+                  <span className="font-black text-amber-950 flex items-center gap-1.5">
+                    <EyeOff className="w-4 h-4 text-amber-700" />
+                    <span>إخفاء هذا الصنف مؤقتاً عن الزبائن (لوجود خطأ أو إشكالية)</span>
+                  </span>
+                </label>
+                <p className="text-[11px] text-amber-800 pr-6">
+                  عند تحديد هذا الخيار، لن يظهر المنتج في قائمة المتجر للزبائن حتى تقوم بإلغاء التحديد بعد تصحيح الخطأ.
+                </p>
               </div>
 
               {/* Sizes (الأحجام والمقاسات) */}

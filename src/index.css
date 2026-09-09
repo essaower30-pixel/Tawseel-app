@@ -180,4 +180,25 @@
   background: rgba(148, 163, 184, 0.7);
 }
 
+/* News ticker continuous marquee animations - Slow and legible */
+@keyframes tickerMarquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(50%);
+  }
+}
+
+.animate-marquee-news {
+  display: flex;
+  width: max-content;
+  animation: tickerMarquee 28s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-news:hover {
+  animation-play-state: paused;
+}
+
 
