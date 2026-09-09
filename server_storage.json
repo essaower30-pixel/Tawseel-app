@@ -479,7 +479,7 @@
     }
   ],
   "notifications": [],
-  "lastUpdated": 1788901502481,
+  "lastUpdated": 1788906758295,
   "deletedDriverIds": [],
   "deletedStoreIds": [],
   "categories": [
@@ -500,7 +500,7 @@
     },
     {
       "id": "clothes",
-      "label": "ألبسة وأزياء",
+      "label": "ملابس وازياء",
       "icon": "Shirt"
     },
     {

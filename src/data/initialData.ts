@@ -4,7 +4,7 @@ export const initialCategories: Category[] = [
   { id: "offers", label: "العروض الحالية", icon: "Flame" },
   { id: "restaurants", label: "مطاعم وجبات", icon: "Utensils" },
   { id: "supermarkets", label: "سوبرماركت", icon: "ShoppingBag" },
-  { id: "clothes", label: "ألبسة وأزياء", icon: "Shirt" },
+  { id: "clothes", label: "ملابس وازياء", icon: "Shirt" },
   { id: "butcher", label: "لحوم وملاحم", icon: "Beef" },
   { id: "pharmacies", label: "صيدليات", icon: "Pill" },
   { id: "vegetables", label: "خضار وفواكه", icon: "Leaf" },

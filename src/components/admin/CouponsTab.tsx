@@ -3,6 +3,7 @@ import {
   Tag, 
   Plus, 
   Trash2, 
+  Edit2,
   Percent, 
   CheckCircle2, 
   Power, 
@@ -27,23 +28,53 @@ export const CouponsTab: React.FC<CouponsTabProps> = ({
   currency
 }) => {
   const [showModal, setShowModal] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
   const [code, setCode] = useState("");
   const [discountPercent, setDiscountPercent] = useState(15);
   const [maxDiscount, setMaxDiscount] = useState(25000);
   const [minOrder, setMinOrder] = useState(50000);
 
+  const openAddCoupon = () => {
+    setEditingCoupon(null);
+    setCode("");
+    setDiscountPercent(15);
+    setMaxDiscount(25000);
+    setMinOrder(50000);
+    setShowModal(true);
+  };
+
+  const openEditCoupon = (c: Coupon) => {
+    setEditingCoupon(c);
+    setCode(c.code);
+    setDiscountPercent(c.discountPercent);
+    setMaxDiscount(c.maxDiscount || 25000);
+    setMinOrder(c.minOrder || 50000);
+    setShowModal(true);
+  };
+
   const handleSaveCoupon = (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) return;
 
-    onAddCoupon({
-      code: code.trim().toUpperCase(),
-      discountPercent: Number(discountPercent),
-      maxDiscount: Number(maxDiscount),
-      minOrder: Number(minOrder),
-      isActive: true
-    });
+    if (editingCoupon) {
+      onUpdateCoupon({
+        ...editingCoupon,
+        code: code.trim().toUpperCase(),
+        discountPercent: Number(discountPercent),
+        maxDiscount: Number(maxDiscount),
+        minOrder: Number(minOrder)
+      });
+    } else {
+      onAddCoupon({
+        code: code.trim().toUpperCase(),
+        discountPercent: Number(discountPercent),
+        maxDiscount: Number(maxDiscount),
+        minOrder: Number(minOrder),
+        isActive: true
+      });
+    }
 
+    setEditingCoupon(null);
     setCode("");
     setDiscountPercent(15);
     setMaxDiscount(25000);
@@ -65,7 +96,7 @@ export const CouponsTab: React.FC<CouponsTabProps> = ({
 
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={openAddCoupon}
           className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
@@ -138,32 +169,43 @@ export const CouponsTab: React.FC<CouponsTabProps> = ({
                   {isActive ? "تعطيل الكوبون" : "تفعيل الكوبون"}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (confirm(`حذف الكوبون "${c.code}"؟`)) {
-                      onDeleteCoupon(c.code);
-                    }
-                  }}
-                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                  title="حذف"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openEditCoupon(c)}
+                    className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                    title="تعديل الكوبون"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`حذف الكوبون "${c.code}"؟`)) {
+                        onDeleteCoupon(c.code);
+                      }
+                    }}
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
+                    title="حذف الكوبون"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Add Coupon Modal */}
+      {/* Add / Edit Coupon Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto pt-6 sm:pt-4 pb-48 sm:pb-6">
           <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-4 text-right my-auto" dir="rtl">
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <Tag className="w-5 h-5 text-orange-500" />
-                <span>إنشاء كوبون خصم جديد</span>
+                <span>{editingCoupon ? "تعديل كوبون الخصم ✏️" : "إنشاء كوبون خصم جديد 🏷️"}</span>
               </h3>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-lg font-bold">
                 ✕
@@ -223,7 +265,7 @@ export const CouponsTab: React.FC<CouponsTabProps> = ({
                   type="submit"
                   className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
                 >
-                  إنشاء وتفعيل الكوبون 🏷️
+                  {editingCoupon ? "حفظ التعديلات 💾" : "إنشاء وتفعيل الكوبون 🏷️"}
                 </button>
                 <button
                   type="button"

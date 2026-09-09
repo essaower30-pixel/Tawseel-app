@@ -3,6 +3,7 @@ import {
   MapPin, 
   Plus, 
   Trash2, 
+  Edit2,
   Compass, 
   Navigation, 
   Map as MapIcon 
@@ -12,33 +13,71 @@ import { MapNode } from "../../types";
 interface LandmarksTabProps {
   mapNodes: MapNode[];
   onAddMapNode: (node: MapNode) => void;
+  onUpdateMapNode?: (node: MapNode) => void;
   onDeleteMapNode: (nodeId: string) => void;
 }
 
 export const LandmarksTab: React.FC<LandmarksTabProps> = ({
   mapNodes,
   onAddMapNode,
+  onUpdateMapNode,
   onDeleteMapNode
 }) => {
   const [showModal, setShowModal] = useState(false);
+  const [editingNode, setEditingNode] = useState<MapNode | null>(null);
   const [arabicName, setArabicName] = useState("");
   const [xPos, setXPos] = useState(50);
   const [yPos, setYPos] = useState(50);
   const [nodeType, setNodeType] = useState<"landmark" | "intersection" | "store">("landmark");
 
+  const openAddModal = () => {
+    setEditingNode(null);
+    setArabicName("");
+    setXPos(50);
+    setYPos(50);
+    setNodeType("landmark");
+    setShowModal(true);
+  };
+
+  const openEditModal = (node: MapNode) => {
+    setEditingNode(node);
+    setArabicName(node.arabicName || node.name);
+    setXPos(node.x);
+    setYPos(node.y);
+    setNodeType(node.type || "landmark");
+    setShowModal(true);
+  };
+
   const handleSaveNode = (e: React.FormEvent) => {
     e.preventDefault();
     if (!arabicName.trim()) return;
 
-    onAddMapNode({
-      id: "node_" + Date.now(),
-      name: arabicName.trim(),
-      arabicName: arabicName.trim(),
-      x: Number(xPos),
-      y: Number(yPos),
-      type: nodeType
-    });
+    if (editingNode) {
+      const updated: MapNode = {
+        ...editingNode,
+        name: arabicName.trim(),
+        arabicName: arabicName.trim(),
+        x: Number(xPos),
+        y: Number(yPos),
+        type: nodeType
+      };
+      if (onUpdateMapNode) {
+        onUpdateMapNode(updated);
+      } else {
+        onAddMapNode(updated);
+      }
+    } else {
+      onAddMapNode({
+        id: "node_" + Date.now(),
+        name: arabicName.trim(),
+        arabicName: arabicName.trim(),
+        x: Number(xPos),
+        y: Number(yPos),
+        type: nodeType
+      });
+    }
 
+    setEditingNode(null);
     setArabicName("");
     setXPos(50);
     setYPos(50);
@@ -67,7 +106,7 @@ export const LandmarksTab: React.FC<LandmarksTabProps> = ({
 
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={openAddModal}
           className="py-2.5 px-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
@@ -143,17 +182,29 @@ export const LandmarksTab: React.FC<LandmarksTabProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm(`حذف المعلم "${node.arabicName}"؟`)) {
-                        onDeleteMapNode(node.id);
-                      }
-                    }}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(node)}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-all cursor-pointer"
+                      title="تعديل المعلم"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`حذف المعلم "${node.arabicName}"؟`)) {
+                          onDeleteMapNode(node.id);
+                        }
+                      }}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
+                      title="حذف المعلم"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -172,7 +223,7 @@ export const LandmarksTab: React.FC<LandmarksTabProps> = ({
             <div className="flex items-center justify-between border-b pb-3">
               <h3 className="font-black text-slate-800 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-orange-500" />
-                <span>إضافة معلم أو تقاطع جديد</span>
+                <span>{editingNode ? "تعديل بيانات المعلم الجغرافي ✏️" : "إضافة معلم أو تقاطع جديد 📍"}</span>
               </h3>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 text-lg font-bold">
                 ✕
@@ -235,7 +286,7 @@ export const LandmarksTab: React.FC<LandmarksTabProps> = ({
                   type="submit"
                   className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
                 >
-                  حفظ المعلم 📍
+                  {editingNode ? "حفظ التعديلات 💾" : "حفظ المعلم 📍"}
                 </button>
                 <button
                   type="button"

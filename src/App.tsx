@@ -211,6 +211,12 @@ export default function App() {
         }
       } catch (e) {}
     }
+    // Automatically migrate any stale "ألبسة وأزياء" in cached local storage to "ملابس وازياء"
+    baseList = baseList.map((c) =>
+      c.id === "clothes" && (c.label === "ألبسة وأزياء" || c.label === "ألبسة وازياء")
+        ? { ...c, label: "ملابس وازياء" }
+        : c
+    );
     const hasOffers = baseList.some((c) => c.id === "offers");
     return hasOffers ? baseList : [{ id: "offers", label: "العروض الحالية", icon: "Flame" }, ...baseList];
   });
@@ -1301,6 +1307,9 @@ export default function App() {
       } else {
         updatedList = [...prev, category];
       }
+      try {
+        localStorage.setItem("tw_categories", JSON.stringify(updatedList));
+      } catch (e) {}
       return updatedList;
     });
 
@@ -1310,15 +1319,24 @@ export default function App() {
       type: "success"
     });
 
+    const finalList = updatedList.length > 0 ? updatedList : [...categories, category];
     await Promise.allSettled([
       saveCategoryToFirestore(category),
-      syncCategoriesToFirestore(updatedList.length > 0 ? updatedList : [...categories, category]),
-      saveCategoryOnServer(category)
+      syncCategoriesToFirestore(finalList),
+      saveCategoryOnServer(category),
+      reorderCategoriesOnServer(finalList)
     ]);
   };
 
   const handleUpdateCategory = async (category: Category) => {
-    setCategories((prev) => prev.map((c) => (c.id === category.id ? category : c)));
+    let updatedList: Category[] = [];
+    setCategories((prev) => {
+      updatedList = prev.map((c) => (c.id === category.id ? category : c));
+      try {
+        localStorage.setItem("tw_categories", JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
 
     addToastNotification({
       title: "تم تحديث التصنيف ✅",
@@ -1326,14 +1344,24 @@ export default function App() {
       type: "info"
     });
 
+    const finalList = updatedList.length > 0 ? updatedList : categories.map((c) => (c.id === category.id ? category : c));
     await Promise.allSettled([
       saveCategoryToFirestore(category),
-      saveCategoryOnServer(category)
+      syncCategoriesToFirestore(finalList),
+      saveCategoryOnServer(category),
+      reorderCategoriesOnServer(finalList)
     ]);
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+    let updatedList: Category[] = [];
+    setCategories((prev) => {
+      updatedList = prev.filter((c) => c.id !== categoryId);
+      try {
+        localStorage.setItem("tw_categories", JSON.stringify(updatedList));
+      } catch (e) {}
+      return updatedList;
+    });
 
     addToastNotification({
       title: "تم حذف التصنيف 🗑️",
@@ -1341,14 +1369,20 @@ export default function App() {
       type: "info"
     });
 
+    const finalList = updatedList.length > 0 ? updatedList : categories.filter((c) => c.id !== categoryId);
     await Promise.allSettled([
       deleteCategoryFromFirestore(categoryId),
-      deleteCategoryOnServer(categoryId)
+      syncCategoriesToFirestore(finalList),
+      deleteCategoryOnServer(categoryId),
+      reorderCategoriesOnServer(finalList)
     ]);
   };
 
   const handleReorderCategories = async (newCategories: Category[]) => {
     setCategories(newCategories);
+    try {
+      localStorage.setItem("tw_categories", JSON.stringify(newCategories));
+    } catch (e) {}
 
     addToastNotification({
       title: "تم حفظ ترتيب التصنيفات ↕️",
@@ -1517,13 +1551,22 @@ export default function App() {
         const seen = new Set<string>();
         // Preserve local categories, update if present in cloud
         for (const local of currentLocal) {
-          merged.push(cloudMap.get(local.id) || local);
+          const item = cloudMap.get(local.id) || local;
+          if (item.id === "clothes" && (item.label === "ألبسة وأزياء" || item.label === "ألبسة وازياء")) {
+            merged.push({ ...item, label: "ملابس وازياء" });
+          } else {
+            merged.push(item);
+          }
           seen.add(local.id);
         }
         // Add new cloud categories
         for (const cloud of cloudCategories) {
           if (!seen.has(cloud.id)) {
-            merged.push(cloud);
+            if (cloud.id === "clothes" && (cloud.label === "ألبسة وأزياء" || cloud.label === "ألبسة وازياء")) {
+              merged.push({ ...cloud, label: "ملابس وازياء" });
+            } else {
+              merged.push(cloud);
+            }
             seen.add(cloud.id);
           }
         }
@@ -1734,13 +1777,22 @@ export default function App() {
           const seen = new Set<string>();
           // Preserve all current local categories, updating any edited server properties
           for (const local of currentLocal) {
-            merged.push(serverMap.get(local.id) || local);
+            const item = serverMap.get(local.id) || local;
+            if (item.id === "clothes" && (item.label === "ألبسة وأزياء" || item.label === "ألبسة وازياء")) {
+              merged.push({ ...item, label: "ملابس وازياء" });
+            } else {
+              merged.push(item);
+            }
             seen.add(local.id);
           }
           // Include any server categories not currently in local
           for (const sCat of serverData.categories!) {
             if (!seen.has(sCat.id)) {
-              merged.push(sCat);
+              if (sCat.id === "clothes" && (sCat.label === "ألبسة وأزياء" || sCat.label === "ألبسة وازياء")) {
+                merged.push({ ...sCat, label: "ملابس وازياء" });
+              } else {
+                merged.push(sCat);
+              }
               seen.add(sCat.id);
             }
           }
@@ -2840,6 +2892,7 @@ export default function App() {
                 onDeleteCategory={handleDeleteCategory}
                 onReorderCategories={handleReorderCategories}
                 onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
+                onUpdateMapNode={(node) => setMapNodes((prev) => prev.map((n) => (n.id === node.id ? node : n)))}
                 onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
                 onUpdateOrderStatus={handleUpdateOrderStatus}
                 onAssignDriver={handleAssignDriverToOrder}

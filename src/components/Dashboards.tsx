@@ -64,6 +64,7 @@ interface DashboardProps {
   onDeleteCategory?: (categoryId: string) => void;
   onReorderCategories?: (categories: Category[]) => void;
   onAddMapNode?: (node: MapNode) => void;
+  onUpdateMapNode?: (node: MapNode) => void;
   onDeleteMapNode?: (nodeId: string) => void;
   onSendBroadcast?: (broadcast: StoreBroadcast) => void;
   onDeleteBroadcast?: (id: string) => void;
@@ -98,6 +99,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onDeleteCategory,
   onReorderCategories,
   onAddMapNode,
+  onUpdateMapNode,
   onDeleteMapNode,
   onSendBroadcast = () => {},
   onDeleteBroadcast = () => {},
@@ -569,6 +571,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <LandmarksTab
                 mapNodes={mapNodes}
                 onAddMapNode={onAddMapNode || (() => {})}
+                onUpdateMapNode={onUpdateMapNode}
                 onDeleteMapNode={onDeleteMapNode || (() => {})}
               />
             )}

@@ -592,7 +592,11 @@ export const StoresTab: React.FC<StoresTabProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => onDeleteStore(st.id)}
+                      onClick={() => {
+                        if (confirm(`هل أنت متأكد من رفض وحذف طلب متجر "${st.name}" نهائياً؟`)) {
+                          onDeleteStore(st.id);
+                        }
+                      }}
                       className="py-2 px-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-red-600" />

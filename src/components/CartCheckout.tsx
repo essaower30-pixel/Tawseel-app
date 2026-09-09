@@ -240,31 +240,53 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-                      <button
-                        type="button"
-                        onClick={() => onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions)}
-                        className="w-6 h-6 bg-white text-slate-700 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-bold"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-xs font-black text-slate-800 min-w-4 text-center">{item.quantity}</span>
-                      <button
-                        type="button"
-                        disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
-                        onClick={() => {
-                          if (item.product.stock !== undefined && item.quantity >= item.product.stock) return;
-                          onAddToCart(item.product, item.selectedSize, item.selectedAdditions);
-                        }}
-                        className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-xs font-bold ${
-                          item.product.stock !== undefined && item.quantity >= item.product.stock
-                            ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                            : "bg-orange-500 text-white cursor-pointer"
-                        }`}
-                        title={item.product.stock !== undefined && item.quantity >= item.product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "زيادة الكمية"}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions)}
+                          className="w-6 h-6 bg-white text-slate-700 hover:text-red-600 rounded-lg flex items-center justify-center shadow-xs font-bold transition-colors cursor-pointer"
+                          title={item.quantity === 1 ? "حذف الصنف من السلة" : "تقليل الكمية"}
+                        >
+                          {item.quantity === 1 ? (
+                            <Trash2 className="w-3 h-3 text-red-500" />
+                          ) : (
+                            <Minus className="w-3 h-3" />
+                          )}
+                        </button>
+                        <span className="text-xs font-black text-slate-800 min-w-4 text-center">{item.quantity}</span>
+                        <button
+                          type="button"
+                          disabled={item.product.stock !== undefined && item.quantity >= item.product.stock}
+                          onClick={() => {
+                            if (item.product.stock !== undefined && item.quantity >= item.product.stock) return;
+                            onAddToCart(item.product, item.selectedSize, item.selectedAdditions);
+                          }}
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center shadow-xs font-bold ${
+                            item.product.stock !== undefined && item.quantity >= item.product.stock
+                              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                              : "bg-orange-500 text-white cursor-pointer"
+                          }`}
+                          title={item.product.stock !== undefined && item.quantity >= item.product.stock ? "وصلت للحد الأقصى المتوفر بالمخزون" : "زيادة الكمية"}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      {item.quantity > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            for (let i = 0; i < item.quantity; i++) {
+                              onRemoveFromCart(item.product, item.selectedSize, item.selectedAdditions);
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
+                          title="حذف هذا الصنف بالكامل من السلة"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

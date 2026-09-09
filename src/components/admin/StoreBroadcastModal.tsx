@@ -556,7 +556,11 @@ export const StoreBroadcastModal: React.FC<StoreBroadcastModalProps> = ({
 
                             <button
                               type="button"
-                              onClick={() => onDeleteBroadcast(bc.id)}
+                              onClick={() => {
+                                if (confirm("هل أنت متأكد من حذف هذا التعميم؟")) {
+                                  onDeleteBroadcast(bc.id);
+                                }
+                              }}
                               title="حذف التعميم"
                               className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors cursor-pointer"
                             >

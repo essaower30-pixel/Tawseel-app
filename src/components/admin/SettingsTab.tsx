@@ -896,17 +896,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <span>تعديل</span>
                       </button>
 
-                      {isAdminAssisted && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCustomerClick(c.phone, c.id)}
-                          className="p-1.5 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
-                          title="حذف من السجل"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>حذف</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomerClick(c.phone, c.id)}
+                        className="p-1.5 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all"
+                        title="حذف من السجل"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>حذف</span>
+                      </button>
                     </div>
                   </div>
                 </div>
