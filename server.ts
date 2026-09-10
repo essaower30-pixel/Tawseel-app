@@ -260,16 +260,18 @@ function readServerData() {
         if (!parsed.products) parsed.products = [];
         if (!parsed.drivers) parsed.drivers = [];
         if (!parsed.notifications) parsed.notifications = [];
+        if (!parsed.deletedCategoryIds) parsed.deletedCategoryIds = [];
         if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
-          parsed.categories = defaultInitialCategories;
+          parsed.categories = defaultInitialCategories.filter((c: any) => !parsed.deletedCategoryIds.includes(c.id));
         } else {
           const catIds = new Set(parsed.categories.map((c: any) => c.id));
           for (const defCat of defaultInitialCategories) {
-            if (!catIds.has(defCat.id)) {
+            if (!catIds.has(defCat.id) && !parsed.deletedCategoryIds.includes(defCat.id)) {
               parsed.categories.push(defCat);
               catIds.add(defCat.id);
             }
           }
+          parsed.categories = parsed.categories.filter((c: any) => !parsed.deletedCategoryIds.includes(c.id));
         }
         return parsed;
       }
@@ -278,16 +280,18 @@ function readServerData() {
       if (!parsed.products) parsed.products = [];
       if (!parsed.deletedDriverIds) parsed.deletedDriverIds = [];
       if (!parsed.deletedStoreIds) parsed.deletedStoreIds = [];
+      if (!parsed.deletedCategoryIds) parsed.deletedCategoryIds = [];
       if (!parsed.categories || !Array.isArray(parsed.categories) || parsed.categories.length === 0) {
-        parsed.categories = defaultInitialCategories;
+        parsed.categories = defaultInitialCategories.filter((c: any) => !parsed.deletedCategoryIds.includes(c.id));
       } else {
         const catIds = new Set(parsed.categories.map((c: any) => c.id));
         for (const defCat of defaultInitialCategories) {
-          if (!catIds.has(defCat.id)) {
+          if (!catIds.has(defCat.id) && !parsed.deletedCategoryIds.includes(defCat.id)) {
             parsed.categories.push(defCat);
             catIds.add(defCat.id);
           }
         }
+        parsed.categories = parsed.categories.filter((c: any) => !parsed.deletedCategoryIds.includes(c.id));
       }
 
       if (!parsed.drivers || !Array.isArray(parsed.drivers) || parsed.drivers.length === 0) {
@@ -349,6 +353,7 @@ function readServerData() {
     products: [],
     drivers: defaultFleetDrivers,
     categories: defaultInitialCategories,
+    deletedCategoryIds: [],
     notifications: [],
     lastUpdated: Date.now()
   };
@@ -405,6 +410,8 @@ app.post("/api/categories", (req, res) => {
   } else {
     data.categories.push(categoryItem);
   }
+  if (!data.deletedCategoryIds) data.deletedCategoryIds = [];
+  data.deletedCategoryIds = data.deletedCategoryIds.filter((cid: string) => cid !== id);
   writeServerData(data);
   res.json({ success: true, category: categoryItem, categories: data.categories });
 });
@@ -426,11 +433,15 @@ app.delete("/api/categories/:id", (req, res) => {
     return res.status(400).json({ error: "لا يمكن حذف تصنيف العروض الحالية الرئيسي" });
   }
   const data = readServerData();
+  if (!data.deletedCategoryIds) data.deletedCategoryIds = [];
+  if (!data.deletedCategoryIds.includes(catId)) {
+    data.deletedCategoryIds.push(catId);
+  }
   if (data.categories) {
     data.categories = data.categories.filter((c: any) => c.id !== catId);
-    writeServerData(data);
   }
-  res.json({ success: true, categories: data.categories });
+  writeServerData(data);
+  res.json({ success: true, categories: data.categories, deletedCategoryIds: data.deletedCategoryIds });
 });
 
 // 3. API: Get all stores

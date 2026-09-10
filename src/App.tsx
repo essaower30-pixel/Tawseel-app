@@ -215,16 +215,22 @@ export default function App() {
 
   const [categories, setCategories] = useState<Category[]>(() => {
     const raw = localStorage.getItem("tw_categories");
-    let baseList = initialCategories;
+    const rawDeleted = localStorage.getItem("tw_deleted_category_ids");
+    let deletedIds: string[] = [];
+    if (rawDeleted) {
+      try {
+        deletedIds = JSON.parse(rawDeleted);
+      } catch (e) {}
+    }
+
+    let baseList = initialCategories.filter((c) => !deletedIds.includes(c.id));
     if (raw) {
       try {
         const parsed: Category[] = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge parsed categories with initialCategories to ensure clothes & butcher are present
-          // while preserving all existing customized categories
           const existingIds = new Set(parsed.map((c) => c.id));
-          const missingDefaults = initialCategories.filter((ic) => !existingIds.has(ic.id));
-          baseList = [...parsed, ...missingDefaults];
+          const missingDefaults = initialCategories.filter((ic) => !existingIds.has(ic.id) && !deletedIds.includes(ic.id));
+          baseList = [...parsed, ...missingDefaults].filter((c) => !deletedIds.includes(c.id));
         }
       } catch (e) {}
     }
@@ -1317,6 +1323,16 @@ export default function App() {
 
   // Category Management Handlers (Admin dynamic categories: meat, clothes, etc.)
   const handleAddNewCategory = async (category: Category) => {
+    // Clear from deleted category IDs if re-added
+    try {
+      const rawDeleted = localStorage.getItem("tw_deleted_category_ids");
+      if (rawDeleted) {
+        const deletedIds: string[] = JSON.parse(rawDeleted);
+        const filtered = deletedIds.filter((id) => id !== category.id);
+        localStorage.setItem("tw_deleted_category_ids", JSON.stringify(filtered));
+      }
+    } catch (e) {}
+
     let updatedList: Category[] = [];
     setCategories((prev) => {
       if (prev.some((c) => c.id === category.id)) {
@@ -1371,27 +1387,38 @@ export default function App() {
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    let updatedList: Category[] = [];
-    setCategories((prev) => {
-      updatedList = prev.filter((c) => c.id !== categoryId);
+    // 1. Mark as permanently deleted in local cache
+    let deletedIds: string[] = [];
+    try {
+      const rawDeleted = localStorage.getItem("tw_deleted_category_ids");
+      if (rawDeleted) deletedIds = JSON.parse(rawDeleted);
+    } catch (e) {}
+    if (!deletedIds.includes(categoryId)) {
+      deletedIds.push(categoryId);
       try {
-        localStorage.setItem("tw_categories", JSON.stringify(updatedList));
+        localStorage.setItem("tw_deleted_category_ids", JSON.stringify(deletedIds));
       } catch (e) {}
-      return updatedList;
-    });
+    }
+
+    // 2. Synchronously filter state
+    const nextList = categories.filter((c) => c.id !== categoryId);
+    setCategories(nextList);
+    try {
+      localStorage.setItem("tw_categories", JSON.stringify(nextList));
+    } catch (e) {}
 
     addToastNotification({
       title: "تم حذف التصنيف 🗑️",
-      message: "تم حذف التصنيف بنجاح من شريط المنصة.",
+      message: "تم حذف التصنيف بنجاح من شريط المنصة والمتاجر.",
       type: "info"
     });
 
-    const finalList = updatedList.length > 0 ? updatedList : categories.filter((c) => c.id !== categoryId);
+    // 3. Persist deletion across Firestore and Node server
     await Promise.allSettled([
       deleteCategoryFromFirestore(categoryId),
-      syncCategoriesToFirestore(finalList),
+      syncCategoriesToFirestore(nextList),
       deleteCategoryOnServer(categoryId),
-      reorderCategoriesOnServer(finalList)
+      reorderCategoriesOnServer(nextList)
     ]);
   };
 
@@ -1562,12 +1589,20 @@ export default function App() {
     // 8. Real-time categories listener
     const unsubCategories = subscribeToCategories((cloudCategories) => {
       if (!cloudCategories || !Array.isArray(cloudCategories) || cloudCategories.length === 0) return;
+      let deletedIds: string[] = [];
+      try {
+        const rawDel = localStorage.getItem("tw_deleted_category_ids");
+        if (rawDel) deletedIds = JSON.parse(rawDel);
+      } catch (e) {}
+      const deletedSet = new Set<string>(deletedIds);
+
       setCategories((currentLocal) => {
         const cloudMap = new Map(cloudCategories.map((c) => [c.id, c]));
         const merged: Category[] = [];
         const seen = new Set<string>();
-        // Preserve local categories, update if present in cloud
+        // Preserve local categories, update if present in cloud (skip deleted)
         for (const local of currentLocal) {
+          if (deletedSet.has(local.id)) continue;
           const item = cloudMap.get(local.id) || local;
           if (item.id === "clothes" && (item.label === "ألبسة وأزياء" || item.label === "ألبسة وازياء")) {
             merged.push({ ...item, label: "ملابس وازياء" });
@@ -1576,9 +1611,9 @@ export default function App() {
           }
           seen.add(local.id);
         }
-        // Add new cloud categories
+        // Add new cloud categories if not deleted
         for (const cloud of cloudCategories) {
-          if (!seen.has(cloud.id)) {
+          if (!seen.has(cloud.id) && !deletedSet.has(cloud.id)) {
             if (cloud.id === "clothes" && (cloud.label === "ألبسة وأزياء" || cloud.label === "ألبسة وازياء")) {
               merged.push({ ...cloud, label: "ملابس وازياء" });
             } else {
@@ -1587,9 +1622,9 @@ export default function App() {
             seen.add(cloud.id);
           }
         }
-        // Always guarantee essential initial categories (such as clothes and butcher) are preserved
+        // Add default categories only if not explicitly deleted
         for (const def of initialCategories) {
-          if (!seen.has(def.id)) {
+          if (!seen.has(def.id) && !deletedSet.has(def.id)) {
             merged.push(def);
             seen.add(def.id);
           }
@@ -1795,12 +1830,20 @@ export default function App() {
 
       // 5. Sync Categories (meat, clothes, dynamic categories)
       if (serverData.categories && Array.isArray(serverData.categories) && serverData.categories.length > 0) {
+        let deletedIds: string[] = [];
+        try {
+          const rawDel = localStorage.getItem("tw_deleted_category_ids");
+          if (rawDel) deletedIds = JSON.parse(rawDel);
+        } catch (e) {}
+        const deletedSet = new Set<string>(deletedIds);
+
         setCategories((currentLocal) => {
           const serverMap = new Map(serverData.categories!.map((c) => [c.id, c]));
           const merged: Category[] = [];
           const seen = new Set<string>();
-          // Preserve all current local categories, updating any edited server properties
+          // Preserve all current local categories, updating any edited server properties (skip deleted)
           for (const local of currentLocal) {
+            if (deletedSet.has(local.id)) continue;
             const item = serverMap.get(local.id) || local;
             if (item.id === "clothes" && (item.label === "ألبسة وأزياء" || item.label === "ألبسة وازياء")) {
               merged.push({ ...item, label: "ملابس وازياء" });
@@ -1809,9 +1852,9 @@ export default function App() {
             }
             seen.add(local.id);
           }
-          // Include any server categories not currently in local
+          // Include any server categories not currently in local and not deleted
           for (const sCat of serverData.categories!) {
-            if (!seen.has(sCat.id)) {
+            if (!seen.has(sCat.id) && !deletedSet.has(sCat.id)) {
               if (sCat.id === "clothes" && (sCat.label === "ألبسة وأزياء" || sCat.label === "ألبسة وازياء")) {
                 merged.push({ ...sCat, label: "ملابس وازياء" });
               } else {
@@ -1820,9 +1863,9 @@ export default function App() {
               seen.add(sCat.id);
             }
           }
-          // Always guarantee essential initial categories (such as clothes and butcher) are preserved
+          // Only add initial default categories if not explicitly deleted
           for (const def of initialCategories) {
-            if (!seen.has(def.id)) {
+            if (!seen.has(def.id) && !deletedSet.has(def.id)) {
               merged.push(def);
               seen.add(def.id);
             }

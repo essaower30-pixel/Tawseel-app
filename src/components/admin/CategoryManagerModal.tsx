@@ -99,6 +99,15 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [editLabel, setEditLabel] = useState("");
   const [editIcon, setEditIcon] = useState("ShoppingBag");
 
+  // Deletion confirmation state
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const handleExecuteDelete = (cat: Category) => {
+    onDeleteCategory(cat.id);
+    setConfirmDeleteId(null);
+    triggerSaveFeedback(`تم حذف تصنيف "${cat.label}" بنجاح 🗑️`);
+  };
+
   useEffect(() => {
     if (initialOpenAddForm) {
       setShowAddForm(true);
@@ -762,40 +771,58 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                             </button>
                           )}
 
-                          {/* Edit Category Button */}
-                          {!isOffers && (
-                            <button
-                              type="button"
-                              onClick={() => startEditCategory(cat)}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
-                              title="تعديل اسم أو أيقونة التصنيف"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                          )}
+                          {/* Inline Deletion Confirmation on Desktop */}
+                          {confirmDeleteId === cat.id ? (
+                            <div className="flex items-center gap-1.5 bg-red-50 py-1 px-2 rounded-xl border border-red-200 text-xs animate-in fade-in mr-1">
+                              <span className="font-bold text-red-700 text-[11px] whitespace-nowrap">
+                                حذف؟ {storeCount > 0 ? `(${storeCount} متجر)` : ""}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleExecuteDelete(cat)}
+                                className="py-1 px-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[11px] font-black shadow-xs transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                              >
+                                تأكيد 🗑️
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="py-1 px-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap"
+                              >
+                                إلغاء
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Edit Category Button */}
+                              {!isOffers && (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditCategory(cat)}
+                                  className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all cursor-pointer"
+                                  title="تعديل اسم أو أيقونة التصنيف"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                              )}
 
-                          {/* Delete Category */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isOffers) {
-                                alert("تصنيف (العروض الحالية) هو قسم رئيسي للتطبيق لا يمكن حذفه، ويمكنك تغيير ترتيبه ونقله لأي موضع تريده.");
-                                return;
-                              }
-                              if (storeCount > 0) {
-                                alert(`لا يمكن حذف التصنيف لوجود ${storeCount} متجر مرتبط به حالياً. قم بنقل المتاجر لتصنيف آخر أولاً.`);
-                                return;
-                              }
-                              if (confirm(`هل أنت متأكد من حذف تصنيف "${cat.label}"؟`)) {
-                                onDeleteCategory(cat.id);
-                                triggerSaveFeedback("تم حذف التصنيف بنجاح");
-                              }
-                            }}
-                            className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer mr-0.5"
-                            title="حذف التصنيف"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                              {/* Delete Category */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isOffers) {
+                                    alert("تصنيف (العروض الحالية) هو قسم رئيسي للتطبيق لا يمكن حذفه، ويمكنك تغيير ترتيبه ونقله لأي موضع تريده.");
+                                    return;
+                                  }
+                                  setConfirmDeleteId(cat.id);
+                                }}
+                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer mr-0.5"
+                                title="حذف التصنيف"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -854,40 +881,55 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                         </div>
 
                         {/* Edit & Delete Action Buttons */}
-                        <div className="flex items-center gap-1.5">
-                          {!isOffers && (
+                        {confirmDeleteId === cat.id ? (
+                          <div className="flex items-center gap-1.5 bg-red-50 p-1.5 rounded-lg border border-red-200 text-xs">
+                            <span className="font-bold text-red-700 text-[10px]">
+                              تأكيد الحذف؟ {storeCount > 0 ? `(${storeCount})` : ""}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => startEditCategory(cat)}
-                              className="py-1 px-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
+                              onClick={() => handleExecuteDelete(cat)}
+                              className="py-1 px-2 bg-red-600 text-white rounded-md text-[10px] font-black active:scale-95 cursor-pointer"
                             >
-                              <Edit2 className="w-3 h-3" />
-                              <span>تعديل</span>
+                              احذف 🗑️
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="py-1 px-1.5 bg-slate-200 text-slate-700 rounded-md text-[10px] font-bold cursor-pointer"
+                            >
+                              إلغاء
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            {!isOffers && (
+                              <button
+                                type="button"
+                                onClick={() => startEditCategory(cat)}
+                                className="py-1 px-2 text-blue-700 bg-blue-50 border border-blue-200 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>تعديل</span>
+                              </button>
+                            )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isOffers) {
-                                alert("تصنيف (العروض الحالية) هو قسم رئيسي للتطبيق لا يمكن حذفه.");
-                                return;
-                              }
-                              if (storeCount > 0) {
-                                alert(`لا يمكن حذف التصنيف لوجود ${storeCount} متجر مرتبط به حالياً.`);
-                                return;
-                              }
-                              if (confirm(`هل أنت متأكد من حذف تصنيف "${cat.label}"؟`)) {
-                                onDeleteCategory(cat.id);
-                                triggerSaveFeedback("تم حذف التصنيف بنجاح");
-                              }
-                            }}
-                            className="py-1 px-2 text-red-700 bg-red-50 border border-red-200 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            <span>حذف</span>
-                          </button>
-                        </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isOffers) {
+                                  alert("تصنيف (العروض الحالية) هو قسم رئيسي للتطبيق لا يمكن حذفه.");
+                                  return;
+                                }
+                                setConfirmDeleteId(cat.id);
+                              }}
+                              className="py-1 px-2 text-red-700 bg-red-50 border border-red-200 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>حذف</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
