@@ -125,6 +125,24 @@ export const initialStores: Store[] = [
     workingHours: "10:00 ص - 12:00 م"
   },
   {
+    id: "store_fashion",
+    name: "بوتيك الأناقة للأزياء والملابس",
+    category: "clothes",
+    image: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60",
+    rating: 4.9,
+    deliveryTime: "25-40 دقيقة",
+    deliveryFee: 5,
+    locationNode: "center",
+    featuredProduct: "تشكيلة ألبسة وأزياء ولادية ورجالية ونسائية حديثة",
+    status: "open",
+    isApproved: true,
+    description: "أحدث صيحات الملابس والأزياء الراقية، قطنيات، بيجامات، وأطقم خروج بأفضل الأسعار لجميع أفراد الأسرة",
+    workingHours: "10:00 ص - 10:30 م",
+    ownerPhone: "0955667788",
+    contactPhone: "0955667788",
+    ownerPin: "1234"
+  },
+  {
     id: "service_clinic",
     name: "عيادة د. سمير للأطفال",
     category: "doctors",
@@ -232,6 +250,39 @@ export const initialStores: Store[] = [
 ];
 
 export const initialProducts: Product[] = [
+  {
+    id: "p_fashion_1",
+    name: "طقم كاجوال سبورت قطن 100% فاخر",
+    price: 65,
+    unit: "طقم",
+    stock: 25,
+    description: "طقم قطني تركي مريح ومقاوم للتوبير مع سحاب وبنطال مريح مناسب للخروج والرياضة.",
+    image: "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=400&auto=format&fit=crop&q=60",
+    category: "clothes",
+    storeId: "store_fashion"
+  },
+  {
+    id: "p_fashion_2",
+    name: "فستان نسائي كاجوال أنيق مع حزام",
+    price: 75,
+    unit: "قطعة",
+    stock: 18,
+    description: "تصميم عصري راقي ومريح للمناسبات اليومية والزيارات بأقمشة صيفية ناعمة.",
+    image: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&auto=format&fit=crop&q=60",
+    category: "clothes",
+    storeId: "store_fashion"
+  },
+  {
+    id: "p_fashion_3",
+    name: "قميص كلاسيكي قطن رسمي شبابي",
+    price: 35,
+    unit: "قطعة",
+    stock: 30,
+    description: "قميص قطن بقصة مريحة متوفر بعدة ألوان ومقاسات تناسب الدوام والمناسبات.",
+    image: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&auto=format&fit=crop&q=60",
+    category: "clothes",
+    storeId: "store_fashion"
+  },
   {
     id: "p_gypsum_1",
     name: "تنفيذ سقف معلق جبس بورد حديث (متر مربع)",

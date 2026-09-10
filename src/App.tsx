@@ -1587,6 +1587,13 @@ export default function App() {
             seen.add(cloud.id);
           }
         }
+        // Always guarantee essential initial categories (such as clothes and butcher) are preserved
+        for (const def of initialCategories) {
+          if (!seen.has(def.id)) {
+            merged.push(def);
+            seen.add(def.id);
+          }
+        }
         if (currentLocal.length !== merged.length || JSON.stringify(currentLocal) !== JSON.stringify(merged)) {
           return merged;
         }
@@ -1811,6 +1818,13 @@ export default function App() {
                 merged.push(sCat);
               }
               seen.add(sCat.id);
+            }
+          }
+          // Always guarantee essential initial categories (such as clothes and butcher) are preserved
+          for (const def of initialCategories) {
+            if (!seen.has(def.id)) {
+              merged.push(def);
+              seen.add(def.id);
             }
           }
           if (
@@ -2641,6 +2655,7 @@ export default function App() {
         onRegister={handleAuthSuccess}
         stores={stores}
         onAddStore={handleAddNewStore}
+        categories={categories}
         activeOrder={activeOrder}
         onTrackOrder={() => {
           if (activeOrder) {
@@ -2652,6 +2667,7 @@ export default function App() {
           setUserProfile(guestProfile);
           setUserRole("customer");
         }}
+        driversList={driversList}
       />
     );
   }
@@ -3604,6 +3620,7 @@ export default function App() {
           onRegister={handleAuthSuccess}
           stores={stores}
           onAddStore={handleAddNewStore}
+          categories={categories}
           activeOrder={activeOrder}
           onTrackOrder={() => {
             setShowAuthModal(false);

@@ -22,8 +22,9 @@ import {
   Scale,
   FileText
 } from "lucide-react";
-import { Store, UserProfile, DriverMember } from "../types";
+import { Store, UserProfile, DriverMember, Category } from "../types";
 import { initialDrivers, initialStaff } from "../data/adminInitialData";
+import { initialCategories } from "../data/initialData";
 import { openWhatsApp } from "../utils/whatsapp";
 import { 
   normalizeDigits, 
@@ -51,6 +52,7 @@ interface AuthModalProps {
   onClose?: () => void;
   initialRole?: "customer" | "driver" | "store" | "staff";
   driversList?: DriverMember[];
+  categories?: Category[];
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -61,7 +63,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onTrackOrder,
   onClose,
   initialRole = "customer",
-  driversList: propDriversList
+  driversList: propDriversList,
+  categories: propCategories = []
 }) => {
   // Determine initial role from parameter or localStorage
   const [role, setRole] = useState<"customer" | "driver" | "store" | "staff">(() => {
@@ -105,6 +108,44 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [newStorePhone, setNewStorePhone] = useState("");
   const [newStorePin, setNewStorePin] = useState("");
   const [newStoreDesc, setNewStoreDesc] = useState("");
+
+  // Business categories available for store registration (guaranteeing clothes, butcher, etc.)
+  const storeCategories = React.useMemo(() => {
+    const list: { id: string; label: string }[] = [];
+    const seen = new Set<string>();
+
+    // Primary list from prop or initialCategories
+    const source = propCategories && propCategories.length > 0 ? propCategories : initialCategories;
+    for (const c of source) {
+      if (c.id === "offers") continue;
+      const cleanLabel = c.id === "clothes" ? "ملابس وازياء" : c.label;
+      list.push({ id: c.id, label: cleanLabel });
+      seen.add(c.id);
+    }
+
+    // Explicitly guarantee essential categories exist in the list
+    const defaults = [
+      { id: "restaurants", label: "مطاعم وجبات" },
+      { id: "supermarkets", label: "سوبرماركت وتموينات" },
+      { id: "clothes", label: "ملابس وازياء" },
+      { id: "butcher", label: "لحوم وملاحم" },
+      { id: "pharmacies", label: "صيدليات" },
+      { id: "vegetables", label: "خضار وفواكه" },
+      { id: "sweets", label: "حلويات ومعجنات" },
+      { id: "doctors", label: "عيادات وأطباء" },
+      { id: "crafts", label: "مهن وصيانة وديكور" },
+      { id: "drivers", label: "خدمات وسائقين" }
+    ];
+
+    for (const d of defaults) {
+      if (!seen.has(d.id)) {
+        list.push(d);
+        seen.add(d.id);
+      }
+    }
+
+    return list;
+  }, [propCategories]);
 
   // ==========================================
   // 3. DRIVER / CAPTAIN AUTH STATE (Saved User/Phone)
@@ -556,7 +597,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       id: "store_" + Date.now(),
       name,
       category: newStoreCategory,
-      image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
+      image:
+        newStoreCategory === "clothes"
+          ? "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60"
+          : newStoreCategory === "butcher"
+          ? "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=500&auto=format&fit=crop&q=60"
+          : "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
       rating: 5,
       deliveryTime: "30-40 دقيقة",
       deliveryFee: 5,
@@ -566,7 +612,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       ownerPin: pin,
       isApproved: false,
       status: "closed",
-      description: newStoreDesc || (newStoreCategory === "food" || name.includes("مواد") || name.includes("سوبرماركت") ? "متجر مواد غذائية وتموينية طازجة لخدمة أهالي القرية" : "متجر محلي لخدمة أهالي القرية"),
+      description:
+        newStoreDesc ||
+        (newStoreCategory === "clothes"
+          ? "أحدث صيحات الملابس والأزياء والألبسة العصرية بجودة عالية"
+          : newStoreCategory === "butcher"
+          ? "لحوم بلدية طازجة، مفروم، شقف، وذبائح بلدية طازجة يومياً"
+          : newStoreCategory === "food" || name.includes("مواد") || name.includes("سوبرماركت")
+          ? "متجر مواد غذائية وتموينية طازجة لخدمة أهالي القرية"
+          : "متجر محلي لخدمة أهالي القرية"),
       workingHours: "10:00 ص - 11:00 م",
       priority: 1,
       maxRegularProducts: 20,
@@ -1412,8 +1466,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             type="text"
                             required
                             value={newStoreName}
-                            onChange={(e) => setNewStoreName(e.target.value)}
-                            placeholder="مثال: مأكولات الشام، جبس وديكور"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setNewStoreName(val);
+                              // Auto-detect category if user is still on default
+                              const lower = val.toLowerCase();
+                              if (
+                                lower.includes("ملابس") ||
+                                lower.includes("أزياء") ||
+                                lower.includes("ازياء") ||
+                                lower.includes("ثياب") ||
+                                lower.includes("ألبسة") ||
+                                lower.includes("البسة") ||
+                                lower.includes("بوتيك") ||
+                                lower.includes("فستان")
+                              ) {
+                                setNewStoreCategory("clothes");
+                              } else if (
+                                lower.includes("لحم") ||
+                                lower.includes("لحوم") ||
+                                lower.includes("جزار") ||
+                                lower.includes("قصاب") ||
+                                lower.includes("مفروم") ||
+                                lower.includes("ملحمة")
+                              ) {
+                                setNewStoreCategory("butcher");
+                              }
+                            }}
+                            placeholder="مثال: مأكولات الشام، ملابس وأزياء"
                             className="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 rounded-xl py-2.5 px-3 text-xs font-bold outline-none"
                           />
                         </div>
@@ -1426,14 +1506,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             onChange={(e) => setNewStoreCategory(e.target.value)}
                             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-xs font-bold outline-none"
                           >
-                            <option value="restaurants">مطاعم وجبات</option>
-                            <option value="supermarkets">سوبرماركت وتموينات</option>
-                            <option value="pharmacies">صيدليات</option>
-                            <option value="vegetables">خضار وفواكه</option>
-                            <option value="sweets">حلويات ومعجنات</option>
-                            <option value="doctors">عيادات وأطباء</option>
-                            <option value="crafts">مهن وصيانة وديكور</option>
-                            <option value="drivers">خدمات وسائقين</option>
+                            {storeCategories.map((cat) => (
+                              <option key={cat.id} value={cat.id}>
+                                {cat.label}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="space-y-1">

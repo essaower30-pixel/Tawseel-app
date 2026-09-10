@@ -103,6 +103,24 @@ const defaultInitialStores = [
     workingHours: "10:00 ص - 11:00 م"
   },
   {
+    id: "store_fashion",
+    name: "بوتيك الأناقة للأزياء والملابس",
+    category: "clothes",
+    image: "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60",
+    rating: 4.9,
+    deliveryTime: "25-40 دقيقة",
+    deliveryFee: 5,
+    locationNode: "center",
+    featuredProduct: "تشكيلة ألبسة وأزياء ولادية ورجالية ونسائية حديثة",
+    status: "open",
+    isApproved: true,
+    description: "أحدث صيحات الملابس والأزياء الراقية، قطنيات، بيجامات، وأطقم خروج بأفضل الأسعار لجميع أفراد الأسرة",
+    workingHours: "10:00 ص - 10:30 م",
+    ownerPhone: "0955667788",
+    contactPhone: "0955667788",
+    ownerPin: "1234"
+  },
+  {
     id: "clinic_dr_ahmad",
     name: "عيادة الدكتور أحمد لطب الأسرة",
     category: "doctors",
@@ -886,8 +904,24 @@ app.post("/api/restore-defaults", (req, res) => {
   return res.json({ success: true, message: "تمت استعادة البيانات التجريبية الافتراضية بنجاح" });
 });
 
+// Process protection against unexpected crashes
+process.on("unhandledRejection", (reason, promise) => {
+  console.warn("Unhandled Rejection at:", promise, "reason:", reason);
+});
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
+});
+
 // Mount Vite middleware for dev or static files for prod
 async function start() {
+  // Global express error handler for API routes
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("Server API Error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal Server Error", message: err?.message || String(err) });
+    }
+  });
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -907,5 +941,8 @@ async function start() {
   });
 }
 
-start();
+start().catch((err) => {
+  console.error("Fatal startup error in server.ts:", err);
+});
+
 
