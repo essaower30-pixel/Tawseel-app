@@ -111,6 +111,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Business categories available for store registration (guaranteeing clothes, butcher, etc.)
   const storeCategories = React.useMemo(() => {
+    let deletedIds: string[] = [];
+    try {
+      const rawDel = localStorage.getItem("tw_deleted_category_ids");
+      if (rawDel) deletedIds = JSON.parse(rawDel);
+    } catch (e) {}
+    const deletedSet = new Set<string>(["cat_mtuj2s13ho2", ...deletedIds]);
+
     const list: { id: string; label: string }[] = [];
     const seen = new Set<string>();
 
@@ -118,27 +125,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const source = propCategories && propCategories.length > 0 ? propCategories : initialCategories;
     for (const c of source) {
       if (c.id === "offers") continue;
+      if (deletedSet.has(c.id)) continue;
+      // Skip duplicate clothing category aliases
+      if (c.label === "ألبسة وملابس وأزياء" || c.id === "cat_mtuj2s13ho2") continue;
       const cleanLabel = c.id === "clothes" ? "ملابس وازياء" : c.label;
       list.push({ id: c.id, label: cleanLabel });
       seen.add(c.id);
     }
 
-    // Explicitly guarantee essential categories exist in the list
+    // Explicitly guarantee essential categories exist in the list (unless explicitly deleted)
     const defaults = [
       { id: "restaurants", label: "مطاعم وجبات" },
-      { id: "supermarkets", label: "سوبرماركت وتموينات" },
+      { id: "supermarkets", label: "سوبرماركت" },
       { id: "clothes", label: "ملابس وازياء" },
-      { id: "butcher", label: "لحوم وملاحم" },
+      { id: "butcher", label: "لحوم واسماك ودجاج" },
       { id: "pharmacies", label: "صيدليات" },
       { id: "vegetables", label: "خضار وفواكه" },
       { id: "sweets", label: "حلويات ومعجنات" },
       { id: "doctors", label: "عيادات وأطباء" },
-      { id: "crafts", label: "مهن وصيانة وديكور" },
+      { id: "crafts", label: "مهن وصيانة" },
       { id: "drivers", label: "خدمات وسائقين" }
     ];
 
     for (const d of defaults) {
-      if (!seen.has(d.id)) {
+      if (!seen.has(d.id) && !deletedSet.has(d.id)) {
         list.push(d);
         seen.add(d.id);
       }
@@ -593,14 +603,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
+    const safeCategory =
+      newStoreCategory === "cat_mtuj2s13ho2" || newStoreCategory.includes("cloth")
+        ? "clothes"
+        : newStoreCategory;
+
     const newStore: Store = {
       id: "store_" + Date.now(),
       name,
-      category: newStoreCategory,
+      category: safeCategory,
       image:
-        newStoreCategory === "clothes"
+        safeCategory === "clothes"
           ? "https://images.unsplash.com/photo-1489987707025-afc232f7ea0f?w=500&auto=format&fit=crop&q=60"
-          : newStoreCategory === "butcher"
+          : safeCategory === "butcher"
           ? "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=500&auto=format&fit=crop&q=60"
           : "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
       rating: 5,

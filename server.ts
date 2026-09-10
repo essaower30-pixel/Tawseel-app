@@ -378,13 +378,19 @@ app.get("/api/health", (req, res) => {
 // 2. API: Unified Full Sync Endpoint
 app.get("/api/sync", (req, res) => {
   const data = readServerData();
+  const deletedSet = new Set(data.deletedCategoryIds || []);
+  if (data.categories && Array.isArray(data.categories)) {
+    data.categories = data.categories.filter((c: any) => !deletedSet.has(c.id));
+  }
   res.json(data);
 });
 
 // 2.1 API: Categories Management (Admin / Global)
 app.get("/api/categories", (req, res) => {
   const data = readServerData();
-  res.json(data.categories || defaultInitialCategories);
+  const deletedSet = new Set(data.deletedCategoryIds || []);
+  const baseList = (data.categories || defaultInitialCategories).filter((c: any) => !deletedSet.has(c.id));
+  res.json(baseList);
 });
 
 app.post("/api/categories", (req, res) => {
@@ -422,7 +428,8 @@ app.put("/api/categories", (req, res) => {
     return res.status(400).json({ error: "بيانات التصنيفات غير صالحة" });
   }
   const data = readServerData();
-  data.categories = categories;
+  const deletedSet = new Set(data.deletedCategoryIds || []);
+  data.categories = categories.filter((c: any) => !deletedSet.has(c.id));
   writeServerData(data);
   res.json({ success: true, categories: data.categories });
 });
@@ -440,8 +447,28 @@ app.delete("/api/categories/:id", (req, res) => {
   if (data.categories) {
     data.categories = data.categories.filter((c: any) => c.id !== catId);
   }
+
+  // Safe Store Healing: If any stores were attached to this deleted category,
+  // automatically reassign them so they don't become invisible or orphaned!
+  let reassignedStoresCount = 0;
+  if (data.stores && Array.isArray(data.stores)) {
+    const fallbackCategory = (catId.includes("cloth") || catId.includes("mtuj2s13ho2")) ? "clothes" : "supermarkets";
+    data.stores = data.stores.map((s: any) => {
+      if (s.category === catId) {
+        reassignedStoresCount++;
+        return { ...s, category: fallbackCategory };
+      }
+      return s;
+    });
+  }
+
   writeServerData(data);
-  res.json({ success: true, categories: data.categories, deletedCategoryIds: data.deletedCategoryIds });
+  res.json({
+    success: true,
+    categories: data.categories,
+    deletedCategoryIds: data.deletedCategoryIds,
+    reassignedStoresCount
+  });
 });
 
 // 3. API: Get all stores
@@ -460,6 +487,16 @@ app.post("/api/stores", (req, res) => {
   const data = readServerData();
   const cleanPhone = (p?: string) => (p || "").replace(/[^0-9]/g, "");
   const targetPhone = cleanPhone(newStore.ownerPhone || newStore.contactPhone);
+
+  // Automatic category healing if a deleted or obsolete category was submitted
+  const deletedSet = new Set(data.deletedCategoryIds || []);
+  if (deletedSet.has(newStore.category) || newStore.category === "cat_mtuj2s13ho2") {
+    if (newStore.category?.includes("cloth") || newStore.category === "cat_mtuj2s13ho2") {
+      newStore.category = "clothes";
+    } else {
+      newStore.category = "supermarkets";
+    }
+  }
 
   const existingIdx = data.stores.findIndex((s: any) => {
     if (s.id === newStore.id) return true;

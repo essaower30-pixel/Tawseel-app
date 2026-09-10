@@ -646,7 +646,9 @@ export function subscribeToCategories(
         if (snapshot.exists()) {
           const data = snapshot.data();
           if (data && Array.isArray(data.list) && data.list.length > 0) {
-            onCategoriesUpdated(data.list);
+            const deleted = new Set<string>(data.deletedCategoryIds || []);
+            const validCategories = data.list.filter((c: Category) => !deleted.has(c.id));
+            onCategoriesUpdated(validCategories);
           }
         }
       },
@@ -665,7 +667,30 @@ export function subscribeToCategories(
 // Delete category from Firestore
 export async function deleteCategoryFromFirestore(categoryId: string): Promise<void> {
   try {
-    await deleteDoc(doc(db, "categories", categoryId));
+    // 1. Delete standalone doc if present
+    await deleteDoc(doc(db, "categories", categoryId)).catch(() => {});
+
+    // 2. Remove from the ordered list in settings/categories and track in deletedCategoryIds
+    const docRef = doc(db, "settings", "categories");
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const currentList: Category[] = Array.isArray(data.list) ? data.list : [];
+      const updatedList = currentList.filter((c) => c.id !== categoryId);
+      const deletedCategoryIds: string[] = Array.isArray(data.deletedCategoryIds) ? data.deletedCategoryIds : [];
+      if (!deletedCategoryIds.includes(categoryId)) {
+        deletedCategoryIds.push(categoryId);
+      }
+      await setDoc(
+        docRef,
+        {
+          list: updatedList,
+          deletedCategoryIds,
+          updatedAt: new Date().toISOString()
+        },
+        { merge: true }
+      );
+    }
   } catch (err) {
     console.warn("Could not delete category from Firestore:", err);
   }

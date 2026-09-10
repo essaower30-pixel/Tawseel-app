@@ -39,7 +39,7 @@ interface CategoryManagerModalProps {
 
 export const POPULAR_CATEGORY_PRESETS = [
   { label: "لحوم وملاحم وجزارة", icon: "Beef", emoji: "🥩" },
-  { label: "ألبسة وملابس وأزياء", icon: "Shirt", emoji: "👕" },
+  { label: "أدوات منزلية ومطابخ", icon: "Home", emoji: "🍳" },
   { label: "مخابز وأفران ومعجنات", icon: "Croissant", emoji: "🥐" },
   { label: "ألبان وأجبان ومشتقاتها", icon: "Milk", emoji: "🥛" },
   { label: "أسماك ومأكولات بحرية", icon: "Fish", emoji: "🐟" },
@@ -48,8 +48,8 @@ export const POPULAR_CATEGORY_PRESETS = [
   { label: "إلكترونيات وموبايلات", icon: "Smartphone", emoji: "📱" },
   { label: "مستلزمات أطفال ومواليد", icon: "Baby", emoji: "👶" },
   { label: "أحذية وحقائب جلدية", icon: "Footprints", emoji: "👟" },
-  { label: "منزل ومفروشات وديكور", icon: "Home", emoji: "🏠" },
-  { label: "عطور وهدايا وتحف", icon: "Gift", emoji: "🎁" }
+  { label: "عطور وهدايا وتحف", icon: "Gift", emoji: "🎁" },
+  { label: "ألعاب ومستلزمات ترفيه", icon: "Gamepad2", emoji: "🎮" }
 ];
 
 export const detectIconFromName = (name: string): string => {
@@ -209,8 +209,9 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     if (!clean) return;
 
     // Check duplicate
+    const norm = (s: string) => s.replace(/\s+/g, "").replace(/^(ال)/, "");
     const exists = categories.some(
-      (c) => c.label.trim().toLowerCase() === clean.toLowerCase()
+      (c) => norm(c.label) === norm(clean) || c.label.trim().toLowerCase() === clean.toLowerCase()
     );
     if (exists) {
       alert(`التصنيف "${clean}" موجود مسبقاً في القائمة!`);
@@ -235,7 +236,8 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
 
   const handleQuickAddPreset = (preset: { label: string; icon: string; emoji: string }) => {
     // Check if already exists
-    const exists = categories.find((c) => c.label.includes(preset.label) || preset.label.includes(c.label));
+    const norm = (s: string) => s.replace(/\s+/g, "").replace(/^(ال)/, "");
+    const exists = categories.find((c) => norm(c.label) === norm(preset.label) || c.label.includes(preset.label) || preset.label.includes(c.label));
     if (exists) {
       triggerSaveFeedback(`تصنيف "${exists.label}" موجود مسبقاً في القائمة`);
       return;

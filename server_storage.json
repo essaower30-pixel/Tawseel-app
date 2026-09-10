@@ -556,5 +556,8 @@
       "label": "خدمات وسائقين",
       "icon": "Car"
     }
+  ],
+  "deletedCategoryIds": [
+    "cat_mtuj2s13ho2"
   ]
 }

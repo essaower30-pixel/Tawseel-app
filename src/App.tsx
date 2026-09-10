@@ -167,6 +167,10 @@ export default function App() {
       try {
         const parsed = JSON.parse(raw);
         const cleaned = ensureInitialStoresPreserved(parsed).map((st: Store) => {
+          let cat = st.category;
+          if (cat === "cat_mtuj2s13ho2" || cat === "ألبسة وملابس وأزياء") {
+            cat = "clothes";
+          }
           // Clear legacy dummy ticker announcements so only genuine owner-added announcements appear
           if (
             st.tickerAnnouncement &&
@@ -178,9 +182,9 @@ export default function App() {
              st.tickerAnnouncement.includes("مهرجان الكنافة النابلسية"))
           ) {
             const { tickerAnnouncement, ...rest } = st;
-            return rest as Store;
+            return { ...rest, category: cat } as Store;
           }
-          return st;
+          return { ...st, category: cat };
         });
         return cleaned;
       } catch (e) {}
@@ -216,10 +220,13 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>(() => {
     const raw = localStorage.getItem("tw_categories");
     const rawDeleted = localStorage.getItem("tw_deleted_category_ids");
-    let deletedIds: string[] = [];
+    let deletedIds: string[] = ["cat_mtuj2s13ho2"];
     if (rawDeleted) {
       try {
-        deletedIds = JSON.parse(rawDeleted);
+        const parsed = JSON.parse(rawDeleted);
+        if (Array.isArray(parsed)) {
+          deletedIds = Array.from(new Set([...deletedIds, ...parsed]));
+        }
       } catch (e) {}
     }
 
@@ -234,6 +241,10 @@ export default function App() {
         }
       } catch (e) {}
     }
+
+    // Filter out obsolete alias "ألبسة وملابس وأزياء" if "clothes" (ملابس وازياء) is present
+    baseList = baseList.filter((c) => c.id !== "cat_mtuj2s13ho2" && c.label !== "ألبسة وملابس وأزياء");
+
     // Automatically migrate any stale "ألبسة وأزياء" in cached local storage to "ملابس وازياء"
     baseList = baseList.map((c) =>
       c.id === "clothes" && (c.label === "ألبسة وأزياء" || c.label === "ألبسة وازياء")
@@ -1388,32 +1399,52 @@ export default function App() {
 
   const handleDeleteCategory = async (categoryId: string) => {
     // 1. Mark as permanently deleted in local cache
-    let deletedIds: string[] = [];
+    let deletedIds: string[] = ["cat_mtuj2s13ho2"];
     try {
       const rawDeleted = localStorage.getItem("tw_deleted_category_ids");
-      if (rawDeleted) deletedIds = JSON.parse(rawDeleted);
+      if (rawDeleted) {
+        const parsed = JSON.parse(rawDeleted);
+        if (Array.isArray(parsed)) deletedIds = Array.from(new Set([...deletedIds, ...parsed]));
+      }
     } catch (e) {}
     if (!deletedIds.includes(categoryId)) {
       deletedIds.push(categoryId);
-      try {
-        localStorage.setItem("tw_deleted_category_ids", JSON.stringify(deletedIds));
-      } catch (e) {}
     }
+    try {
+      localStorage.setItem("tw_deleted_category_ids", JSON.stringify(deletedIds));
+    } catch (e) {}
 
     // 2. Synchronously filter state
-    const nextList = categories.filter((c) => c.id !== categoryId);
+    const nextList = categories.filter((c) => c.id !== categoryId && c.id !== "cat_mtuj2s13ho2");
     setCategories(nextList);
     try {
       localStorage.setItem("tw_categories", JSON.stringify(nextList));
     } catch (e) {}
 
+    // 3. Store Safety: Reassign any stores assigned to this category so they never become orphaned or invisible
+    const fallbackCategory = (categoryId.includes("cloth") || categoryId.includes("mtuj2s13ho2")) ? "clothes" : "supermarkets";
+    const affectedStores = stores.filter((s) => s.category === categoryId);
+    if (affectedStores.length > 0) {
+      const updatedStores = stores.map((s) => (s.category === categoryId ? { ...s, category: fallbackCategory } : s));
+      setStores(updatedStores);
+      try {
+        localStorage.setItem("tw_stores", JSON.stringify(updatedStores));
+      } catch (e) {}
+      // Sync each affected store to backend and firestore
+      for (const st of affectedStores) {
+        handleUpdateStore({ ...st, category: fallbackCategory });
+      }
+    }
+
     addToastNotification({
       title: "تم حذف التصنيف 🗑️",
-      message: "تم حذف التصنيف بنجاح من شريط المنصة والمتاجر.",
+      message: affectedStores.length > 0
+        ? `تم حذف التصنيف، ونقل ${affectedStores.length} متجر مرتبط تلقائياً لتصنيف نشط لحمايتها من الاختفاء.`
+        : "تم حذف التصنيف بنجاح من شريط المنصة والمتاجر.",
       type: "info"
     });
 
-    // 3. Persist deletion across Firestore and Node server
+    // 4. Persist deletion across Firestore and Node server
     await Promise.allSettled([
       deleteCategoryFromFirestore(categoryId),
       syncCategoriesToFirestore(nextList),
@@ -1589,10 +1620,13 @@ export default function App() {
     // 8. Real-time categories listener
     const unsubCategories = subscribeToCategories((cloudCategories) => {
       if (!cloudCategories || !Array.isArray(cloudCategories) || cloudCategories.length === 0) return;
-      let deletedIds: string[] = [];
+      let deletedIds: string[] = ["cat_mtuj2s13ho2"];
       try {
         const rawDel = localStorage.getItem("tw_deleted_category_ids");
-        if (rawDel) deletedIds = JSON.parse(rawDel);
+        if (rawDel) {
+          const parsed = JSON.parse(rawDel);
+          if (Array.isArray(parsed)) deletedIds = Array.from(new Set([...deletedIds, ...parsed]));
+        }
       } catch (e) {}
       const deletedSet = new Set<string>(deletedIds);
 
@@ -1600,9 +1634,9 @@ export default function App() {
         const cloudMap = new Map(cloudCategories.map((c) => [c.id, c]));
         const merged: Category[] = [];
         const seen = new Set<string>();
-        // Preserve local categories, update if present in cloud (skip deleted)
+        // Preserve local categories, update if present in cloud (skip deleted & aliases)
         for (const local of currentLocal) {
-          if (deletedSet.has(local.id)) continue;
+          if (deletedSet.has(local.id) || local.id === "cat_mtuj2s13ho2" || local.label === "ألبسة وملابس وأزياء") continue;
           const item = cloudMap.get(local.id) || local;
           if (item.id === "clothes" && (item.label === "ألبسة وأزياء" || item.label === "ألبسة وازياء")) {
             merged.push({ ...item, label: "ملابس وازياء" });
@@ -1613,7 +1647,7 @@ export default function App() {
         }
         // Add new cloud categories if not deleted
         for (const cloud of cloudCategories) {
-          if (!seen.has(cloud.id) && !deletedSet.has(cloud.id)) {
+          if (!seen.has(cloud.id) && !deletedSet.has(cloud.id) && cloud.id !== "cat_mtuj2s13ho2" && cloud.label !== "ألبسة وملابس وأزياء") {
             if (cloud.id === "clothes" && (cloud.label === "ألبسة وأزياء" || cloud.label === "ألبسة وازياء")) {
               merged.push({ ...cloud, label: "ملابس وازياء" });
             } else {
@@ -1830,10 +1864,13 @@ export default function App() {
 
       // 5. Sync Categories (meat, clothes, dynamic categories)
       if (serverData.categories && Array.isArray(serverData.categories) && serverData.categories.length > 0) {
-        let deletedIds: string[] = [];
+        let deletedIds: string[] = ["cat_mtuj2s13ho2"];
         try {
           const rawDel = localStorage.getItem("tw_deleted_category_ids");
-          if (rawDel) deletedIds = JSON.parse(rawDel);
+          if (rawDel) {
+            const parsed = JSON.parse(rawDel);
+            if (Array.isArray(parsed)) deletedIds = Array.from(new Set([...deletedIds, ...parsed]));
+          }
         } catch (e) {}
         const deletedSet = new Set<string>(deletedIds);
 
@@ -1841,9 +1878,9 @@ export default function App() {
           const serverMap = new Map(serverData.categories!.map((c) => [c.id, c]));
           const merged: Category[] = [];
           const seen = new Set<string>();
-          // Preserve all current local categories, updating any edited server properties (skip deleted)
+          // Preserve all current local categories, updating any edited server properties (skip deleted & aliases)
           for (const local of currentLocal) {
-            if (deletedSet.has(local.id)) continue;
+            if (deletedSet.has(local.id) || local.id === "cat_mtuj2s13ho2" || local.label === "ألبسة وملابس وأزياء") continue;
             const item = serverMap.get(local.id) || local;
             if (item.id === "clothes" && (item.label === "ألبسة وأزياء" || item.label === "ألبسة وازياء")) {
               merged.push({ ...item, label: "ملابس وازياء" });
@@ -1854,7 +1891,7 @@ export default function App() {
           }
           // Include any server categories not currently in local and not deleted
           for (const sCat of serverData.categories!) {
-            if (!seen.has(sCat.id) && !deletedSet.has(sCat.id)) {
+            if (!seen.has(sCat.id) && !deletedSet.has(sCat.id) && sCat.id !== "cat_mtuj2s13ho2" && sCat.label !== "ألبسة وملابس وأزياء") {
               if (sCat.id === "clothes" && (sCat.label === "ألبسة وأزياء" || sCat.label === "ألبسة وازياء")) {
                 merged.push({ ...sCat, label: "ملابس وازياء" });
               } else {
@@ -2672,7 +2709,10 @@ export default function App() {
   // Filtered Stores
   const visibleStores = stores.filter((store) => {
     if (!store || store.isApproved === false) return false;
-    const matchesCategory = selectedCategory === "all" || store.category === selectedCategory;
+    const matchesCategory =
+      selectedCategory === "all" ||
+      store.category === selectedCategory ||
+      (selectedCategory === "clothes" && (store.category === "cat_mtuj2s13ho2" || store.category === "ألبسة وملابس وأزياء" || store.category?.includes("cloth")));
     const sName = (store.name || "").toLowerCase();
     const sDesc = (store.description || "").toLowerCase();
     const sFeat = (store.featuredProduct || "").toLowerCase();
