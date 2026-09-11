@@ -16,7 +16,9 @@ import {
   Copy,
   Check,
   Send,
-  Edit2
+  Edit2,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { DriverMember } from "../../types";
 import { ContactActions } from "../ContactActions";
@@ -191,9 +193,17 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                     </div>
                   </div>
 
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${statusInfo.bg}`}>
-                    {statusInfo.label}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {driver.isHidden && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black border bg-amber-100 text-amber-900 border-amber-300 flex items-center gap-1">
+                        <EyeOff className="w-3 h-3 text-amber-800" />
+                        <span>مخفي</span>
+                      </span>
+                    )}
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black border ${statusInfo.bg}`}>
+                      {statusInfo.label}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Login Credentials Box for Captain */}
@@ -309,11 +319,33 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   <button
                     type="button"
                     onClick={() => onUpdateDriver({ ...driver, status: "offline" })}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-black ${
+                    className={`px-2 py-1 rounded-lg text-[10px] font-black cursor-pointer ${
                       driver.status === "offline" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600"
                     }`}
                   >
                     غير متصل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onUpdateDriver({ ...driver, isHidden: !driver.isHidden })}
+                    className={`px-2 py-1 rounded-lg text-[10px] font-black flex items-center gap-0.5 cursor-pointer transition-all ${
+                      driver.isHidden
+                        ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
+                        : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                    }`}
+                    title={driver.isHidden ? "الكابتن مخفي حالياً - انقر لإظهاره" : "إخفاء الكابتن عن المنصة والزبائن"}
+                  >
+                    {driver.isHidden ? (
+                      <>
+                        <Eye className="w-3 h-3 text-amber-800" />
+                        <span>إظهار</span>
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-3 h-3 text-slate-600" />
+                        <span>إخفاء</span>
+                      </>
+                    )}
                   </button>
                 </div>
 

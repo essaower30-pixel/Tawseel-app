@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Check,
   Eye,
+  EyeOff,
   Store as StoreIcon,
   HelpCircle,
   X,
@@ -702,6 +703,12 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                                   عروض 🔥
                                 </span>
                               )}
+                              {cat.isHidden && (
+                                <span className="text-[9px] sm:text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap flex items-center gap-0.5">
+                                  <EyeOff className="w-2.5 h-2.5 text-amber-800" />
+                                  <span>مخفي</span>
+                                </span>
+                              )}
                             </div>
                             <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold truncate">
                               {isOffers
@@ -796,6 +803,22 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                             </div>
                           ) : (
                             <>
+                              {/* Hide / Show Category Button */}
+                              {onUpdateCategory && !isOffers && (
+                                <button
+                                  type="button"
+                                  onClick={() => onUpdateCategory({ ...cat, isHidden: !cat.isHidden })}
+                                  className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                                    cat.isHidden
+                                      ? "bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300"
+                                      : "text-slate-400 hover:text-slate-700 hover:bg-slate-200"
+                                  }`}
+                                  title={cat.isHidden ? "التصنيف مخفي حالياً - انقر لإظهاره للزبائن" : "إخفاء التصنيف عن شريط الرئيسية"}
+                                >
+                                  {cat.isHidden ? <EyeOff className="w-4 h-4 text-amber-800" /> : <Eye className="w-4 h-4" />}
+                                </button>
+                              )}
+
                               {/* Edit Category Button */}
                               {!isOffers && (
                                 <button
@@ -905,6 +928,21 @@ export const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5">
+                            {onUpdateCategory && !isOffers && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateCategory({ ...cat, isHidden: !cat.isHidden })}
+                                className={`py-1 px-2 rounded-lg text-[10px] font-bold flex items-center gap-1 active:scale-95 ${
+                                  cat.isHidden
+                                    ? "bg-amber-100 text-amber-900 border border-amber-300"
+                                    : "bg-slate-100 text-slate-700 border border-slate-200"
+                                }`}
+                              >
+                                {cat.isHidden ? <EyeOff className="w-3 h-3 text-amber-800" /> : <Eye className="w-3 h-3" />}
+                                <span>{cat.isHidden ? "إظهار" : "إخفاء"}</span>
+                              </button>
+                            )}
+
                             {!isOffers && (
                               <button
                                 type="button"

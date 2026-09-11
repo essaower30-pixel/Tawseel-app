@@ -62,12 +62,14 @@ export interface Store {
   isService?: boolean;
   neighborhood?: string;
   tickerAnnouncement?: string; // رسالة الشريط الإخباري (مثل: ترقبوا العروض يوم كذا، أو ترقبوا العرض الكبير يوم الخميس)
+  isHidden?: boolean;
 }
 
 export interface Category {
   id: string;
   label: string;
   icon: string;
+  isHidden?: boolean;
 }
 
 export interface MapNode {
@@ -213,6 +215,7 @@ export interface DriverMember {
   vehicle?: string;
   notes?: string;
   createdAt?: string;
+  isHidden?: boolean;
 }
 
 export interface Craftsman {

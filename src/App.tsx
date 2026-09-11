@@ -1028,12 +1028,59 @@ export default function App() {
   };
 
   const handleUpdateStore = async (updatedStore: Store) => {
+    const prevStore = stores.find((item) => item.id === updatedStore.id);
     let sanitizedStore = { ...updatedStore };
     if (sanitizedStore.isApproved !== false && sanitizedStore.description && (sanitizedStore.description.includes("بانتظار اعتماد") || sanitizedStore.description.includes("بانتظار الاعتماد"))) {
       const isFood = sanitizedStore.category === "food" || (sanitizedStore.name && (sanitizedStore.name.includes("مواد") || sanitizedStore.name.includes("سوبرماركت")));
       sanitizedStore.description = isFood ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة";
     }
     setStores((prev) => prev.map((item) => (item.id === sanitizedStore.id ? sanitizedStore : item)));
+
+    // Accurate contextual notifications for store actions:
+    if (sanitizedStore.isHidden === true && (!prevStore || !prevStore.isHidden)) {
+      addToastNotification({
+        title: "تم إخفاء المتجر عن الزبائن 🔒",
+        message: `تم إخفاء متجر "${sanitizedStore.name}" بنجاح ولن يظهر للزبائن في التطبيق حتى تقوم بإظهاره.`,
+        type: "warning"
+      });
+    } else if (!sanitizedStore.isHidden && prevStore?.isHidden === true) {
+      addToastNotification({
+        title: "تم إظهار المتجر للزبائن 👁️",
+        message: `تم إظهار متجر "${sanitizedStore.name}" بنجاح وأصبح مرئياً ونشطاً لجميع الزبائن.`,
+        type: "info"
+      });
+    } else if (sanitizedStore.status === "closed" && prevStore?.status !== "closed") {
+      addToastNotification({
+        title: "تم إغلاق المتجر مؤقتاً 🔴",
+        message: `تم إغلاق متجر "${sanitizedStore.name}" مؤقتاً ولن يستقبل طلبات جديدة من الزبائن.`,
+        type: "warning"
+      });
+    } else if (sanitizedStore.status === "open" && prevStore?.status === "closed") {
+      addToastNotification({
+        title: "تم فتح المتجر بنجاح 🟢",
+        message: `تم فتح متجر "${sanitizedStore.name}" وهو متاح وجاهز لاستقبال طلبات الزبائن.`,
+        type: "info"
+      });
+    } else if (sanitizedStore.isApproved === true && prevStore?.isApproved === false) {
+      addToastNotification({
+        title: "تم اعتماد المتجر بنجاح ✅",
+        message: `تمت الموافقة على اعتماد متجر "${sanitizedStore.name}" وأصبح مرئياً لجميع الزبائن.`,
+        type: "info"
+      });
+    } else if (sanitizedStore.isApproved === false && prevStore?.isApproved !== false) {
+      addToastNotification({
+        title: "تم تعليق اعتماد المتجر ⏳",
+        message: `تم إلغاء تفعيل متجر "${sanitizedStore.name}" وإخفاؤه عن الزبائن لحين المراجعة.`,
+        type: "warning"
+      });
+    } else if (prevStore && JSON.stringify(prevStore) !== JSON.stringify(sanitizedStore)) {
+      addToastNotification({
+        title: "تم تحديث بيانات المتجر 🏪",
+        message: `تم حفظ التعديلات على متجر "${sanitizedStore.name}" بنجاح.`,
+        type: "info"
+      });
+    }
+
     await Promise.allSettled([
       saveStoreToFirestore(sanitizedStore),
       updateStoreOnServer(sanitizedStore)
@@ -1071,20 +1118,55 @@ export default function App() {
   };
 
   const handleUpdateProduct = async (product: Product) => {
+    const prevProduct = products.find((item) => item.id === product.id);
     setProducts((prev) => prev.map((item) => (item.id === product.id ? product : item)));
-    if (product.approvalStatus === "approved" && product.isApproved === true) {
+
+    // Accurate contextual notifications for product actions:
+    // 1. Check if hiding the product
+    if (product.isHidden === true && (!prevProduct || !prevProduct.isHidden)) {
+      addToastNotification({
+        title: "تم إخفاء الصنف بنجاح 🔒",
+        message: `تم إخفاء صنف "${product.name}" عن الزبائن ولن يظهر في المتجر حتى تقوم بإظهاره مجدداً.`,
+        type: "warning"
+      });
+    }
+    // 2. Check if showing a previously hidden product
+    else if (!product.isHidden && prevProduct?.isHidden === true) {
+      addToastNotification({
+        title: "تم إظهار الصنف للزبائن 👁️",
+        message: `تم إظهار صنف "${product.name}" بنجاح وأصبح معروضاً للزبائن الآن.`,
+        type: "info"
+      });
+    }
+    // 3. Check if approving a pending or unapproved product
+    else if (
+      product.approvalStatus === "approved" &&
+      product.isApproved === true &&
+      (!prevProduct || prevProduct.isApproved === false || prevProduct.approvalStatus !== "approved")
+    ) {
       addToastNotification({
         title: "تم اعتماد الصنف بنجاح ✅",
         message: `تمت الموافقة على عرض "${product.name}" وأصبح مرئياً لجميع الزبائن.`,
         type: "info"
       });
-    } else if (product.approvalStatus === "rejected") {
+    }
+    // 4. Check if rejected
+    else if (product.approvalStatus === "rejected" && (!prevProduct || prevProduct.approvalStatus !== "rejected")) {
       addToastNotification({
         title: "تم رفض الصنف ❌",
         message: `تم رفض صنف "${product.name}" (${product.rejectionReason || "يرجى تعديل البيانات"}).`,
         type: "warning"
       });
     }
+    // 5. Normal product details update (name, price, image, description, sizes...)
+    else {
+      addToastNotification({
+        title: "تم تحديث الصنف بنجاح ✏️",
+        message: `تم حفظ التعديلات على صنف "${product.name}".`,
+        type: "info"
+      });
+    }
+
     await Promise.allSettled([
       saveProductToFirestore(product),
       updateProductOnServer(product)
@@ -1176,6 +1258,8 @@ export default function App() {
   };
 
   const handleUpdateDriver = async (driver: DriverMember) => {
+    const prevDriver = driversList.find((d) => d.id === driver.id);
+
     setDriversList((prev) => {
       const updated = prev.map((d) => (d.id === driver.id ? driver : d));
       try {
@@ -1200,6 +1284,9 @@ export default function App() {
         (s.category === "drivers" && ((targetPhone && cleanP(s.contactPhone) === targetPhone) || (s.name && s.name.includes(driver.name))))
       );
 
+      const isDriverOffline = driver.status === "offline";
+      const isDriverHidden = Boolean(driver.isHidden);
+
       if (matchingStore) {
         storeToSave = {
           ...matchingStore,
@@ -1208,6 +1295,8 @@ export default function App() {
           ownerPhone: driver.phone,
           ownerName: driver.name,
           ownerPin: driver.pin || matchingStore.ownerPin || "1111",
+          status: isDriverOffline ? "closed" : "open",
+          isHidden: isDriverHidden,
           featuredProduct: driver.vehicle ? `توصيل سريع (${driver.vehicle})` : matchingStore.featuredProduct,
           description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`
         };
@@ -1226,7 +1315,8 @@ export default function App() {
           ownerPhone: driver.phone,
           ownerName: driver.name,
           ownerPin: driver.pin || "1111",
-          status: "open",
+          status: isDriverOffline ? "closed" : "open",
+          isHidden: isDriverHidden,
           isApproved: true,
           isService: true,
           description: `كابتن توصيل سريع معتمد في القرية (${driver.vehicle || "دراجة نارية"}). متاح لتوصيل الطلبات والمشاوير الخاصة.`,
@@ -1249,11 +1339,44 @@ export default function App() {
       return finalStores;
     });
 
-    addToastNotification({
-      title: "تم تحديث بيانات الكابتن ✅",
-      message: `تم حفظ تعديلات الكابتن "${driver.name}" وتحديث بطاقته في قائمة الخدمات دون تكرار.`,
-      type: "info"
-    });
+    // Contextual toast notifications for driver changes:
+    if (driver.isHidden === true && (!prevDriver || !prevDriver.isHidden)) {
+      addToastNotification({
+        title: "تم إخفاء الكابتن 🔒",
+        message: `تم إخفاء الكابتن "${driver.name}" عن المنصة والزبائن ولن يستقبل طلبات جديدة.`,
+        type: "warning"
+      });
+    } else if (!driver.isHidden && prevDriver?.isHidden === true) {
+      addToastNotification({
+        title: "تم إظهار الكابتن للزبائن 👁️",
+        message: `تم إظهار الكابتن "${driver.name}" وأصبح مرئياً ومتاحاً في أسطول التوصيل.`,
+        type: "info"
+      });
+    } else if (driver.status === "offline" && prevDriver?.status !== "offline") {
+      addToastNotification({
+        title: "تم ضبط الكابتن: غير متصل ⛔",
+        message: `الكابتن "${driver.name}" غير متصل حالياً وتم إيقاف استقبال الطلبات له مؤقتاً.`,
+        type: "warning"
+      });
+    } else if (driver.status === "available" && prevDriver?.status !== "available") {
+      addToastNotification({
+        title: "تم تفعيل جاهزية الكابتن 🛵",
+        message: `الكابتن "${driver.name}" متاح الآن وجاهز لاستقبال وتوصيل الطلبات.`,
+        type: "info"
+      });
+    } else if (driver.status === "busy" && prevDriver?.status !== "busy") {
+      addToastNotification({
+        title: "تم ضبط الكابتن: مشغول ⏳",
+        message: `الكابتن "${driver.name}" قيد توصيل طلب حالياً (مشغول).`,
+        type: "info"
+      });
+    } else {
+      addToastNotification({
+        title: "تم حفظ بيانات الكابتن ✅",
+        message: `تم حفظ تعديلات بيانات الكابتن "${driver.name}" بنجاح.`,
+        type: "info"
+      });
+    }
 
     const tasks: Promise<any>[] = [
       saveDriverToFirestore(driver),
@@ -1381,6 +1504,7 @@ export default function App() {
   };
 
   const handleUpdateCategory = async (category: Category) => {
+    const prevCat = categories.find((c) => c.id === category.id);
     let updatedList: Category[] = [];
     setCategories((prev) => {
       updatedList = prev.map((c) => (c.id === category.id ? category : c));
@@ -1390,11 +1514,25 @@ export default function App() {
       return updatedList;
     });
 
-    addToastNotification({
-      title: "تم تحديث التصنيف ✅",
-      message: `تم حفظ تعديلات تصنيف "${category.label}".`,
-      type: "info"
-    });
+    if (category.isHidden === true && (!prevCat || !prevCat.isHidden)) {
+      addToastNotification({
+        title: "تم إخفاء التصنيف بنجاح 🔒",
+        message: `تم إخفاء تصنيف "${category.label}" عن شريط الصفحة الرئيسية للزبائن.`,
+        type: "warning"
+      });
+    } else if (!category.isHidden && prevCat?.isHidden === true) {
+      addToastNotification({
+        title: "تم إظهار التصنيف للزبائن 👁️",
+        message: `تم إظهار تصنيف "${category.label}" وأصبح معروضاً في شريط الصفحة الرئيسية.`,
+        type: "info"
+      });
+    } else {
+      addToastNotification({
+        title: "تم تحديث التصنيف ✅",
+        message: `تم حفظ تعديلات تصنيف "${category.label}".`,
+        type: "info"
+      });
+    }
 
     const finalList = updatedList.length > 0 ? updatedList : categories.map((c) => (c.id === category.id ? category : c));
     await Promise.allSettled([
@@ -2718,7 +2856,7 @@ export default function App() {
 
   // Filtered Stores
   const visibleStores = stores.filter((store) => {
-    if (!store || store.isApproved === false) return false;
+    if (!store || store.isApproved === false || store.isHidden === true) return false;
     const matchesCategory =
       selectedCategory === "all" ||
       store.category === selectedCategory ||
@@ -3247,7 +3385,7 @@ export default function App() {
                 </button>
 
                 {/* Categories List (Including Offers according to sorted order) */}
-                {categories.map((cat) => {
+                {categories.filter((cat) => !cat.isHidden).map((cat) => {
                   const isOffers = cat.id === "offers";
                   const isSelected = selectedCategory === cat.id;
 
