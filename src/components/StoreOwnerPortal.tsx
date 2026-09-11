@@ -691,8 +691,34 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-600 font-black text-xs flex items-center justify-center">
-                          #{order.id.slice(-4)}
+                        <div className="relative shrink-0">
+                          {order.status === "pending" ? (
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 text-white font-black text-xs flex flex-col items-center justify-center shadow-[0_0_20px_rgba(249,115,22,0.7)] ring-2 ring-orange-400/80 animate-pulse">
+                              <ShoppingBag className="w-4 h-4 drop-shadow-sm" />
+                              <span className="text-[9px] font-mono leading-none mt-0.5">#{order.id.slice(-4)}</span>
+                            </div>
+                          ) : order.status === "accepted" || order.status === "preparing" ? (
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-purple-500 via-violet-600 to-indigo-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-[0_0_18px_rgba(168,85,247,0.6)] ring-2 ring-purple-300/80">
+                              <StoreIcon className="w-4 h-4 drop-shadow-sm" />
+                              <span className="text-[9px] font-mono leading-none mt-0.5">#{order.id.slice(-4)}</span>
+                            </div>
+                          ) : order.status === "picked_up" ? (
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-[0_0_18px_rgba(6,182,212,0.6)] ring-2 ring-cyan-300/80">
+                              <Bike className="w-4 h-4 drop-shadow-sm" />
+                              <span className="text-[9px] font-mono leading-none mt-0.5">#{order.id.slice(-4)}</span>
+                            </div>
+                          ) : (
+                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xs flex flex-col items-center justify-center shadow-[0_0_18px_rgba(16,185,129,0.6)] ring-2 ring-emerald-300/80">
+                              <Check className="w-4 h-4 drop-shadow-sm" />
+                              <span className="text-[9px] font-mono leading-none mt-0.5">#{order.id.slice(-4)}</span>
+                            </div>
+                          )}
+                          {order.status === "pending" && (
+                            <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,1)]"></span>
+                            </span>
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">

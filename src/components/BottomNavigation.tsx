@@ -66,7 +66,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
             <div className="relative">
               <Home className={`w-5 h-5 ${activeTab === "orders" || activeTab === "home" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
               {activeOrdersCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-xs">
+                <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_10px_rgba(249,115,22,0.85)] ring-2 ring-white">
                   {activeOrdersCount}
                 </span>
               )}
@@ -336,7 +336,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({
           <div className="relative">
             <Clock className={`w-5 h-5 ${activeTab === "archive" || activeTab === "orders" ? "text-orange-600 scale-110" : "text-slate-500"}`} />
             {activeOrdersCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 bg-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-xs">
+              <span className="absolute -top-1.5 -right-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_10px_rgba(249,115,22,0.85)] ring-2 ring-white">
                 {activeOrdersCount}
               </span>
             )}
