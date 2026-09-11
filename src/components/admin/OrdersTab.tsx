@@ -156,7 +156,7 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
 📞 هاتف الزبون: ${order.customerPhone}
 📍 المعلم والعنوان: ${order.addressLandmark} ${order.addressDetails ? `(${order.addressDetails})` : ""}
 💰 المبلغ المطلوب تحصيله: ${order.total.toLocaleString()} ${currency}
-🛵 أجرة التوصيل الخاصة بك: ${order.deliveryFee.toLocaleString()} ${currency}
+🛵 أجرة التوصيل الخاصة بك: ${order.deliveryFee === 0 ? "توصيل مجاني (0)" : `${(order.deliveryFee || 0).toLocaleString()} ${currency}`}
 
 يرجى التوجه للمتجر لاستلام الوجبة وتوصيلها للزبون.`;
 
@@ -344,7 +344,9 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
                         </div>
                         <div className="flex justify-between">
                           <span>أجرة التوصيل:</span>
-                          <span className="font-bold text-blue-600">+{order.deliveryFee.toLocaleString()} {currency}</span>
+                          <span className={`font-bold ${order.deliveryFee === 0 ? "text-emerald-600 font-black" : "text-blue-600"}`}>
+                            {order.deliveryFee === 0 ? "مجاني (0)" : `+${(order.deliveryFee || 0).toLocaleString()} ${currency}`}
+                          </span>
                         </div>
                         {order.discount && order.discount > 0 ? (
                           <div className="flex justify-between text-red-600 font-bold">

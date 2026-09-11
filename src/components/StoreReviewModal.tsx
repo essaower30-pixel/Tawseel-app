@@ -29,6 +29,7 @@ interface StoreReviewModalProps {
 }
 
 const RATING_DESCRIPTIONS: Record<number, { text: string; emoji: string; color: string; bg: string }> = {
+  0: { text: "بدون تقييم محدد (اختياري)", emoji: "⚪", color: "text-slate-600", bg: "bg-slate-100 border-slate-200" },
   1: { text: "سيء جداً وغير راضٍ", emoji: "😞", color: "text-red-600", bg: "bg-red-50 border-red-200" },
   2: { text: "مقبول ودون التوقعات", emoji: "😐", color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
   3: { text: "جيد ومناسب", emoji: "🙂", color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200" },
@@ -104,8 +105,8 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  const activeRating = Math.max(1, Math.min(5, Math.round(hoverRating || rating || 5)));
-  const ratingInfo = RATING_DESCRIPTIONS[activeRating] || RATING_DESCRIPTIONS[5];
+  const activeRating = hoverRating !== null ? hoverRating : (rating !== undefined && rating !== null ? rating : 0);
+  const ratingInfo = RATING_DESCRIPTIONS[activeRating] || RATING_DESCRIPTIONS[0];
 
   const handleToggleTag = (tag: string) => {
     setSelectedTags((prev) => 
@@ -116,7 +117,9 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const finalRating = Math.max(1, Math.min(5, Math.round(Number(rating) || 5)));
+      // Rating is optional and handles 0: if 0 or empty, accepted as 0
+      const rawR = Number(rating);
+      const finalRating = (rating === 0 || isNaN(rawR)) ? 0 : Math.max(0, Math.min(5, Math.round(rawR)));
       const payload: Omit<StoreReview, "id" | "createdAt"> = {
         storeId: storeId || "unknown_store",
         storeName: storeName || "صاحب المهنة",
@@ -212,7 +215,20 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
 
             {/* Star Rating Interactive Selector */}
             <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4.5 text-center space-y-3">
-              <div className="text-xs font-black text-slate-700">اختر عدد النجوم (1 إلى 5):</div>
+              <div className="flex items-center justify-between text-xs font-black text-slate-700">
+                <span>اختر التقييم بالنجوم (اختياري):</span>
+                <button
+                  type="button"
+                  onClick={() => setRating(0)}
+                  className={`text-[11px] px-2.5 py-1 rounded-xl border font-bold transition-all cursor-pointer ${
+                    rating === 0
+                      ? "bg-slate-800 text-white border-slate-800 shadow-xs"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  بدون تقييم / تخطي (0)
+                </button>
+              </div>
               
               <div className="flex items-center justify-center gap-2 sm:gap-3 py-1">
                 {[1, 2, 3, 4, 5].map((star) => {
@@ -221,11 +237,11 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
                     <button
                       key={star}
                       type="button"
-                      onClick={() => setRating(star)}
+                      onClick={() => setRating((prev) => (prev === star ? 0 : star))}
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(null)}
                       className="p-1 sm:p-2 rounded-2xl hover:bg-white hover:scale-115 transition-all cursor-pointer active:scale-95 focus:outline-hidden"
-                      title={`${star} نجوم`}
+                      title={`${star} نجوم (انقر مجدداً لجعله 0)`}
                     >
                       <Star 
                         className={`w-9 h-9 sm:w-10 sm:h-10 transition-colors ${
@@ -247,7 +263,7 @@ export const StoreReviewModal: React.FC<StoreReviewModalProps> = ({
                 className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-black ${ratingInfo.bg} ${ratingInfo.color}`}
               >
                 <span className="text-base">{ratingInfo.emoji}</span>
-                <span>{ratingInfo.text} ({activeRating} من 5 نجوم)</span>
+                <span>{ratingInfo.text} {activeRating > 0 ? `(${activeRating} من 5 نجوم)` : "(0)"}</span>
               </motion.div>
             </div>
 

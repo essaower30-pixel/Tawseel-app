@@ -65,7 +65,7 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
   const currentStore = stores.find((s) => s.id === currentStoreId);
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.totalItemPrice * item.quantity, 0);
-  const deliveryFee = currentStore ? (currentStore.deliveryFee || 5000) : 5000;
+  const deliveryFee = currentStore && currentStore.deliveryFee !== undefined && currentStore.deliveryFee !== null ? Number(currentStore.deliveryFee) : 0;
 
   const calculateDiscount = (coupon: { discountPercent: number; maxDiscount?: number }) => {
     let raw = (subtotal * coupon.discountPercent) / 100;
@@ -475,7 +475,9 @@ export const CartCheckout: React.FC<CartCheckoutProps> = ({
                 </div>
                 <div className="flex justify-between text-slate-600 font-bold">
                   <span>أجور التوصيل:</span>
-                  <span>{deliveryFee.toLocaleString()} ل.س</span>
+                  <span className={deliveryFee === 0 ? "text-emerald-600 font-black" : ""}>
+                    {deliveryFee === 0 ? "توصيل مجاني (0 ل.س)" : `${deliveryFee.toLocaleString()} ل.س`}
+                  </span>
                 </div>
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-emerald-600 font-black bg-emerald-50/80 p-1.5 rounded-xl border border-emerald-100">

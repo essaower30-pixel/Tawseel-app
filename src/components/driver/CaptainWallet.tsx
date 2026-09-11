@@ -73,9 +73,10 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   // Calculations
   const totalDeliveries = myCompletedOrders.length;
   
-  // Total delivery fee earned by driver (default 5000 if not specified)
+  // Total delivery fee earned by driver (handles 0)
   const totalDeliveryEarnings = myCompletedOrders.reduce((sum, o) => {
-    return sum + (o.deliveryFee || 5000);
+    const fee = o.deliveryFee !== undefined && o.deliveryFee !== null ? Number(o.deliveryFee) : 0;
+    return sum + fee;
   }, 0) + (timeFilter === "all" ? (currentDriver.earnings || 0) : 0);
 
   // Total cash collected from customers (orders where paymentMethod is cash)
@@ -89,7 +90,8 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   // Products value owed to stores (Cash collected minus driver's delivery fees)
   const totalStoreDues = myCompletedOrders.reduce((sum, o) => {
     if (o.paymentMethod === "cash" || !o.paymentMethod) {
-      const storeNet = Math.max(0, o.total - (o.deliveryFee || 5000));
+      const fee = o.deliveryFee !== undefined && o.deliveryFee !== null ? Number(o.deliveryFee) : 0;
+      const storeNet = Math.max(0, o.total - fee);
       return sum + storeNet;
     }
     return sum;
@@ -98,7 +100,8 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
   // Electronic payments received directly by admin
   const totalElectronicOrders = myCompletedOrders.reduce((sum, o) => {
     if (o.paymentMethod === "electronic") {
-      return sum + (o.deliveryFee || 5000);
+      const fee = o.deliveryFee !== undefined && o.deliveryFee !== null ? Number(o.deliveryFee) : 0;
+      return sum + fee;
     }
     return sum;
   }, 0);
@@ -294,7 +297,7 @@ export const CaptainWallet: React.FC<CaptainWalletProps> = ({
         ) : (
           <div className="divide-y divide-slate-100 overflow-hidden">
             {myCompletedOrders.map((order) => {
-              const deliveryFeeEarned = order.deliveryFee || 5000;
+              const deliveryFeeEarned = order.deliveryFee !== undefined && order.deliveryFee !== null ? Number(order.deliveryFee) : 0;
               const storeOwed = Math.max(0, order.total - deliveryFeeEarned);
               const isCash = order.paymentMethod === "cash" || !order.paymentMethod;
 

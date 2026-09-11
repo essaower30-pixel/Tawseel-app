@@ -93,19 +93,23 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   // Computed Rating Statistics
   const ratingStats = useMemo(() => {
     if (!storeReviewsList || storeReviewsList.length === 0) {
+      const initialAvg = (store.rating !== undefined && store.rating !== null) ? Number(store.rating) : 0;
       return {
-        average: Number(store.rating || 5.0),
+        average: initialAvg,
         totalCount: store.ratingCount || 0,
         breakdown: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } as Record<number, number>,
         hasReviews: false
       };
     }
-    const sum = storeReviewsList.reduce((acc, curr) => acc + (Number(curr?.rating) || 5), 0);
-    const avg = Number((sum / storeReviewsList.length).toFixed(1));
+    const ratedReviews = storeReviewsList.filter((r) => r && typeof r.rating === "number" && r.rating > 0);
+    const sum = ratedReviews.reduce((acc, curr) => acc + Number(curr.rating), 0);
+    const avg = ratedReviews.length > 0 ? Number((sum / ratedReviews.length).toFixed(1)) : (store.rating !== undefined && store.rating !== null ? Number(store.rating) : 0);
     const breakdown: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     storeReviewsList.forEach((r) => {
-      const star = Math.max(1, Math.min(5, Math.round(Number(r?.rating) || 5)));
-      breakdown[star] = (breakdown[star] || 0) + 1;
+      const star = Math.round(Number(r?.rating) || 0);
+      if (star >= 1 && star <= 5) {
+        breakdown[star] = (breakdown[star] || 0) + 1;
+      }
     });
     return {
       average: avg,
@@ -119,7 +123,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
   const filteredReviews = useMemo(() => {
     return storeReviewsList.filter((r) => {
       if (!r) return false;
-      const numRating = Number(r.rating) || 5;
+      const numRating = typeof r.rating === "number" ? r.rating : (Number(r.rating) || 0);
       if (reviewStarFilter === "5") return Math.round(numRating) === 5;
       if (reviewStarFilter === "4") return numRating >= 4;
       if (reviewStarFilter === "with_comments") return Boolean(r.comment && r.comment.trim().length > 0);
@@ -353,9 +357,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                 title="انقر لعرض آراء وتقييمات الزبائن"
               >
                 <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 group-hover:scale-115 transition-transform" />
-                <span className="font-black text-amber-300">{ratingStats.average}</span>
+                <span className="font-black text-amber-300">{ratingStats.average === 0 ? "0 (جديد)" : ratingStats.average}</span>
                 <span className="text-slate-400 text-[11px]">
-                  ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
+                  ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : (ratingStats.average === 0 ? "بدون تقييم" : "تقييم أولي")})
                 </span>
               </button>
 
@@ -365,7 +369,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
               </div>
 
               <div className="flex items-center gap-1 bg-slate-800/80 px-3 py-1.5 rounded-xl border border-slate-700">
-                <span className="text-orange-400 font-bold">أجور التوصيل: {store.deliveryFee} ل.س</span>
+                <span className="text-orange-400 font-bold">
+                  أجور التوصيل: {store.deliveryFee === 0 || store.deliveryFee === undefined ? "مجاناً (0)" : `${store.deliveryFee.toLocaleString()} ل.س`}
+                </span>
               </div>
 
               {store.workingHours && (
@@ -426,7 +432,7 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
           <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
           <span>تقييمات وآراء الزبائن ({storeReviewsList.length})</span>
           <span className="bg-amber-100 text-amber-800 font-black text-[10px] sm:text-xs px-2 py-0.5 rounded-full">
-            {ratingStats.average} ★
+            {ratingStats.average === 0 ? "0 (جديد)" : `${ratingStats.average} ★`}
           </span>
         </button>
       </div>
@@ -464,9 +470,9 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
                     title="انقر لعرض آراء وتقييمات الزبائن"
                   >
                     <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>{ratingStats.average}</span>
+                    <span>{ratingStats.average === 0 ? "0 (جديد)" : ratingStats.average}</span>
                     <span className="text-amber-700 text-[10px]">
-                      ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : "تقييم أولي"})
+                      ({ratingStats.totalCount > 0 ? `${ratingStats.totalCount} تقييم` : (ratingStats.average === 0 ? "بدون تقييم" : "تقييم أولي")})
                     </span>
                   </button>
                 </div>
@@ -1320,8 +1326,10 @@ export const StoreDetails: React.FC<StoreDetailsProps> = ({
 
                       {/* Stars Badge */}
                       <div className="flex items-center gap-0.5 bg-amber-50 border border-amber-200/70 px-2 py-1 rounded-xl shrink-0">
-                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span className="font-black text-amber-800 text-xs">{Number(rev.rating || 5).toFixed(1)}</span>
+                        <Star className={`w-3.5 h-3.5 ${rev.rating === 0 ? "text-slate-300 stroke-[1.5]" : "text-amber-400 fill-amber-400"}`} />
+                        <span className="font-black text-amber-800 text-xs">
+                          {rev.rating !== undefined && rev.rating !== null ? (rev.rating === 0 ? "0 (بدون تقييم)" : Number(rev.rating).toFixed(1)) : "0 (بدون تقييم)"}
+                        </span>
                       </div>
                     </div>
 

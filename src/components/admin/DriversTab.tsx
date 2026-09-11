@@ -46,6 +46,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
   const [phone, setPhone] = useState("");
   const [vehicle, setVehicle] = useState("دراجة نارية سوزوكي");
   const [pin, setPin] = useState("1111");
+  const [rating, setRating] = useState<string | number>("0");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleOpenAddModal = () => {
@@ -55,6 +56,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     setPhone("");
     setVehicle("دراجة نارية سوزوكي");
     setPin("1111");
+    setRating("0");
     setShowModal(true);
   };
 
@@ -65,6 +67,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     setPhone(driver.phone);
     setVehicle(driver.vehicle || "دراجة نارية سوزوكي");
     setPin(driver.pin || driver.password || "1111");
+    setRating(driver.rating !== undefined && driver.rating !== null ? driver.rating : 0);
     setShowModal(true);
   };
 
@@ -77,6 +80,11 @@ export const DriversTab: React.FC<DriversTabProps> = ({
     const cleanName = name.trim();
     const cleanUsername = username.trim() || normalizedPhone;
 
+    // Rating is optional and handles 0: if left empty or 0, accepted as 0
+    const rawRating = typeof rating === "string" ? rating.trim() : rating;
+    const parsedRating = (rawRating === "" || rawRating === null || rawRating === undefined) ? 0 : Number(rawRating);
+    const finalRating = isNaN(parsedRating) ? 0 : Math.max(0, Math.min(5, parsedRating));
+
     if (editingDriver) {
       onUpdateDriver({
         ...editingDriver,
@@ -84,7 +92,8 @@ export const DriversTab: React.FC<DriversTabProps> = ({
         username: cleanUsername,
         phone: normalizedPhone,
         vehicle: vehicle.trim(),
-        pin: normalizedPin
+        pin: normalizedPin,
+        rating: finalRating
       });
     } else {
       onAddDriver({
@@ -97,7 +106,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
         status: "available",
         totalDeliveries: 0,
         earnings: 0,
-        rating: 5.0,
+        rating: finalRating,
         createdAt: new Date().toISOString()
       });
     }
@@ -259,7 +268,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                     <span className="text-[10px] text-slate-400 font-bold block">التقييم</span>
                     <span className="font-black text-xs text-amber-600 flex items-center justify-center gap-0.5">
                       <Star className="w-3 h-3 fill-amber-400" />
-                      {driver.rating || 5.0}
+                      {driver.rating !== undefined && driver.rating !== null ? (driver.rating === 0 ? "0 (جديد)" : driver.rating) : "0 (جديد)"}
                     </span>
                   </div>
                 </div>
@@ -412,6 +421,20 @@ export const DriversTab: React.FC<DriversTabProps> = ({
                   onChange={(e) => setVehicle(e.target.value)}
                   placeholder="دراجة نارية سوزوكي / سكوتر كهربائي / سيارة"
                   className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">التقييم العام <span className="text-xs font-normal text-amber-600">(اختياري - يقبل 0 أو تركه فارغاً):</span></label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="5"
+                  value={rating}
+                  onChange={(e) => setRating(e.target.value)}
+                  placeholder="0 أو فارغ (0 - 5)"
+                  className="w-full py-2.5 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                 />
               </div>
 

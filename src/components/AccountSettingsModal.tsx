@@ -68,6 +68,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   // Specific extra role states
   const [storeName, setStoreName] = useState(currentStore?.name || "");
   const [storeHours, setStoreHours] = useState(currentStore?.workingHours || "9:00 ص - 11:00 م");
+  const [storeDeliveryFee, setStoreDeliveryFee] = useState<string | number>(
+    currentStore?.deliveryFee !== undefined && currentStore?.deliveryFee !== null ? currentStore.deliveryFee : 0
+  );
   const [driverVehicle, setDriverVehicle] = useState(currentDriver?.vehicle || "دراجة نارية");
   const [customerAddress, setCustomerAddress] = useState(
     () => localStorage.getItem("tw_saved_customer_address") || "وسط البلد - بجانب المسجد الكبير"
@@ -109,6 +112,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       if (currentStore) {
         setStoreName(currentStore.name || "");
         setStoreHours(currentStore.workingHours || "9:00 ص - 11:00 م");
+        setStoreDeliveryFee(currentStore.deliveryFee !== undefined && currentStore.deliveryFee !== null ? currentStore.deliveryFee : 0);
       }
       if (currentDriver) {
         setDriverVehicle(currentDriver.vehicle || "دراجة نارية");
@@ -178,9 +182,15 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         role: userRole
       };
 
+      // Delivery fee is optional and handles 0: if left empty or 0, accepted as 0
+      const rawFee = typeof storeDeliveryFee === "string" ? storeDeliveryFee.trim() : storeDeliveryFee;
+      const parsedFee = (rawFee === "" || rawFee === null || rawFee === undefined) ? 0 : Number(rawFee);
+      const finalDeliveryFee = isNaN(parsedFee) ? 0 : Math.max(0, parsedFee);
+
       const extraData: any = {
         storeName: storeName.trim(),
         storeHours: storeHours.trim(),
+        deliveryFee: finalDeliveryFee,
         driverVehicle: driverVehicle.trim(),
         customerAddress: customerAddress.trim()
       };
@@ -524,6 +534,22 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                   value={storeHours}
                   onChange={(e) => setStoreHours(e.target.value)}
                   placeholder="مثال: 9:00 ص - 11:30 م"
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                  <span>أجرة التوصيل للزبائن:</span>
+                  <span className="text-[10px] text-emerald-600 font-normal">(اختياري - 0 أو فارغ = مجاني)</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={storeDeliveryFee}
+                  onChange={(e) => setStoreDeliveryFee(e.target.value)}
+                  placeholder="0 أو فارغ (توصيل مجاني)"
                   className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                 />
               </div>

@@ -86,9 +86,9 @@ export const StoresTab: React.FC<StoresTabProps> = ({
   const [name, setName] = useState("");
   const [category, setCategory] = useState("restaurants");
   const [image, setImage] = useState("");
-  const [rating, setRating] = useState(4.8);
+  const [rating, setRating] = useState<string | number>(4.8);
   const [deliveryTime, setDeliveryTime] = useState("20-30 دقيقة");
-  const [deliveryFee, setDeliveryFee] = useState(5000);
+  const [deliveryFee, setDeliveryFee] = useState<string | number>(5000);
   const [contactPhone, setContactPhone] = useState("");
   const [description, setDescription] = useState("");
   const [workingHours, setWorkingHours] = useState("09:00 ص - 11:00 م");
@@ -157,9 +157,9 @@ export const StoresTab: React.FC<StoresTabProps> = ({
     setName("");
     setCategory(categories[0]?.id || "restaurants");
     setImage("https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60");
-    setRating(4.8);
+    setRating("5");
     setDeliveryTime("20-30 دقيقة");
-    setDeliveryFee(5000);
+    setDeliveryFee("");
     setContactPhone("0991234567");
     setDescription("");
     setWorkingHours("09:00 ص - 11:00 م");
@@ -179,9 +179,9 @@ export const StoresTab: React.FC<StoresTabProps> = ({
     setName(st.name);
     setCategory(st.category);
     setImage(st.image);
-    setRating(st.rating || 4.8);
+    setRating(st.rating !== undefined && st.rating !== null ? st.rating : 0);
     setDeliveryTime(st.deliveryTime || "20-30 دقيقة");
-    setDeliveryFee(st.deliveryFee || 5000);
+    setDeliveryFee(st.deliveryFee !== undefined && st.deliveryFee !== null ? st.deliveryFee : 0);
     setContactPhone(st.contactPhone || st.ownerPhone || "");
     const cleanDesc = (st.description && (st.description.includes("بانتظار اعتماد") || st.description.includes("بانتظار الاعتماد")))
       ? (st.category === "food" || st.name.includes("مواد") || st.name.includes("سوبرماركت") ? "متجر مواد غذائية وتموينية طازجة معتمد في المنصة" : "متجر معتمد ونشط في المنصة")
@@ -208,14 +208,24 @@ export const StoresTab: React.FC<StoresTabProps> = ({
         : "متجر معتمد ونشط في المنصة";
     }
 
+    // Delivery fee is optional and handles 0: if left empty or 0, accepted as 0 (free delivery)
+    const rawFee = typeof deliveryFee === "string" ? deliveryFee.trim() : deliveryFee;
+    const parsedFee = (rawFee === "" || rawFee === null || rawFee === undefined) ? 0 : Number(rawFee);
+    const finalDeliveryFee = isNaN(parsedFee) ? 0 : Math.max(0, parsedFee);
+
+    // Rating is optional and handles 0: if left empty or 0, accepted as 0
+    const rawRating = typeof rating === "string" ? rating.trim() : rating;
+    const parsedRating = (rawRating === "" || rawRating === null || rawRating === undefined) ? 0 : Number(rawRating);
+    const finalRating = isNaN(parsedRating) ? 0 : Math.max(0, Math.min(5, parsedRating));
+
     const storePayload: Store = {
       id: editingStore ? editingStore.id : "store_" + Date.now(),
       name: name.trim(),
       category,
       image: image || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&auto=format&fit=crop&q=60",
-      rating,
+      rating: finalRating,
       deliveryTime,
-      deliveryFee: Number(deliveryFee),
+      deliveryFee: finalDeliveryFee,
       locationNode: "center",
       contactPhone: contactPhone || ownerPhone || "0991234567",
       description: finalDesc,
@@ -683,12 +693,14 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                     <div className="flex items-center gap-2 text-[10px] text-slate-500 font-bold mt-1.5 flex-wrap">
                       <span className="flex items-center gap-0.5 text-amber-500">
                         <Star className="w-3 h-3 fill-amber-400" />
-                        {st.rating || 4.8}
+                        {st.rating !== undefined && st.rating !== null ? (st.rating === 0 ? "0 (جديد)" : st.rating) : "0 (جديد)"}
                       </span>
                       <span>•</span>
                       <span>{st.deliveryTime || "25 دقيقة"}</span>
                       <span>•</span>
-                      <span className="text-orange-600 font-black">{st.deliveryFee || 5000} {currency}</span>
+                      <span className="text-orange-600 font-black">
+                        {st.deliveryFee === 0 || st.deliveryFee === undefined ? "توصيل مجاني" : `${st.deliveryFee.toLocaleString()} ${currency}`}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1009,27 +1021,36 @@ export const StoresTab: React.FC<StoresTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1 text-slate-700">أجرة التوصيل ({currency}):</label>
+                  <label className="block font-bold mb-1 text-slate-700">
+                    أجرة التوصيل ({currency}) <span className="text-xs font-normal text-emerald-600">(اختياري):</span>
+                  </label>
                   <input
                     type="number"
+                    min="0"
+                    step="any"
                     value={deliveryFee}
-                    onChange={(e) => setDeliveryFee(Number(e.target.value))}
-                    placeholder="5000"
+                    onChange={(e) => setDeliveryFee(e.target.value)}
+                    placeholder="0 أو فارغ (مجاني)"
                     className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">إذا تُرِك فارغاً أو 0، يُقبل كتوصيل مجاني تلقائياً.</p>
                 </div>
 
                 <div>
-                  <label className="block font-bold mb-1 text-slate-700">التقييم العام:</label>
+                  <label className="block font-bold mb-1 text-slate-700">
+                    التقييم العام <span className="text-xs font-normal text-amber-600">(اختياري):</span>
+                  </label>
                   <input
                     type="number"
                     step="0.1"
-                    min="1"
+                    min="0"
                     max="5"
                     value={rating}
-                    onChange={(e) => setRating(Number(e.target.value))}
+                    onChange={(e) => setRating(e.target.value)}
+                    placeholder="0 أو فارغ (0 - 5)"
                     className="w-full py-2.5 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">يقبل 0 أو تركه فارغاً للمتاجر الجديدة دون أي مانع.</p>
                 </div>
               </div>
 

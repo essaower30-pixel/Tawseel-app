@@ -241,7 +241,9 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
     }
 
     const budgetVal = estimatedBudget ? parseFloat(estimatedBudget) : undefined;
-    const storeDeliveryFee = selectedStore.deliveryFee || 5000;
+    const storeDeliveryFee = selectedStore && selectedStore.deliveryFee !== undefined && selectedStore.deliveryFee !== null
+      ? Number(selectedStore.deliveryFee)
+      : 0;
 
     onSubmit({
       storeId: selectedStore.id,
@@ -323,8 +325,8 @@ export const CustomStoreOrderModal: React.FC<CustomStoreOrderModalProps> = ({
                 <span>اختر المتجر المطلوب الشراء منه: *</span>
               </label>
               {selectedStore && (
-                <span className="text-[11px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-lg">
-                  أجرة التوصيل: {selectedStore.deliveryFee?.toLocaleString() || 5000} {currency}
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-lg ${selectedStore.deliveryFee === 0 ? "bg-emerald-100 text-emerald-800" : "text-orange-700 bg-orange-100"}`}>
+                  أجرة التوصيل: {selectedStore.deliveryFee === 0 || selectedStore.deliveryFee === undefined ? "مجاني (0)" : `${selectedStore.deliveryFee.toLocaleString()} ${currency}`}
                 </span>
               )}
             </div>

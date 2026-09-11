@@ -618,9 +618,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           : safeCategory === "butcher"
           ? "https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=500&auto=format&fit=crop&q=60"
           : "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&auto=format&fit=crop&q=60",
-      rating: 5,
+      rating: 0,
       deliveryTime: "30-40 دقيقة",
-      deliveryFee: 5,
+      deliveryFee: 0,
       locationNode: "center",
       ownerPhone: phone,
       contactPhone: phone,

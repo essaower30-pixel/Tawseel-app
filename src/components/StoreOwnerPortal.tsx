@@ -114,7 +114,10 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
       ownerPhone: updatedProfile.phone,
       ownerPin: updatedProfile.pin,
       contactPhone: updatedProfile.phone || currentStore.contactPhone,
-      workingHours: extraData?.storeHours || currentStore.workingHours
+      workingHours: extraData?.storeHours || currentStore.workingHours,
+      deliveryFee: extraData?.deliveryFee !== undefined && extraData?.deliveryFee !== null
+        ? Number(extraData.deliveryFee)
+        : currentStore.deliveryFee
     };
     onUpdateStore(updatedStore);
 
@@ -463,7 +466,7 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
               <p className="text-slate-400 text-xs font-semibold mt-0.5 flex items-center gap-2">
                 <span>هاتف المتجر: <strong className="font-mono text-slate-200">{currentStore.contactPhone || userProfile.phone}</strong></span>
                 <span>•</span>
-                <span>أجرة التوصيل: {currentStore.deliveryFee.toLocaleString()} {currency}</span>
+                <span>أجرة التوصيل: {currentStore.deliveryFee === 0 || currentStore.deliveryFee === undefined ? "توصيل مجاني (0)" : `${currentStore.deliveryFee.toLocaleString()} ${currency}`}</span>
               </p>
             </div>
           </div>

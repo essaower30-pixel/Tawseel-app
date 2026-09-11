@@ -176,7 +176,9 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
                 <span>•</span>
                 <span className="font-mono text-slate-300">{currentDriver.phone}</span>
                 <span>•</span>
-                <span className="text-amber-400 font-black">⭐ {currentDriver.rating || 5.0}</span>
+                <span className="text-amber-400 font-black">
+                  ⭐ {currentDriver.rating !== undefined && currentDriver.rating !== null ? (currentDriver.rating === 0 ? "0 (جديد)" : currentDriver.rating) : "0 (جديد)"}
+                </span>
               </p>
             </div>
           </div>
@@ -588,7 +590,7 @@ export const DriverPortal: React.FC<DriverPortalProps> = ({
                       الزبون: <strong>{order.customerName}</strong> | المعلم: <strong className="text-orange-600">{order.addressLandmark}</strong>
                     </p>
                     <p className="text-xs text-slate-600 font-bold">
-                      قيمة الطلب: {order.total.toLocaleString()} {currency} (أجرة التوصيل: {order.deliveryFee.toLocaleString()} {currency})
+                      قيمة الطلب: {order.total.toLocaleString()} {currency} (أجرة التوصيل: {order.deliveryFee === 0 || order.deliveryFee === undefined ? "مجاناً" : `${order.deliveryFee.toLocaleString()} ${currency}`})
                     </p>
                   </div>
 

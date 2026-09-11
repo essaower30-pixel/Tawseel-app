@@ -40,6 +40,7 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
   const [neighborhood, setNeighborhood] = useState("وسط البلد");
   const [description, setDescription] = useState("");
   const [availability, setAvailability] = useState<"available" | "busy" | "offline">("available");
+  const [rating, setRating] = useState<string | number>("0");
 
   const craftTypes = [
     "سباك وتمديدات صحية",
@@ -64,6 +65,7 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
     setNeighborhood("وسط البلد");
     setDescription("");
     setAvailability("available");
+    setRating("0");
     setShowModal(true);
   };
 
@@ -75,12 +77,18 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
     setNeighborhood(c.neighborhood);
     setDescription(c.description || "");
     setAvailability(c.availability || "available");
+    setRating(c.rating !== undefined && c.rating !== null ? c.rating : 0);
     setShowModal(true);
   };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim()) return;
+
+    // Rating is optional and handles 0: if left empty or 0, accepted as 0
+    const rawRating = typeof rating === "string" ? rating.trim() : rating;
+    const parsedRating = (rawRating === "" || rawRating === null || rawRating === undefined) ? 0 : Number(rawRating);
+    const finalRating = isNaN(parsedRating) ? 0 : Math.max(0, Math.min(5, parsedRating));
 
     if (editingCraftsman) {
       onUpdateCraftsman({
@@ -90,7 +98,8 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
         phone: phone.trim(),
         neighborhood: neighborhood.trim(),
         description: description.trim(),
-        availability
+        availability,
+        rating: finalRating
       });
     } else {
       onAddCraftsman({
@@ -101,7 +110,7 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
         neighborhood: neighborhood.trim(),
         description: description.trim(),
         availability,
-        rating: 5.0
+        rating: finalRating
       });
     }
 
@@ -205,7 +214,7 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
                   </span>
                   <span className="flex items-center gap-1 font-bold text-amber-500 text-[11px]">
                     <Star className="w-3 h-3 fill-amber-400" />
-                    {craftsman.rating || 5.0}
+                    {craftsman.rating !== undefined && craftsman.rating !== null ? (craftsman.rating === 0 ? "0 (جديد)" : craftsman.rating) : "0 (جديد)"}
                   </span>
                 </div>
               </div>
@@ -319,6 +328,20 @@ export const CraftsmenTab: React.FC<CraftsmenTabProps> = ({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="تصليح وصيانة كافة الأعطال المنزلية والورشات..."
                   className="w-full py-2 px-3 bg-slate-50 border rounded-xl focus:outline-hidden focus:border-orange-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">التقييم العام <span className="text-xs font-normal text-amber-600">(اختياري - يقبل 0 أو تركه فارغاً):</span></label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="5"
+                  value={rating}
+                  onChange={(e) => setRating(e.target.value)}
+                  placeholder="0 أو فارغ (0 - 5)"
+                  className="w-full py-2 px-3 bg-slate-50 border rounded-xl font-bold focus:outline-hidden focus:border-orange-500"
                 />
               </div>
 

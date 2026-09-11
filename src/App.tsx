@@ -635,7 +635,9 @@ export default function App() {
 
   const handleAddReview = (newRev: Omit<StoreReview, "id" | "createdAt">) => {
     try {
-      const finalRating = Math.max(1, Math.min(5, Math.round(Number(newRev.rating) || 5)));
+      // Rating is optional and handles 0: if empty or 0, accepted as 0
+      const rawR = Number(newRev.rating);
+      const finalRating = (newRev.rating === 0 || isNaN(rawR)) ? 0 : Math.max(0, Math.min(5, Math.round(rawR)));
       const review: StoreReview = {
         ...newRev,
         id: `rev_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -656,8 +658,14 @@ export default function App() {
               (r) => r && (r.storeId === st.id || (st.name && r.storeName === st.name))
             );
             const storeReviews = [...currentStoreReviews, review];
-            const sum = storeReviews.reduce((acc, curr) => acc + (Number(curr?.rating) || 5), 0);
-            const newAvg = Number((sum / storeReviews.length).toFixed(1));
+            const ratedReviews = storeReviews.filter((r) => r && typeof r.rating === "number" && r.rating > 0);
+            let newAvg = 0;
+            if (ratedReviews.length > 0) {
+              const sum = ratedReviews.reduce((acc, curr) => acc + Number(curr.rating), 0);
+              newAvg = Number((sum / ratedReviews.length).toFixed(1));
+            } else {
+              newAvg = 0;
+            }
             const updatedStore: Store = {
               ...st,
               rating: newAvg,
@@ -1126,7 +1134,7 @@ export default function App() {
       name: driver.name.startsWith("الكابتن") || driver.name.startsWith("كابتن") ? driver.name : `الكابتن ${driver.name}`,
       category: "drivers",
       image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
-      rating: driver.rating || 5.0,
+      rating: driver.rating !== undefined && driver.rating !== null ? driver.rating : 0,
       deliveryTime: "طلب فوري",
       deliveryFee: 0,
       locationNode: "center",
@@ -1209,7 +1217,7 @@ export default function App() {
           name: storeName,
           category: "drivers",
           image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=500&auto=format&fit=crop&q=60",
-          rating: driver.rating || 5.0,
+          rating: driver.rating !== undefined && driver.rating !== null ? driver.rating : 0,
           deliveryTime: "طلب فوري",
           deliveryFee: 0,
           locationNode: "center",
@@ -2370,8 +2378,10 @@ export default function App() {
   const handleCheckout = async (orderData: any) => {
     const store = stores.find((s) => s.id === orderData.storeId);
     const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-    const deliveryFee = store ? store.deliveryFee : 5;
-    const total = subtotal + deliveryFee;
+    const deliveryFee = orderData.deliveryFee !== undefined && orderData.deliveryFee !== null
+      ? Number(orderData.deliveryFee)
+      : (store && store.deliveryFee !== undefined && store.deliveryFee !== null ? Number(store.deliveryFee) : 0);
+    const total = orderData.total !== undefined ? Number(orderData.total) : (subtotal + deliveryFee);
     const orderId = orderData.id || "tw-" + Math.floor(Math.random() * 90000 + 10000);
 
     const newOrder: Order = {
@@ -2481,8 +2491,8 @@ export default function App() {
       createdAt: new Date().toISOString(),
       items: [],
       subtotal: 0,
-      deliveryFee: 5,
-      total: 5,
+      deliveryFee: customData.deliveryFee !== undefined && customData.deliveryFee !== null ? Number(customData.deliveryFee) : 0,
+      total: customData.total !== undefined ? Number(customData.total) : (customData.deliveryFee !== undefined && customData.deliveryFee !== null ? Number(customData.deliveryFee) : 0),
       storeId: customData.storeId || "custom_order",
       storeName: customData.storeName || "طلب مخصص",
       customerName: customData.customerName || userProfile?.name || "زبون القرية",
@@ -3497,7 +3507,7 @@ export default function App() {
                             />
                             <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-slate-900/85 backdrop-blur-md text-white font-extrabold text-[8px] sm:text-[10px] py-0.5 px-1.5 sm:py-1 sm:px-2.5 rounded-full flex items-center gap-1 shadow">
                               <Star className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-orange-400 fill-current" />
-                              <span>{store.rating}</span>
+                              <span>{store.rating !== undefined && store.rating !== null ? (store.rating === 0 ? "0 (جديد)" : store.rating) : "0 (جديد)"}</span>
                             </div>
                           </div>
 
@@ -3531,8 +3541,8 @@ export default function App() {
                               </div>
                               <div className="flex items-center gap-0.5 sm:gap-1 font-bold text-slate-700 truncate">
                                 <Bike className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-orange-500 shrink-0" />
-                                <span className="truncate">
-                                  {store.isService ? "خدمة فورية" : `${store.deliveryFee} ل.س`}
+                                <span className={`truncate ${store.deliveryFee === 0 ? "text-emerald-600 font-black" : ""}`}>
+                                  {store.isService ? "خدمة فورية" : (store.deliveryFee === 0 || store.deliveryFee === undefined ? "توصيل مجاني" : `${store.deliveryFee.toLocaleString()} ل.س`)}
                                 </span>
                               </div>
                             </div>
