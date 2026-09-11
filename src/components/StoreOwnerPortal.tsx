@@ -1189,11 +1189,11 @@ export const StoreOwnerPortal: React.FC<StoreOwnerPortalProps> = ({
                         <h4 className="font-black text-slate-900 text-sm">{prod.name}</h4>
                         <div className="text-left shrink-0">
                           <span className="font-black text-sm text-orange-600 font-mono">
-                            {prod.price.toLocaleString()} {currency}
+                            {(Number(prod.price) || 0).toLocaleString()} {currency}
                           </span>
                           {prod.isOffer && prod.originalPrice && (
                             <span className="block text-[10px] text-slate-400 line-through font-mono">
-                              {prod.originalPrice.toLocaleString()} {currency}
+                              {(Number(prod.originalPrice) || 0).toLocaleString()} {currency}
                             </span>
                           )}
                         </div>

@@ -10,7 +10,8 @@ import {
   Bike, 
   Store as StoreIcon, 
   Sparkles,
-  Music
+  Music,
+  Check
 } from "lucide-react";
 import { Order } from "../types";
 import { 
@@ -84,7 +85,19 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
 
             <div className="flex items-start gap-3">
               {/* Icon Badge */}
-              <div className="w-11 h-11 rounded-2xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/30 animate-bounce-slow">
+              <div
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                  toast.type === "warning"
+                    ? "bg-amber-500 text-white shadow-amber-500/30"
+                    : toast.type === "new_order"
+                    ? "bg-orange-500 text-white shadow-orange-500/30 animate-bounce-slow"
+                    : toast.type === "driver_assigned"
+                    ? "bg-blue-500 text-white shadow-blue-500/30"
+                    : toast.type === "success"
+                    ? "bg-emerald-500 text-white shadow-emerald-500/30"
+                    : "bg-orange-500 text-white shadow-orange-500/30"
+                }`}
+              >
                 {toast.type === "new_order" ? (
                   <ShoppingBag className="w-6 h-6" />
                 ) : toast.type === "driver_assigned" ? (
@@ -107,6 +120,14 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                       <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">
                         التطبيق نشط ⚡
                       </span>
+                    ) : toast.type === "warning" ? (
+                      <span className="bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-500/30">
+                        تنبيه 🔒
+                      </span>
+                    ) : toast.type === "success" ? (
+                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">
+                        نجاح ✅
+                      </span>
                     ) : (
                       <span className="bg-orange-500/20 text-orange-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-orange-500/30">
                         {currentRole === "admin"
@@ -115,7 +136,9 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                           ? "إشعار المتجر 🏪"
                           : currentRole === "driver"
                           ? "إشعار الكابتن 🛵"
-                          : `طلب #${toast.order.id}`}
+                          : toast.order?.id
+                          ? `طلب #${toast.order.id}`
+                          : "إشعار 🔔"}
                       </span>
                     )}
 
@@ -131,7 +154,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                   <button
                     type="button"
                     onClick={() => onDismiss(toast.id)}
-                    className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition-colors"
+                    className="text-slate-400 hover:text-white p-1 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -141,21 +164,21 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                   {toast.message}
                 </p>
 
-                {/* Details summary (only for real orders) */}
-                {toast.type !== "info" && toast.order.id !== "tw-live" && (
+                {/* Details summary (only for real orders with valid order object) */}
+                {Boolean(toast.order && toast.order.id && toast.order.id !== "tw-live") && (
                   <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-300 flex-wrap">
-                    {toast.order.storeName && (
+                    {toast.order?.storeName && (
                       <span className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
                         <StoreIcon className="w-3 h-3 text-orange-400" />
                         {toast.order.storeName}
                       </span>
                     )}
-                    {toast.order.total !== undefined && toast.order.total > 0 && (
+                    {toast.order?.total !== undefined && toast.order.total > 0 && (
                       <span className="font-black text-orange-400 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
                         {toast.order.total.toLocaleString()} ل.س
                       </span>
                     )}
-                    {toast.order.customerName && (
+                    {toast.order?.customerName && (
                       <span className="text-slate-400">
                         👤 {toast.order.customerName}
                       </span>
@@ -165,7 +188,12 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between gap-2 pt-2.5 mt-1 border-t border-slate-800">
-                  {toast.type === "info" || toast.order.id === "tw-live" ? (
+                  {!toast.order ||
+                  !toast.order.id ||
+                  toast.order.id === "tw-live" ||
+                  toast.type === "info" ||
+                  toast.type === "warning" ||
+                  toast.type === "success" ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -175,18 +203,21 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({
                           onDismiss(toast.id);
                         }
                       }}
-                      className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 bg-slate-800 hover:bg-slate-700 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700"
                     >
-                      <span>حسناً، التطبيق قيد العمل بنجاح ✓</span>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>حسناً، تم ✓</span>
                     </button>
                   ) : (
                     <button
                       type="button"
                       onClick={() => {
-                        onViewOrder(toast.order);
+                        if (toast.order) {
+                          onViewOrder(toast.order);
+                        }
                         onDismiss(toast.id);
                       }}
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5"
+                      className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-xs font-black py-2 px-3 rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>
                         {currentRole === "admin"

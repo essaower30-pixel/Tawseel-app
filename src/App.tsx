@@ -3094,44 +3094,46 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <React.Suspense fallback={<div className="flex items-center justify-center min-h-[300px] text-slate-500 font-bold">جاري تحميل لوحة المتجر...</div>}>
-                <StoreOwnerPortal
-                  storeId={
-                    currentStoreId ||
-                    userProfile?.storeId ||
-                    (userProfile?.phone
-                      ? stores.find((s) => {
-                          const uPhone = (userProfile.phone || "").replace(/[^0-9]/g, "");
-                          return (
-                            (s.ownerPhone && s.ownerPhone.replace(/[^0-9]/g, "") === uPhone) ||
-                            (s.contactPhone && s.contactPhone.replace(/[^0-9]/g, "") === uPhone) ||
-                            (userProfile.name && s.name.includes(userProfile.name))
-                          );
-                        })?.id
-                      : null) ||
-                    stores[0]?.id ||
-                    "store_owner"
-                  }
-                  stores={stores}
-                  products={products}
-                  orders={allOrders}
-                  categories={categories}
-                  userProfile={userProfile!}
-                  broadcasts={storeBroadcasts}
-                  onUpdateStore={handleUpdateStore}
-                  onAddProduct={handleAddNewProduct}
-                  onUpdateProduct={handleUpdateProduct}
-                  onDeleteProduct={handleDeleteProduct}
-                  onUpdateOrderStatus={handleUpdateOrderStatus}
-                  onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
-                  onLogout={handleLogout}
-                  onBackToCustomerView={() => {
-                    setUserRole("customer");
-                    setCurrentStoreId(null);
-                  }}
-                  currency="ل.س"
-                />
-              </React.Suspense>
+              <ErrorBoundary fallbackTitle="تنبيه في لوحة تحكم المتجر 🛠️">
+                <React.Suspense fallback={<div className="flex items-center justify-center min-h-[300px] text-slate-500 font-bold">جاري تحميل لوحة المتجر...</div>}>
+                  <StoreOwnerPortal
+                    storeId={
+                      currentStoreId ||
+                      userProfile?.storeId ||
+                      (userProfile?.phone
+                        ? stores.find((s) => {
+                            const uPhone = (userProfile.phone || "").replace(/[^0-9]/g, "");
+                            return (
+                              (s.ownerPhone && s.ownerPhone.replace(/[^0-9]/g, "") === uPhone) ||
+                              (s.contactPhone && s.contactPhone.replace(/[^0-9]/g, "") === uPhone) ||
+                              (userProfile.name && s.name.includes(userProfile.name))
+                            );
+                          })?.id
+                        : null) ||
+                      stores[0]?.id ||
+                      "store_owner"
+                    }
+                    stores={stores}
+                    products={products}
+                    orders={allOrders}
+                    categories={categories}
+                    userProfile={userProfile!}
+                    broadcasts={storeBroadcasts}
+                    onUpdateStore={handleUpdateStore}
+                    onAddProduct={handleAddNewProduct}
+                    onUpdateProduct={handleUpdateProduct}
+                    onDeleteProduct={handleDeleteProduct}
+                    onUpdateOrderStatus={handleUpdateOrderStatus}
+                    onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
+                    onLogout={handleLogout}
+                    onBackToCustomerView={() => {
+                      setUserRole("customer");
+                      setCurrentStoreId(null);
+                    }}
+                    currency="ل.س"
+                  />
+                </React.Suspense>
+              </ErrorBoundary>
             </motion.div>
           ) : isAdminMode && userRole === "admin" ? (
             <motion.div
