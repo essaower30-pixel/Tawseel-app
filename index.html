@@ -66,24 +66,26 @@
         window.dispatchEvent(new CustomEvent('pwaInstallPromptReady'));
       });
 
-      // Register Service Worker ONLY on production GitHub Pages
-      if ('serviceWorker' in navigator && window.location.hostname.includes('github.io')) {
-        window.addEventListener('load', () => {
-          const swPath = window.location.pathname.startsWith('/Tawseel-app') 
-            ? '/Tawseel-app/sw.js' 
-            : './sw.js';
-          const swScope = window.location.pathname.startsWith('/Tawseel-app') 
-            ? '/Tawseel-app/' 
-            : './';
-          navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
-            reg.update();
-            setInterval(() => {
+      // Register Service Worker on production, PWA standalone, and live domains
+      if ('serviceWorker' in navigator) {
+        const isLocalDev = window.location.hostname === 'localhost' || window.location.port === '5173';
+        const isIframePreview = window.self !== window.top && !window.location.search.includes('enable_sw');
+
+        if (!isLocalDev && !isIframePreview) {
+          window.addEventListener('load', () => {
+            const isGhPages = window.location.pathname.startsWith('/Tawseel-app');
+            const swPath = isGhPages ? '/Tawseel-app/sw.js' : './sw.js';
+            const swScope = isGhPages ? '/Tawseel-app/' : './';
+            navigator.serviceWorker.register(swPath, { scope: swScope }).then((reg) => {
               reg.update();
-            }, 60000);
-          }).catch((err) => {
-            console.warn('SW registration:', err);
+              setInterval(() => {
+                reg.update();
+              }, 120000);
+            }).catch((err) => {
+              console.warn('SW registration notice:', err);
+            });
           });
-        });
+        }
       }
     </script>
   </body>

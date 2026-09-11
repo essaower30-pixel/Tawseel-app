@@ -51,9 +51,9 @@ import { AuthModal } from "./components/AuthModal";
 import { StoreDetails } from "./components/StoreDetails";
 import { CartCheckout } from "./components/CartCheckout";
 import { OrderTracker } from "./components/OrderTracker";
-import { Dashboard } from "./components/Dashboards";
-import { DriverPortal } from "./components/DriverPortal";
-import { StoreOwnerPortal } from "./components/StoreOwnerPortal";
+const Dashboard = React.lazy(() => import("./components/Dashboards").then((m) => ({ default: m.Dashboard })));
+const DriverPortal = React.lazy(() => import("./components/DriverPortal").then((m) => ({ default: m.DriverPortal })));
+const StoreOwnerPortal = React.lazy(() => import("./components/StoreOwnerPortal").then((m) => ({ default: m.StoreOwnerPortal })));
 import { CustomerOrdersArchiveModal } from "./components/CustomerOrdersArchiveModal";
 import { InstallPromptModal } from "./components/InstallPromptModal";
 import { CustomStoreOrderModal } from "./components/CustomStoreOrderModal";
@@ -2956,42 +2956,44 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <StoreOwnerPortal
-                storeId={
-                  currentStoreId ||
-                  userProfile?.storeId ||
-                  (userProfile?.phone
-                    ? stores.find((s) => {
-                        const uPhone = (userProfile.phone || "").replace(/[^0-9]/g, "");
-                        return (
-                          (s.ownerPhone && s.ownerPhone.replace(/[^0-9]/g, "") === uPhone) ||
-                          (s.contactPhone && s.contactPhone.replace(/[^0-9]/g, "") === uPhone) ||
-                          (userProfile.name && s.name.includes(userProfile.name))
-                        );
-                      })?.id
-                    : null) ||
-                  stores[0]?.id ||
-                  "store_owner"
-                }
-                stores={stores}
-                products={products}
-                orders={allOrders}
-                categories={categories}
-                userProfile={userProfile!}
-                broadcasts={storeBroadcasts}
-                onUpdateStore={handleUpdateStore}
-                onAddProduct={handleAddNewProduct}
-                onUpdateProduct={handleUpdateProduct}
-                onDeleteProduct={handleDeleteProduct}
-                onUpdateOrderStatus={handleUpdateOrderStatus}
-                onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
-                onLogout={handleLogout}
-                onBackToCustomerView={() => {
-                  setUserRole("customer");
-                  setCurrentStoreId(null);
-                }}
-                currency="ل.س"
-              />
+              <React.Suspense fallback={<div className="flex items-center justify-center min-h-[300px] text-slate-500 font-bold">جاري تحميل لوحة المتجر...</div>}>
+                <StoreOwnerPortal
+                  storeId={
+                    currentStoreId ||
+                    userProfile?.storeId ||
+                    (userProfile?.phone
+                      ? stores.find((s) => {
+                          const uPhone = (userProfile.phone || "").replace(/[^0-9]/g, "");
+                          return (
+                            (s.ownerPhone && s.ownerPhone.replace(/[^0-9]/g, "") === uPhone) ||
+                            (s.contactPhone && s.contactPhone.replace(/[^0-9]/g, "") === uPhone) ||
+                            (userProfile.name && s.name.includes(userProfile.name))
+                          );
+                        })?.id
+                      : null) ||
+                    stores[0]?.id ||
+                    "store_owner"
+                  }
+                  stores={stores}
+                  products={products}
+                  orders={allOrders}
+                  categories={categories}
+                  userProfile={userProfile!}
+                  broadcasts={storeBroadcasts}
+                  onUpdateStore={handleUpdateStore}
+                  onAddProduct={handleAddNewProduct}
+                  onUpdateProduct={handleUpdateProduct}
+                  onDeleteProduct={handleDeleteProduct}
+                  onUpdateOrderStatus={handleUpdateOrderStatus}
+                  onAcknowledgeBroadcast={handleAcknowledgeBroadcast}
+                  onLogout={handleLogout}
+                  onBackToCustomerView={() => {
+                    setUserRole("customer");
+                    setCurrentStoreId(null);
+                  }}
+                  currency="ل.س"
+                />
+              </React.Suspense>
             </motion.div>
           ) : isAdminMode && userRole === "admin" ? (
             <motion.div
@@ -3001,40 +3003,42 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <Dashboard
-                userRole="admin"
-                userProfile={userProfile!}
-                stores={stores}
-                products={products}
-                orders={allOrders}
-                categories={categories}
-                mapNodes={mapNodes}
-                broadcasts={storeBroadcasts}
-                driversList={driversList}
-                onAddDriver={handleAddNewDriver}
-                onUpdateDriver={handleUpdateDriver}
-                onDeleteDriver={handleDeleteDriver}
-                onAddStore={handleAddNewStore}
-                onUpdateStore={handleUpdateStore}
-                onDeleteStore={handleDeleteStore}
-                onAddProduct={handleAddNewProduct}
-                onUpdateProduct={handleUpdateProduct}
-                onDeleteProduct={handleDeleteProduct}
-                onAddCategory={handleAddNewCategory}
-                onUpdateCategory={handleUpdateCategory}
-                onDeleteCategory={handleDeleteCategory}
-                onReorderCategories={handleReorderCategories}
-                onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
-                onUpdateMapNode={(node) => setMapNodes((prev) => prev.map((n) => (n.id === node.id ? node : n)))}
-                onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
-                onUpdateOrderStatus={handleUpdateOrderStatus}
-                onAssignDriver={handleAssignDriverToOrder}
-                onSendBroadcast={handleSendBroadcast}
-                onDeleteBroadcast={handleDeleteBroadcast}
-                onResendBroadcast={handleResendBroadcast}
-                onCleanSlateData={handleCleanSlateData}
-                onLogout={handleLogout}
-              />
+              <React.Suspense fallback={<div className="flex items-center justify-center min-h-[300px] text-slate-500 font-bold">جاري تحميل لوحة الإدارة...</div>}>
+                <Dashboard
+                  userRole="admin"
+                  userProfile={userProfile!}
+                  stores={stores}
+                  products={products}
+                  orders={allOrders}
+                  categories={categories}
+                  mapNodes={mapNodes}
+                  broadcasts={storeBroadcasts}
+                  driversList={driversList}
+                  onAddDriver={handleAddNewDriver}
+                  onUpdateDriver={handleUpdateDriver}
+                  onDeleteDriver={handleDeleteDriver}
+                  onAddStore={handleAddNewStore}
+                  onUpdateStore={handleUpdateStore}
+                  onDeleteStore={handleDeleteStore}
+                  onAddProduct={handleAddNewProduct}
+                  onUpdateProduct={handleUpdateProduct}
+                  onDeleteProduct={handleDeleteProduct}
+                  onAddCategory={handleAddNewCategory}
+                  onUpdateCategory={handleUpdateCategory}
+                  onDeleteCategory={handleDeleteCategory}
+                  onReorderCategories={handleReorderCategories}
+                  onAddMapNode={(node) => setMapNodes((prev) => [...prev, node])}
+                  onUpdateMapNode={(node) => setMapNodes((prev) => prev.map((n) => (n.id === node.id ? node : n)))}
+                  onDeleteMapNode={(nodeId) => setMapNodes((prev) => prev.filter((n) => n.id !== nodeId))}
+                  onUpdateOrderStatus={handleUpdateOrderStatus}
+                  onAssignDriver={handleAssignDriverToOrder}
+                  onSendBroadcast={handleSendBroadcast}
+                  onDeleteBroadcast={handleDeleteBroadcast}
+                  onResendBroadcast={handleResendBroadcast}
+                  onCleanSlateData={handleCleanSlateData}
+                  onLogout={handleLogout}
+                />
+              </React.Suspense>
             </motion.div>
           ) : (userRole === "driver" && isDriverMode) || (userRole === "admin" && isDriverMode) ? (
             <motion.div
@@ -3044,20 +3048,22 @@ export default function App() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <DriverPortal
-                userProfile={userProfile!}
-                orders={allOrders}
-                stores={stores}
-                driversList={driversList}
-                onUpdateOrderStatus={handleUpdateOrderStatus}
-                onAssignDriver={handleAssignDriverToOrder}
-                onLogout={handleLogout}
-                onBackToCustomerView={() => {
-                  setIsDriverMode(false);
-                  setUserRole("customer");
-                }}
-                currency="ل.س"
-              />
+              <React.Suspense fallback={<div className="flex items-center justify-center min-h-[300px] text-slate-500 font-bold">جاري تحميل لوحة الكابتن...</div>}>
+                <DriverPortal
+                  userProfile={userProfile!}
+                  orders={allOrders}
+                  stores={stores}
+                  driversList={driversList}
+                  onUpdateOrderStatus={handleUpdateOrderStatus}
+                  onAssignDriver={handleAssignDriverToOrder}
+                  onLogout={handleLogout}
+                  onBackToCustomerView={() => {
+                    setIsDriverMode(false);
+                    setUserRole("customer");
+                  }}
+                  currency="ل.س"
+                />
+              </React.Suspense>
             </motion.div>
           ) : activeOrder ? (
             <motion.div
